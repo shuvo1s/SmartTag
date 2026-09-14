@@ -1,5 +1,11 @@
 import type { AssetMimeType, AssetType } from '@smarttag/shared-types';
-import { imageSize } from 'image-size';
+import type { IImage } from 'image-size/types/interface';
+import { GIF } from 'image-size/types/gif';
+import { JPG } from 'image-size/types/jpg';
+import { PNG } from 'image-size/types/png';
+import { SVG } from 'image-size/types/svg';
+import { TIFF } from 'image-size/types/tiff';
+import { WEBP } from 'image-size/types/webp';
 
 export interface InspectedContent {
   readonly mimeType: AssetMimeType;
@@ -64,6 +70,22 @@ export function isMimeAllowedForAssetType(assetType: AssetType, mimeType: AssetM
   return ASSET_TYPE_MIME_RULES[assetType](mimeType);
 }
 
+/**
+ * Dimension parsers per signature-detected type (defence in depth). image-size's auto-detection
+ * can fall through to every parser it bundles, including HEIF, JPEG XL and ICNS parsers with known
+ * denial-of-service bugs in image-size <= 2.0.2 (GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq). The
+ * signatures accepted above do not select those parsers today, but binding the parser to OUR
+ * detected type keeps it that way regardless of image-size's detection order.
+ */
+const DIMENSION_PARSERS: Partial<Record<AssetMimeType, IImage>> = {
+  'image/png': PNG,
+  'image/jpeg': JPG,
+  'image/gif': GIF,
+  'image/webp': WEBP,
+  'image/tiff': TIFF,
+  'image/svg+xml': SVG,
+};
+
 export function inspectContent(buffer: Buffer): InspectedContent | null {
   const mimeType = detectMimeType(buffer);
   if (!mimeType) {
@@ -71,10 +93,11 @@ export function inspectContent(buffer: Buffer): InspectedContent | null {
   }
   let widthPx: number | null = null;
   let heightPx: number | null = null;
-  if (mimeType.startsWith('image/')) {
+  const parser = DIMENSION_PARSERS[mimeType];
+  if (parser) {
     try {
-      const size = imageSize(buffer);
-      if (size.width && size.height) {
+      const size = parser.validate(buffer) ? parser.calculate(buffer) : null;
+      if (size?.width && size.height) {
         widthPx = Math.round(size.width);
         heightPx = Math.round(size.height);
       }

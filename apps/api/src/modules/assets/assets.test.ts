@@ -51,6 +51,24 @@ describe('asset content inspection', () => {
     });
   });
 
+  it('sizes content with the parser for its detected type', () => {
+    // Text that resembles another container format still goes to the SVG parser only.
+    const disguised = Buffer.from(
+      '<!--ftypavif-->\n<svg xmlns="http://www.w3.org/2000/svg" width="300" height="120"/>',
+    );
+    expect(inspectContent(disguised)).toEqual({
+      mimeType: 'image/svg+xml',
+      widthPx: 300,
+      heightPx: 120,
+    });
+    // A truncated JPEG yields no dimensions instead of an error.
+    expect(inspectContent(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]))).toEqual({
+      mimeType: 'image/jpeg',
+      widthPx: null,
+      heightPx: null,
+    });
+  });
+
   it('enforces asset type ↔ content type rules', () => {
     expect(isMimeAllowedForAssetType('FONT', 'font/otf')).toBe(true);
     expect(isMimeAllowedForAssetType('FONT', 'image/png')).toBe(false);
