@@ -219,12 +219,12 @@ Ranges cover the Phase 2 verification runs:
 
 | Metric                                | Result        | Budget (asserted) |
 | ------------------------------------- | ------------- | ----------------- |
-| Editor open (navigation → ready)      | 2.3 – 2.5 s   | < 15 s            |
-| Canvas mount                          | 0.10 – 0.16 s | < 3 s             |
+| Editor open (navigation → ready)      | 2.3 – 2.6 s   | < 15 s            |
+| Canvas mount                          | 0.09 – 0.16 s | < 3 s             |
 | Frame rate while dragging             | 48 – 55 fps   | > 20 fps          |
-| Gesture commit (pointer up → UNSAVED) | 0.10 – 0.13 s | < 2 s             |
+| Gesture commit (pointer up → UNSAVED) | 0.10 – 0.14 s | < 2 s             |
 | Save                                  | 0.23 – 0.43 s | —                 |
-| 10 keyboard nudges                    | 0.48 – 0.64 s | —                 |
+| 10 keyboard nudges                    | 0.48 – 0.66 s | —                 |
 
 Before symbol caching, the same test measured 25 fps: every redraw re-encoded all barcodes and QR
 codes.
