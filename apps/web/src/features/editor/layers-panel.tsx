@@ -86,20 +86,19 @@ export function LayersPanel() {
   const onKey = (event: KeyboardEvent<HTMLLIElement>, id: string, index: number) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
+      event.stopPropagation();
       select(id, event.shiftKey);
     } else if (event.key === 'F2' && !readOnly) {
       setRenaming(id);
-    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    } else if (event.altKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+      // Plain arrows nudge the selection (editor root); Alt+Up/Down moves between layers.
       event.preventDefault();
-      const next = layers[index + (event.key === 'ArrowDown' ? 1 : -1)];
-      if (next) {
-        (
-          event.currentTarget.parentElement?.children[
-            index + (event.key === 'ArrowDown' ? 1 : -1)
-          ] as HTMLElement | undefined
-        )?.focus();
-        if (event.shiftKey) select(next.id, true);
-      }
+      event.stopPropagation();
+      const nextIndex = index + (event.key === 'ArrowDown' ? 1 : -1);
+      const next = layers[nextIndex];
+      if (!next) return;
+      (event.currentTarget.parentElement?.children[nextIndex] as HTMLElement | undefined)?.focus();
+      select(next.id, event.shiftKey);
     }
   };
 
@@ -136,6 +135,7 @@ export function LayersPanel() {
       <ul
         role="listbox"
         aria-label="Layers"
+        aria-describedby="layers-keyboard-hint"
         aria-multiselectable="true"
         className="min-h-0 flex-1 overflow-y-auto py-1"
       >
@@ -272,6 +272,10 @@ export function LayersPanel() {
           <li className="px-3 py-4 text-xs text-slate-500">No objects on this page yet.</li>
         ) : null}
       </ul>
+      <p id="layers-keyboard-hint" className="sr-only">
+        Alt plus Up or Down arrow moves between layers. Arrow keys nudge the selected objects. F2
+        renames a layer.
+      </p>
     </div>
   );
 }

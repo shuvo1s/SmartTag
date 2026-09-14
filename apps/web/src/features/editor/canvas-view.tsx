@@ -37,6 +37,7 @@ export function CanvasView({ hidden = false }: { hidden?: boolean }) {
     });
     session.attachCanvas(canvas);
     const detach = canvas.attach(session.store);
+    exposeDiagnostics(session, canvas);
     performance.mark('st-editor-canvas-ready');
     performance.measure(
       'st-editor-canvas-mount',
@@ -68,7 +69,6 @@ export function CanvasView({ hidden = false }: { hidden?: boolean }) {
           ? 'pointer-events-none invisible absolute inset-0'
           : 'relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[#DDE3EA]'
       }
-      onPointerDown={() => (document.activeElement as HTMLElement | null)?.blur()}
     >
       <canvas ref={canvasElement} aria-label="Design canvas" />
       <InlineTextEditor viewport={viewport} />
@@ -148,4 +148,25 @@ function InlineTextEditor({
       className="absolute z-10 resize-none rounded-sm border-2 border-brand-600 bg-white/95 p-0.5 leading-tight text-slate-900 shadow-lg outline-none"
     />
   );
+}
+
+/**
+ * Opt-in diagnostics for support and automated tests: set localStorage "smarttag:editor-diagnostics"
+ * to "1" to expose the editor store and canvas on window. Same-origin scripts already have full
+ * access to the page, so this grants no additional capability.
+ */
+function exposeDiagnostics(
+  session: ReturnType<typeof useEditorSession>,
+  canvas: EditorCanvas,
+): void {
+  try {
+    if (window.localStorage.getItem('smarttag:editor-diagnostics') !== '1') return;
+  } catch {
+    return;
+  }
+  (window as unknown as { __smarttagEditor?: unknown }).__smarttagEditor = {
+    store: session.store,
+    save: session.save,
+    canvas,
+  };
 }

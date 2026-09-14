@@ -26,6 +26,7 @@ export const SHORTCUTS: readonly { keys: string; action: string }[] = [
   { keys: 'Delete · Backspace', action: 'Delete (not locked objects)' },
   { keys: 'Arrow keys', action: 'Nudge 0.25 mm (0.01 in)' },
   { keys: 'Shift + arrows', action: 'Nudge 1 mm (0.1 in)' },
+  { keys: 'Alt + ↑ / ↓ (Layers)', action: 'Previous / next layer (Shift adds to selection)' },
   { keys: 'Esc', action: 'Deselect / leave text editing' },
   { keys: 'Ctrl/⌘ + / −', action: 'Zoom in / out' },
   { keys: 'Ctrl/⌘ 0 · Ctrl/⌘ 1', action: 'Fit page · 100 %' },
@@ -215,7 +216,7 @@ export function handleEditorKeyDown(
       );
     return;
   }
-  if (key.startsWith('arrow') && state.selection.length > 0) {
+  if (key.startsWith('arrow') && !event.altKey && state.selection.length > 0) {
     event.preventDefault();
     const movable = state.selection.filter((id) => {
       const object = page.objects.find((candidate) => candidate.id === id);

@@ -97,9 +97,7 @@ export function PreviewView({ renderVersion }: { renderVersion: number }) {
  * side by side or as a difference overlay (identical pixels cancel out, divergence lights up).
  */
 export function CompareOverlay({ renderVersion }: { renderVersion: number }) {
-  const session = useEditorSession();
   const [mode, setMode] = useState<'difference' | 'side-by-side' | 'onion'>('difference');
-  const zoom = useEditorUi((ui) => ui.viewport.zoom);
   const document = useEditorState((state) => state.document);
   const { svg } = useCanonicalSvg({
     guides: false,
@@ -108,8 +106,6 @@ export function CompareOverlay({ renderVersion }: { renderVersion: number }) {
     renderVersion,
   });
   const viewport = useEditorUi((ui) => ui.viewport);
-  void zoom;
-  void session;
   const bleed = getBleedBox(document.dimensions);
   const scale = viewport.zoom * CSS_PIXELS_PER_POINT;
 
