@@ -124,6 +124,8 @@ export function TopBar({ onNavigateBack }: { onNavigateBack: () => void }) {
         </p>
       </div>
       <span
+        role="status"
+        aria-live="polite"
         data-testid="save-status"
         data-status={save.status}
         className={cn('ml-2 flex items-center gap-1 text-xs', statusTone)}

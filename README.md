@@ -3,21 +3,24 @@
 Enterprise web platform for label and hang-tag artwork, variable data printing and print
 production, built around a **canonical, versioned document model**.
 
-> **Status: Phase 1 — platform foundation.** Canonical DesignDocument schema, validation, hashing,
-> multi-tenant API with authentication and RBAC, immutable template versions, asset storage, and a
-> basic templates UI with a document preview. The visual designer, batch VDP, barcode generation
-> and print-ready PDF are later phases.
+> **Status: Phase 2 — professional canvas designer.** On top of the Phase 1 foundation (canonical
+> DesignDocument, validation, hashing, multi-tenant API with RBAC, immutable template versions,
+> asset storage): an interactive designer for draft versions that edits the canonical document
+> directly, controlled fonts (schema v2 + font registry), real CODE128/EAN-13/QR rendering,
+> server-side SVG sanitization and a Playwright browser suite. Data import and field mapping, batch
+> VDP, approval workflow, print-ready PDF/CMYK and preflight are later phases.
 
 ## Stack
 
 | Layer    | Technology                                                                                     |
 | -------- | ---------------------------------------------------------------------------------------------- |
 | Web      | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, TanStack Query, React Hook Form |
-| API      | NestJS 11, Zod contracts, pino logging                                                         |
+| Designer | Fabric.js 7 (isolated in `canvas-adapter`), framework-free `editor-core`, bwip-js 4 encoders   |
+| API      | NestJS 11, Zod contracts, pino logging, fontkit (font registry), xmldom (SVG sanitizer)        |
 | Database | PostgreSQL (16+; developed on 18), Prisma 7 migrations                                         |
 | Jobs     | BullMQ + Redis (foundation)                                                                    |
 | Storage  | Local filesystem or any S3-compatible store (AWS S3, Cloudflare R2, MinIO)                     |
-| Tooling  | npm workspaces, Turborepo, Vitest, ESLint, Prettier                                            |
+| Tooling  | Node.js 24 LTS, npm workspaces, Turborepo, Vitest, Playwright, ESLint, Prettier                |
 
 ## Repository
 
@@ -27,11 +30,15 @@ apps/web          Next.js application
 apps/worker       BullMQ worker foundation
 packages/document-schema   canonical DesignDocument schema + validator + migrations
 packages/document-utils    units, canonical JSON/hashing, builders, bindings, fixtures
-packages/rendering-core    document → scene → SVG (framework-free)
-packages/barcode-core      symbology rules and encoder contract
+packages/rendering-core    text layout engine, symbols, image placement, document → scene → SVG
+packages/barcode-core      symbology rules, validation, encoder contract, symbol geometry
+packages/barcode-bwip      BarcodeEncoder adapter backed by bwip-js
+packages/editor-core       framework-free editor: commands, history, store, snapping, saving
+packages/canvas-adapter    Fabric.js canvas (the only Fabric dependency), browser fonts/images
 packages/shared-types      API contracts, roles & permissions, error codes
 packages/ui                React UI primitives
 packages/config            shared tsconfig/ESLint presets, env validation
+e2e/                       Playwright browser tests (isolated API/web/database stack)
 docs/                      architecture and design documentation
 ```
 
@@ -71,8 +78,16 @@ Development users (password = `SEED_USER_PASSWORD` from `apps/api/.env.example`)
 | `viewer@smarttag.local`     | Yunusco: VIEWER                                        |
 | `acme.admin@smarttag.local` | Acme Labels (isolation demo): ORG_ADMIN                |
 
-Useful pages: **Templates**, a template's detail page (versions, lifecycle actions, preview) and
+Useful pages: **Templates**, a template's detail page (versions, lifecycle actions, preview), a
+version page with **Edit in designer** (drafts; view-only for other statuses and roles) and
 **Developer → Document playground** (validate and preview canonical JSON, apply a data record).
+The seed registers Noto Sans (Regular, Medium, SemiBold, Bold) and Noto Sans Bengali Regular as
+controlled fonts (SIL Open Font License) and a sample hang tag with an approved schema v1 version
+and a schema v2 draft.
+
+The designer is desktop-first (≥ 1024 px wide). It is developed and verified on Chromium (the
+browser suite runs there); Firefox and Safari use only standard APIs but are not yet covered by
+automated tests.
 
 ## Scripts
 
@@ -84,7 +99,7 @@ Useful pages: **Templates**, a template's detail page (versions, lifecycle actio
 | `npm run test:integration` | API integration tests against `TEST_DATABASE_URL` (a database whose name ends in `_test`; the schema is dropped and rebuilt from migrations on every run) |
 | `npm run test:e2e`         | Playwright browser tests against production builds on isolated ports (API :4310, web :3310) and the disposable `smarttag_e2e` database                    |
 | `npm run build`            | Production builds                                                                                                                                         |
-| `npm run verify`           | All of the above, in order                                                                                                                                |
+| `npm run verify`           | Format check, lint, typecheck, unit, integration and build, in order (run `test:e2e` separately)                                                          |
 | `npm run db:migrate`       | Create a new migration in development (`prisma migrate dev`)                                                                                              |
 | `npm run format`           | Prettier                                                                                                                                                  |
 
@@ -94,6 +109,8 @@ Useful pages: **Templates**, a template's detail page (versions, lifecycle actio
 - [Canonical document schema](docs/canonical-document-schema.md)
 - [Coordinate system](docs/coordinate-system.md)
 - [Browser canvas strategy](docs/browser-canvas-strategy.md)
+- [Professional canvas designer](docs/editor.md)
+- [Typography and fonts](docs/typography.md)
 - [Rendering strategy](docs/rendering-strategy.md)
 - [Versioning strategy](docs/versioning-strategy.md)
 - [VDP strategy](docs/vdp-strategy.md)

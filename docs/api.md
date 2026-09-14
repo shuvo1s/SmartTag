@@ -1,7 +1,8 @@
-# API reference (Phase 1)
+# API reference (Phase 2)
 
 Base path: `/api/v1`. JSON in, JSON out. Authentication is the session cookie set by
-`POST /auth/login`. Browsers reach the API through the web app's same-origin proxy.
+`POST /auth/login`. Browsers reach the API through the web app's same-origin proxy (a streaming
+route handler that reads `API_INTERNAL_URL` at runtime).
 
 ## Error envelope
 
@@ -29,7 +30,8 @@ Every non-2xx response has the same shape:
 | `VERSION_IMMUTABLE`          | 409  | Editing a non-draft version                                    |
 | `INVALID_STATUS_TRANSITION`  | 409  | Transition not allowed by the lifecycle                        |
 | `PAYLOAD_TOO_LARGE`          | 413  | Upload/body limit                                              |
-| `UNSUPPORTED_MEDIA_TYPE`     | 415  | Disallowed or disguised file                                   |
+| `UNSUPPORTED_MEDIA_TYPE`     | 415  | Disallowed or disguised file; unsupported font (reason given)  |
+| `UNSAFE_CONTENT`             | 422  | SVG with scripts, handlers, external references or unsafe CSS  |
 | `INVALID_DOCUMENT`           | 422  | Canonical document failed validation; `details.documentIssues` |
 | `UNSUPPORTED_SCHEMA_VERSION` | 422  | Document from an unknown schema version                        |
 | `RATE_LIMITED`               | 429  | Login throttling                                               |
@@ -59,10 +61,11 @@ Every response carries `X-Request-Id`. A well-formed incoming `X-Request-Id` is 
 | GET    | `/template-versions/:versionId`             | `template:read`                                       | Version detail including stored `document`                                                   |
 | PATCH  | `/template-versions/:versionId`             | `template-version:edit-draft`                         | Replace draft content (`document`, `expectedRevision`)                                       |
 | POST   | `/template-versions/:versionId/transitions` | per transition (see versioning)                       | `{ "targetStatus": "IN_REVIEW" }`                                                            |
-| POST   | `/assets`                                   | `asset:create`                                        | Multipart `file` + `assetType`                                                               |
-| GET    | `/assets`                                   | `asset:read`                                          | Paginated list; `assetType` filter                                                           |
+| POST   | `/assets`                                   | `asset:create`                                        | Multipart `file` + `assetType`; SVG sanitized, fonts inspected and registered                |
+| GET    | `/assets`                                   | `asset:read`                                          | Paginated list; `assetType`, `search` (filename), `usage` (`PLACEABLE_IMAGE`, `FONT`)        |
 | GET    | `/assets/:assetId`                          | `asset:read`                                          | Asset metadata                                                                               |
 | GET    | `/assets/:assetId/content`                  | `asset:read`                                          | Asset bytes (sandboxed headers)                                                              |
+| GET    | `/fonts`                                    | `asset:read`                                          | Font registry of the active organization (`FontFaceDto[]`)                                   |
 
 Request and response types are defined in `packages/shared-types` (`CreateTemplateRequestSchema`,
 `TemplateDto`, `TemplateVersionDetailDto`, …).
@@ -86,3 +89,28 @@ Content-Type: application/json
 
 The server converts the dimensions to points, builds and validates the blank canonical document,
 hashes it and creates version 1 (`DRAFT`), all in one transaction together with audit events.
+
+### Saving a draft (designer)
+
+```http
+PATCH /api/v1/template-versions/:versionId
+Content-Type: application/json
+
+{ "document": { "schemaVersion": 2, "...": "…" }, "expectedRevision": 7 }
+```
+
+The server migrates and validates the document, checks every referenced asset in the actor's
+organization (placeable images must be PNG, JPEG or sanitized SVG; `fontAssetId` must be a
+registered font whose family, weight and style match the text: `UNKNOWN_FONT_ASSET`,
+`FONT_FACE_MISMATCH`, `INVALID_ASSET_REFERENCE` in `details.documentIssues`), recomputes the
+canonical hash, and updates only if the version is still `DRAFT` at `expectedRevision`. The audit
+event `TEMPLATE_VERSION_UPDATED` records `revision`, `previousDocumentHash`, `documentHash`,
+`schemaVersion`, `pageCount` and `objectCount` — never the artwork itself.
+
+### Font registry entry
+
+`GET /api/v1/fonts` returns, per registered face: `assetId`, `filename`, `checksumSha256`,
+`sizeBytes`, `familyName`, `subfamilyName`, `fullName`, `postscriptName`, `fontVersion`, `weight`,
+`style`, `format`, `embeddingPermission`, `unitsPerEm`, `ascender`, `descender`, `lineGap`,
+`capHeight`, `xHeight`, `glyphCount`, `unicodeRanges` and `createdAt`. Font values are read from the file
+at upload ([typography.md](typography.md#font-registry)).

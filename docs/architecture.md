@@ -15,11 +15,12 @@ flowchart LR
   subgraph Browser
     UI[Next.js pages<br/>React + TanStack Query]
     Preview[Document preview<br/>rendering-core → SVG]
+    Designer[Designer<br/>editor-core + canvas-adapter]
   end
 
   subgraph "apps/web (Next.js)"
     Pages[App Router pages]
-    Proxy["/api/v1/* rewrite<br/>(same-origin proxy)"]
+    Proxy["/api/v1/* route handler<br/>(same-origin streaming proxy)"]
   end
 
   subgraph "apps/api (NestJS)"
@@ -37,6 +38,7 @@ flowchart LR
   Redis[(Redis)]
 
   UI --> Pages
+  Designer -->|load / save draft<br/>expectedRevision| Proxy
   UI -->|fetch, HttpOnly cookie| Proxy --> Guards --> Services
   Services --> DB
   Services --> Store
@@ -63,11 +65,16 @@ apps/
 packages/
   document-schema/  Canonical DesignDocument types, Zod schemas, validator, migrations
   document-utils/   Units, canonical JSON + hashing, builders, bindings, fixtures
-  rendering-core/   Document → scene → SVG (no React, no DOM)
-  barcode-core/     Symbology rules, check digits, encoder contract
+  rendering-core/   Text layout engine, symbol geometry, image placement, document → scene → SVG
+                    (no React, no DOM)
+  barcode-core/     Symbology rules, check digits, value validation, encoder contract
+  barcode-bwip/     BarcodeEncoder adapter backed by bwip-js
+  editor-core/      Framework-free editor model: commands, history, store, snapping, saving
+  canvas-adapter/   Fabric.js designer canvas and browser font/image services (only Fabric user)
   shared-types/     API contracts: request schemas, DTOs, roles/permissions, error codes
   ui/               React UI primitives (Tailwind)
   config/           tsconfig presets, ESLint preset, environment validation
+e2e/         Playwright browser tests against an isolated stack
 docs/        This documentation
 infra/       Docker init scripts
 scripts/     Tooling (local PostgreSQL cluster, clean)
@@ -82,18 +89,29 @@ flowchart BT
   rendering[rendering-core] --> utils
   rendering --> schema
   barcode[barcode-core] --> schema
+  rendering --> barcode
+  bwip[barcode-bwip<br/>bwip-js] --> barcode
+  editor[editor-core] --> utils
+  editor --> schema
+  canvas[canvas-adapter<br/>Fabric.js] --> editor
+  canvas --> rendering
   shared[shared-types] --> utils
   shared --> schema
   ui[ui<br/>React]
   api[apps/api] --> shared
   worker[apps/worker] --> shared
-  web[apps/web] --> rendering
+  web[apps/web] --> canvas
+  web --> bwip
+  web --> rendering
   web --> shared
   web --> ui
 ```
 
 - `document-schema` depends only on Zod. It knows nothing about Fabric.js, React, Prisma or Node.
 - `rendering-core` never depends on React or the DOM; its output is plain data and strings.
+- **Fabric.js is confined to `canvas-adapter`.** `editor-core` holds all editing logic without a
+  canvas library, so it can be tested in Node and reused with another canvas. Concrete encoders
+  (`barcode-bwip`) are chosen only in the application's composition root.
 - `document-utils`, `document-schema` and `rendering-core` are isomorphic (Node, browsers, workers).
   Hashing uses the Web Crypto API, so no Node-only imports leak into browser bundles.
 - Shared request schemas live in `shared-types` and are used by **both** the web forms and the API
@@ -101,8 +119,9 @@ flowchart BT
 
 ## Request flow
 
-1. The browser requests `/api/v1/...` on the web origin. Next.js proxies it to the API, which keeps
-   the session cookie first-party (no CORS, `SameSite=Lax` works as intended).
+1. The browser requests `/api/v1/...` on the web origin. A Next.js route handler streams it to the
+   API (`API_INTERNAL_URL`, read at runtime), which keeps the session cookie first-party (no CORS,
+   `SameSite=Lax` works as intended).
 2. Global guards run in order:
    `OriginGuard` (CSRF) → `AuthenticationGuard` (session → `ActorContext`) → `PermissionsGuard` (RBAC).
 3. Controllers validate input with shared Zod schemas (`ZodValidationPipe`).

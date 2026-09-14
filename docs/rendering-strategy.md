@@ -10,13 +10,26 @@ DesignDocument
    │  resolveDocumentBindings()      optional: apply a data record (VDP)
    ▼
 DesignDocument (resolved)
-   │  buildPageScene()               rendering-core: renderer-agnostic display list
-   ▼
+   │  buildPageScene(doc, page, { textLayout, barcodeEncoder })
+   ▼                                 rendering-core: renderer-agnostic display list
 PageScene
-   ├── renderSceneToSvg()            Phase 1: browser previews, snapshot tests
+   ├── renderSceneToSvg()            previews, designer preview/compare, tests
    ├── PDF renderer                  later: print-ready PDF (PDF/X), CMYK, spot colours
    └── raster renderer               later: PNG thumbnails / proofs
+
+DesignDocument objects
+   └── drawArtwork()                 designer canvas (canvas-adapter) — same building blocks
 ```
+
+Shared building blocks used by **every** output, so the canvas, the SVG and the future PDF agree:
+
+| Building block               | Package                                              | Purpose                                                                                            |
+| ---------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `TextLayoutEngine`           | rendering-core                                       | Line breaking, shrink-to-fit, baselines, overflow, missing glyphs ([typography.md](typography.md)) |
+| `barcodeSymbol` / `qrSymbol` | rendering-core + barcode-core                        | Validate value → encode → vector bar/module rectangles with quiet zones and guard bars             |
+| `computeImagePlacement`      | rendering-core                                       | Exact contain/cover/stretch and crop rectangles                                                    |
+| `buildPageGuides`            | rendering-core                                       | Bleed/trim/safe/margin boxes and mirrored dieline features (non-printing)                          |
+| `BarcodeEncoder`             | barcode-core (contract), barcode-bwip (bwip-js 4.11) | Library-independent encoding; the application's composition root chooses the adapter               |
 
 ### `PageScene` (rendering-core)
 
@@ -41,18 +54,28 @@ Serializers only translate primitives; they never interpret the document model.
   event-handler injection is possible.
 - Guides (bleed, trim, safe, margins, dieline) are a separate, non-printing layer.
 - `finish: 'TRIM'` masks artwork to the finished shape (rounded corners, punch holes).
-- Barcodes and QR codes render as **clearly labelled, hatched placeholders**, never as fake bars
-  that could be mistaken for scannable artwork.
+- **Barcodes and QR codes** render as real vector geometry when an encoder is supplied: CODE128 and
+  EAN-13 (`PREVIEW_ENABLED_SYMBOLOGIES`) and QR codes with their error-correction level. Values are
+  validated centrally first (check digits, character sets, QR capacity). Invalid values, other
+  symbologies and renders without an encoder show a **clearly labelled, hatched placeholder** —
+  never fake bars that could be mistaken for scannable artwork.
+- **Text** is drawn from the layout engine's lines and baselines. With `resolveFontFamily` the SVG
+  names the exact loaded font (`st-font-<assetId>`); text without it is marked
+  `data-font-substitute="true"` and reported
+  ([typography.md](typography.md#missing-fonts-never-silent)).
+- **Images** use `resolveAssetSize` for exact fit and crop; URLs stay allow-listed.
+- `showIssues` outlines overflowing text, missing glyphs, substitute fonts and unencodable symbols
+  (non-printing; designer compare mode).
 
-## Phase 1 limitations (intentional)
+## Current limitations (Phase 2, intentional)
 
-| Area     | Phase 1                                                | Production renderer                                                                    |
-| -------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| Text     | Explicit `\n` lines, approximate ascent, browser fonts | Real font metrics, shaping (HarfBuzz), bidi, wrapping, `SHRINK_TO_FIT`, font embedding |
-| Color    | RGB preview, naive CMYK/spot fallback                  | ICC-managed output intents, CMYK, spot separations                                     |
-| Barcodes | Placeholders                                           | `barcode-core` encoder → vector bars with exact X-dimension and quiet zones            |
-| Images   | `<image>` with fit; crop not applied                   | Cropping, effective-PPI preflight (`computeEffectiveResolution`), colour conversion    |
-| Output   | SVG                                                    | PDF/X, PNG; imposition later                                                           |
+| Area     | Phase 2 (browser)                                                                                                      | Production renderer (later)                                                   |
+| -------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Text     | Controlled font files, registry metrics, word wrap, `SHRINK_TO_FIT`, overflow; glyph shaping by the browser            | Server-side shaping (HarfBuzz) with the same files, full bidi, font embedding |
+| Color    | RGB preview, naive CMYK/spot fallback                                                                                  | ICC-managed output intents, CMYK, spot separations                            |
+| Barcodes | Real CODE128, EAN-13 and QR vector geometry; other symbologies are placeholders; human-readable text font uncontrolled | All enabled symbologies, X-dimension/bar-width reduction, verified HRI text   |
+| Images   | Exact fit and crop; effective-PPI rating in the designer                                                               | Colour conversion, image preflight                                            |
+| Output   | SVG and canvas                                                                                                         | PDF/X, PNG; imposition later                                                  |
 
 ## Determinism and reproducibility
 
@@ -67,7 +90,8 @@ Phase 1 foundations:
 - **Document hash**: SHA-256 of the RFC 8785 canonical JSON (`computeDocumentHash`). It is stored
   on every version, re-verified before submission and approval, and independent of key order and
   formatting.
-- **Renderer version**: `RENDERING_CORE_VERSION`, to be recorded alongside rendered outputs.
+- **Renderer version**: `RENDERING_CORE_VERSION` (0.2.0 in Phase 2), plus the barcode encoder's
+  `name`/`version` and the text measurer id, to be recorded alongside rendered outputs.
 - **Pinned inputs**: production jobs will reference a TemplateVersion id and checksummed assets
   (`checksumSha256`), never "latest".
 

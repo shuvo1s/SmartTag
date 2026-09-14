@@ -54,6 +54,11 @@ not a security boundary.
 - Fine-grained rules live in domain policy: e.g. each lifecycle transition requires its own
   permission (`planStatusTransition`), and changing template status requires `template:archive`.
 - The UI hides actions the user cannot perform (`useCan`) purely for usability; the API decides.
+- **Designer:** anyone with `template:read` can open a version in the designer, but only
+  `template-version:edit-draft` on a `DRAFT` gets an editable session. Viewers, approvers and QA get
+  a read-only session (tools, fields and shortcuts disabled) — and the API independently refuses
+  their `PATCH` with `403`, and any edit of a non-draft with `409 VERSION_IMMUTABLE` backed by a
+  database trigger. Browser tests exercise both the UI and the direct API calls.
 
 Separation of duties by default: designers create and submit, approvers approve, and viewers only read.
 
@@ -74,7 +79,9 @@ Separation of duties by default: designers create and submit, approvers approve,
    `findFirst({ where: { id, organizationId } })`. Resources of other tenants return **404**, so
    their existence is not revealed.
 3. **Referential checks**: customer/brand links and asset references in documents are verified
-   within the same organization (`UNKNOWN_ASSET_REFERENCE`).
+   within the same organization (`UNKNOWN_ASSET_REFERENCE`, `UNKNOWN_FONT_ASSET`,
+   `INVALID_ASSET_REFERENCE`); font registry rows reference assets through a composite
+   `(asset_id, organization_id)` foreign key.
 4. **Database composite foreign keys**: `brands(customer_id, organization_id) → customers(id, organization_id)`,
    `templates(customer_id, organization_id)`, `templates(brand_id, customer_id, organization_id)`,
    `template_versions(template_id, organization_id)` and more make cross-tenant links impossible even with raw SQL.
