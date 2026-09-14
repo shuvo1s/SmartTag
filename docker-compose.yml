@@ -1,0 +1,74 @@
+# Local development infrastructure only. Applications run on the host with npm scripts.
+# Credentials below are development defaults — never reuse them in any shared environment.
+#
+#   docker compose up -d        # or: npm run infra:up
+#
+# Host ports avoid the defaults (5432/6379/9000) so they never collide with services already
+# installed on a developer machine.
+name: smarttag
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: smarttag
+      POSTGRES_PASSWORD: smarttag
+      POSTGRES_DB: smarttag_dev
+    ports:
+      - '127.0.0.1:55432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U smarttag -d smarttag_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:8-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '127.0.0.1:56379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: smarttag
+      MINIO_ROOT_PASSWORD: smarttag-dev-only
+    ports:
+      - '127.0.0.1:59000:9000'
+      - '127.0.0.1:59001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio-setup:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mc alias set local http://minio:9000 smarttag smarttag-dev-only &&
+        mc mb --ignore-existing local/smarttag-assets
+    restart: 'no'
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
