@@ -213,17 +213,21 @@ has a keyboard or panel equivalent.
 
 ## Performance
 
-Measured by `e2e/tests/editor-performance.spec.ts` (headless Chromium, 120 objects of all types,
-report written to `e2e/test-results/editor-performance.json`):
+Measured by `e2e/tests/editor-performance.spec.ts` (headless Chromium on the development
+workstation, 120 objects of all types, report written to `e2e/test-results/editor-performance.json`).
+Ranges cover the Phase 2 verification runs:
 
-| Metric                           | Result  | Budget   |
-| -------------------------------- | ------- | -------- |
-| Editor open (navigation → ready) | ~2.3 s  | < 15 s   |
-| Canvas mount                     | ~0.1 s  | < 3 s    |
-| Frame rate while dragging        | ~55 fps | > 20 fps |
-| Gesture commit                   | ~0.1 s  | < 2 s    |
-| Save                             | ~0.2 s  | —        |
-| 10 keyboard nudges               | ~0.5 s  | —        |
+| Metric                                | Result        | Budget (asserted) |
+| ------------------------------------- | ------------- | ----------------- |
+| Editor open (navigation → ready)      | 2.3 – 2.5 s   | < 15 s            |
+| Canvas mount                          | 0.10 – 0.16 s | < 3 s             |
+| Frame rate while dragging             | 48 – 55 fps   | > 20 fps          |
+| Gesture commit (pointer up → UNSAVED) | 0.10 – 0.13 s | < 2 s             |
+| Save                                  | 0.23 – 0.43 s | —                 |
+| 10 keyboard nudges                    | 0.48 – 0.64 s | —                 |
+
+Before symbol caching, the same test measured 25 fps: every redraw re-encoded all barcodes and QR
+codes.
 
 What keeps it fast: one commit per gesture (not per pointer move), identity-diffed canvas sync
 (only changed objects are updated), text layouts memoized per object snapshot, encoded symbols
