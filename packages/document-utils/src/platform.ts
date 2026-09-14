@@ -1,6 +1,6 @@
 /**
  * Minimal, structurally-typed access to Web Platform APIs that exist in every supported runtime
- * (Node.js ≥ 20, modern browsers, workers). Keeps this package free of Node-only imports so it can
+ * (Node.js 24+, modern browsers, workers). Keeps this package free of Node-only imports so it can
  * be bundled for the browser, and free of DOM lib typings so it cannot accidentally use the DOM.
  */
 interface WebCryptoLike {

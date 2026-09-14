@@ -37,7 +37,7 @@ docs/                      architecture and design documentation
 
 ## Getting started
 
-Prerequisites: Node.js ≥ 20.19 (Node 22 LTS recommended) and npm 10. For infrastructure you need
+Prerequisites: Node.js 24 LTS (≥ 24.11; `.nvmrc` pins 24.21.0) and npm 11. For infrastructure you need
 **either** Docker **or** a local PostgreSQL installation.
 
 ```bash
