@@ -384,6 +384,10 @@ test.describe('designer — core workflows', () => {
     await expect(preview.locator('svg[data-page-side="FRONT"]')).toBeVisible();
     await expect(preview.locator('[data-symbol="bars"]')).toHaveCount(1);
     await expect(preview.locator('[data-guide]')).toHaveCount(0);
+    // Every text in the draft uses a registered font that loaded: no substitute is reported.
+    await expect(preview.locator('text').first()).toBeVisible();
+    await expect(preview.locator('text[data-font-substitute]')).toHaveCount(0);
+    await expect(page.getByTestId('font-availability-notice')).toHaveCount(0);
     await page.getByTestId('toggle-compare').click();
     // The page SVG is the direct child; placed SVG assets nest further <svg> elements inside it.
     const overlay = page.getByTestId('compare-overlay');

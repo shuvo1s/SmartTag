@@ -66,6 +66,13 @@ describe('DocumentPreview', () => {
     expect(screen.getByText(/could not be resolved/)).toBeInTheDocument();
     expect(screen.getByText(/front-barcode.value/)).toBeInTheDocument();
   });
+
+  it('warns that text uses substitute fonts when controlled fonts are not loaded', () => {
+    render(<DocumentPreview document={createSampleHangTagDocument()} />);
+    const notice = screen.getByTestId('font-availability-notice');
+    expect(notice).toHaveTextContent('substitute font, not the production font');
+    expect(notice).toHaveTextContent('controlled fonts are not loaded in this view');
+  });
 });
 
 /** ValidatedDocumentPreview loads the organization's font registry. */
@@ -114,5 +121,13 @@ describe('ValidatedDocumentPreview', () => {
       />,
     );
     expect(canvas().querySelector('svg')).not.toBeNull();
+  });
+
+  it('names fonts that are missing from the organization registry', async () => {
+    renderWithQueries(<ValidatedDocumentPreview document={createSampleHangTagDocument()} />);
+    expect(screen.getByTestId('font-availability-loading')).toBeInTheDocument();
+    const notice = await screen.findByTestId('font-availability-notice');
+    expect(notice).toHaveTextContent('Noto Sans 700');
+    expect(notice).toHaveTextContent('not in this organization’s font registry');
   });
 });

@@ -146,7 +146,7 @@ function renderNode(
   switch (node.kind) {
     case 'text':
       body = renderText(node, nodeId, defs, options);
-      issue = node.overflow || node.missingGlyphs.length > 0;
+      issue = node.overflow || node.missingGlyphs.length > 0 || usesSubstituteFont(node, options);
       break;
     case 'image':
       body = renderImage(node, nodeId, defs, prefix, options);
@@ -235,7 +235,17 @@ function renderText(
     'xml:lang': node.language,
     'clip-path': clip ? `url(#${clip})` : null,
     'data-overflow': node.overflow ? 'true' : null,
+    // Not drawn with the exact controlled font file: the browser picks a substitute.
+    'data-font-substitute': controlledFamily ? null : 'true',
   })}>${spans}</text>`;
+}
+
+/**
+ * True when controlled fonts are available to this render (a resolver was supplied) but this text
+ * has none loaded — unassigned, unknown, failed or still loading. Reported as an issue, never hidden.
+ */
+function usesSubstituteFont(node: TextSceneNode, options: SvgRenderOptions): boolean {
+  return options.resolveFontFamily !== undefined && options.resolveFontFamily(node) === null;
 }
 
 function renderImage(

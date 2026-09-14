@@ -4,6 +4,7 @@ import { getBleedBox } from '@smarttag/document-schema';
 import { CSS_PIXELS_PER_POINT } from '@smarttag/document-utils';
 import { buildPageScene, renderSceneToSvg } from '@smarttag/rendering-core';
 import { useMemo, useState } from 'react';
+import { FontAvailabilityNotice, summarizeFontAvailability } from '../rendering/font-availability';
 import { svgOptionsFor } from '../rendering/rendering-services';
 import { useEditorSession, useEditorState, useEditorUi } from './editor-session';
 
@@ -50,7 +51,13 @@ function useCanonicalSvg(options: {
 
 /** Preview mode: no selection controls, no guides, trimmed piece — rendered from canonical data. */
 export function PreviewView({ renderVersion }: { renderVersion: number }) {
+  const session = useEditorSession();
+  const document = useEditorState((state) => state.document);
   const [finish, setFinish] = useState<'TRIM' | 'BLEED'>('TRIM');
+  const fontAvailability = useMemo(() => {
+    void renderVersion;
+    return summarizeFontAvailability(document, session.resources.fonts);
+  }, [document, session, renderVersion]);
   const zoom = useEditorUi((ui) => ui.viewport.zoom);
   const { svg, scene } = useCanonicalSvg({
     guides: false,
@@ -67,6 +74,7 @@ export function PreviewView({ renderVersion }: { renderVersion: number }) {
     >
       <div className="flex items-center gap-2 bg-slate-700 px-3 py-1.5 text-xs text-slate-100">
         <span className="font-medium">Preview · canonical renderer</span>
+        <FontAvailabilityNotice availability={fontAvailability} compact />
         <label className="ml-auto flex items-center gap-1.5">
           Show
           <select

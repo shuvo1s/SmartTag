@@ -22,6 +22,7 @@ import {
   useRenderingResources,
   type RenderingResources,
 } from '../rendering/rendering-services';
+import { FontAvailabilityNotice, summarizeFontAvailability } from '../rendering/font-availability';
 
 const ZOOM_LEVELS = [0.5, 1, 1.5, 2, 3] as const;
 
@@ -37,6 +38,8 @@ export interface DocumentPreviewProps {
   resources?: RenderingResources | null;
   /** Changes when fonts or images finish loading. */
   resourceVersion?: number;
+  /** The font registry is still being fetched (resources will follow). */
+  fontsLoading?: boolean;
 }
 
 /**
@@ -50,6 +53,7 @@ export function DocumentPreview({
   initialZoom = 1.5,
   resources = null,
   resourceVersion = 0,
+  fontsLoading = false,
 }: DocumentPreviewProps) {
   const [pageId, setPageId] = useState(document.pages[0]?.id ?? '');
   const [zoom, setZoom] = useState<number>(initialZoom);
@@ -102,6 +106,11 @@ export function DocumentPreview({
     resources,
     resourceVersion,
   ]);
+
+  const fontAvailability = useMemo(() => {
+    void resourceVersion;
+    return summarizeFontAvailability(document, resources?.fonts ?? null);
+  }, [document, resources, resourceVersion]);
 
   const { dimensions } = document;
   const unit = dimensions.displayUnit;
@@ -177,6 +186,14 @@ export function DocumentPreview({
           Highlight data-bound
         </label>
       </div>
+
+      {fontsLoading ? (
+        <p className="text-xs text-slate-500" data-testid="font-availability-loading">
+          Loading exact fonts…
+        </p>
+      ) : (
+        <FontAvailabilityNotice availability={fontAvailability} />
+      )}
 
       {resolution && !resolution.ok ? (
         <Alert tone="warning" title="Some bound values could not be resolved from the data record">
@@ -281,6 +298,7 @@ export function ValidatedDocumentPreview({
         record={record}
         resources={resources}
         resourceVersion={resourceVersion}
+        fontsLoading={fonts.isPending}
       />
     </div>
   );

@@ -7,7 +7,10 @@ import {
   createTextObject,
   toUnicodeRanges,
 } from '@smarttag/document-utils';
-import { createSampleHangTagDocument } from '@smarttag/document-utils/fixtures';
+import {
+  SAMPLE_FONT_ASSET_IDS,
+  createSampleHangTagDocument,
+} from '@smarttag/document-utils/fixtures';
 import { describe, expect, it } from 'vitest';
 import {
   buildPageGuides,
@@ -222,6 +225,48 @@ describe('text and image rendering details', () => {
     });
     expect(svg).toContain('font-family="&apos;st-font-0192f0a0-5b1e-7c3d-9b01-00000000f400&apos;"');
     expect(svg).toContain('data-overflow="true"');
+  });
+
+  it('marks text without its loaded controlled font as a substitute and reports it', () => {
+    const document = createSampleHangTagDocument();
+    const frame = { x: 10, y: 10, width: 120, height: 20, content: 'Hi', wrap: 'NONE' as const };
+    document.pages[0]!.objects = [
+      createTextObject({
+        ...frame,
+        id: 'loaded',
+        zIndex: 0,
+        fontAssetId: SAMPLE_FONT_ASSET_IDS.notoSansBold,
+      }),
+      createTextObject({
+        ...frame,
+        id: 'failed',
+        y: 40,
+        zIndex: 1,
+        fontAssetId: SAMPLE_FONT_ASSET_IDS.notoSansRegular,
+      }),
+      createTextObject({ ...frame, id: 'unassigned', y: 70, zIndex: 2, fontAssetId: null }),
+    ];
+    document.pages[0]!.groups = [];
+    const scene = buildPageScene(document, 'page-front');
+    const group = (svg: string, id: string) =>
+      new RegExp(`<g data-object-id="${id}"[^>]*>.*?</g>`).exec(svg)?.[0] ?? '';
+
+    const svg = renderSceneToSvg(scene, {
+      showIssues: true,
+      resolveFontFamily: (node) => (node.id === 'loaded' ? 'st-font-loaded' : null),
+    });
+    expect(group(svg, 'loaded')).not.toContain('data-font-substitute');
+    expect(group(svg, 'loaded')).not.toContain('data-highlight="issue"');
+    for (const id of ['failed', 'unassigned']) {
+      expect(group(svg, id)).toContain('data-font-substitute="true"');
+      expect(group(svg, id)).toContain('data-highlight="issue"');
+    }
+
+    // Without a resolver (no controlled fonts in this environment) text is still labelled as a
+    // substitute but not flagged per object; the host application shows one notice instead.
+    const plain = renderSceneToSvg(scene, { showIssues: true });
+    expect(group(plain, 'loaded')).toContain('data-font-substitute="true"');
+    expect(plain).not.toContain('data-highlight="issue"');
   });
 
   it('computes contain, cover, stretch and crop placements', () => {
