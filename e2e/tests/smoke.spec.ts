@@ -25,7 +25,9 @@ test.describe('platform smoke', () => {
         .getByRole('link', { name: /Demo Active hang tag/i })
         .first()
         .click();
-      await expect(page.getByTestId('document-preview-canvas').locator(':scope > svg')).toBeVisible();
+      await expect(
+        page.getByTestId('document-preview-canvas').locator(':scope > svg'),
+      ).toBeVisible();
     });
   });
 });
