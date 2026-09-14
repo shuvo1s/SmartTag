@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import { describeError } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format';
+import { useCan } from '../auth/session';
 import { ValidatedDocumentPreview } from '../document-preview/document-preview';
 import { useTemplate, useTemplateVersion } from './api';
 import { VersionStatusBadge } from './status-badges';
@@ -27,6 +28,7 @@ export function VersionDetailView({
 }) {
   const template = useTemplate(templateId);
   const version = useTemplateVersion(versionId);
+  const canEdit = useCan('template-version:edit-draft');
 
   if (version.error ?? template.error) {
     return <Alert tone="danger">{describeError(version.error ?? template.error)}</Alert>;
@@ -51,12 +53,23 @@ export function VersionDetailView({
         }
         description={v.changeSummary || undefined}
         actions={
-          <Link
-            href={`/developer/playground?versionId=${v.id}`}
-            className={buttonStyles({ variant: 'secondary' })}
-          >
-            Open in playground
-          </Link>
+          <span className="flex gap-2">
+            <Link
+              href={`/developer/playground?versionId=${v.id}`}
+              className={buttonStyles({ variant: 'secondary' })}
+            >
+              Open in playground
+            </Link>
+            <Link
+              href={`/templates/${templateId}/versions/${v.id}/edit`}
+              data-testid="open-designer"
+              className={buttonStyles({
+                variant: v.status === 'DRAFT' && canEdit ? 'primary' : 'secondary',
+              })}
+            >
+              {v.status === 'DRAFT' && canEdit ? 'Edit in designer' : 'Open designer (view only)'}
+            </Link>
+          </span>
         }
       />
 

@@ -15,6 +15,13 @@ import {
 import { buildPageScene, renderSceneToSvg, type SvgGuideOptions } from '@smarttag/rendering-core';
 import { Alert, cn } from '@smarttag/ui';
 import { useId, useMemo, useState } from 'react';
+import {
+  svgOptionsFor,
+  useFontRegistryQuery,
+  useLoadedResources,
+  useRenderingResources,
+  type RenderingResources,
+} from '../rendering/rendering-services';
 
 const ZOOM_LEVELS = [0.5, 1, 1.5, 2, 3] as const;
 
@@ -26,6 +33,10 @@ export interface DocumentPreviewProps {
   record?: DataRecord | null;
   resolveAssetUrl?: (assetId: string) => string | null;
   initialZoom?: (typeof ZOOM_LEVELS)[number];
+  /** Controlled fonts, text layout and barcode encoder; without them the preview approximates. */
+  resources?: RenderingResources | null;
+  /** Changes when fonts or images finish loading. */
+  resourceVersion?: number;
 }
 
 /**
@@ -37,6 +48,8 @@ export function DocumentPreview({
   record = null,
   resolveAssetUrl = assetContentUrl,
   initialZoom = 1.5,
+  resources = null,
+  resourceVersion = 0,
 }: DocumentPreviewProps) {
   const [pageId, setPageId] = useState(document.pages[0]?.id ?? '');
   const [zoom, setZoom] = useState<number>(initialZoom);
@@ -59,10 +72,16 @@ export function DocumentPreview({
     [document, record],
   );
   const rendered = useMemo(() => {
-    const scene = buildPageScene(resolution?.document ?? document, activePageId);
+    // Fonts and images load asynchronously; their arrival must produce a new render.
+    void resourceVersion;
+    const scene = buildPageScene(resolution?.document ?? document, activePageId, {
+      textLayout: resources?.services.textLayout,
+      barcodeEncoder: resources?.services.barcodeEncoder ?? undefined,
+    });
     return {
       scene,
       svg: renderSceneToSvg(scene, {
+        ...(resources ? svgOptionsFor(resources, new Map()) : {}),
         guides,
         finish,
         sizeUnit: 'none',
@@ -80,6 +99,8 @@ export function DocumentPreview({
     resolveAssetUrl,
     highlightBound,
     idPrefix,
+    resources,
+    resourceVersion,
   ]);
 
   const { dimensions } = document;
@@ -239,6 +260,9 @@ export function ValidatedDocumentPreview({
   record?: DataRecord | null;
 }) {
   const parsed = useMemo(() => parseDesignDocument(document), [document]);
+  const fonts = useFontRegistryQuery();
+  const resources = useRenderingResources(fonts.data);
+  const resourceVersion = useLoadedResources(resources, parsed.valid ? parsed.document : null);
   if (!parsed.valid) {
     return (
       <DocumentIssues
@@ -252,7 +276,12 @@ export function ValidatedDocumentPreview({
       {parsed.warnings.length > 0 ? (
         <DocumentIssues title="Validation warnings" issues={parsed.warnings} />
       ) : null}
-      <DocumentPreview document={parsed.document} record={record} />
+      <DocumentPreview
+        document={parsed.document}
+        record={record}
+        resources={resources}
+        resourceVersion={resourceVersion}
+      />
     </div>
   );
 }

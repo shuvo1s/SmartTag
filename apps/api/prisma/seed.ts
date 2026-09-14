@@ -353,9 +353,10 @@ async function main() {
         zIndex: 20,
         // Inside the 3 mm safe area, below the barcode (safe bottom edge = 246.6 pt).
         x: 11.34,
-        y: 239,
+        y: 238,
         width: 119.06,
-        height: 7,
+        // 6 pt text × 1.2 line height needs 7.2 pt; the frame leaves room for it.
+        height: 8,
         content: 'Machine wash 30 °C',
         fontSize: 6,
         fontFamily: 'Noto Sans',

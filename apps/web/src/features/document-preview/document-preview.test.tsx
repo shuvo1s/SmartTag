@@ -2,9 +2,11 @@ import {
   SAMPLE_HANG_TAG_RECORD,
   createSampleHangTagDocument,
 } from '@smarttag/document-utils/fixtures';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DocumentPreview, ValidatedDocumentPreview } from './document-preview';
 
 const canvas = () => screen.getByTestId('document-preview-canvas');
@@ -66,10 +68,30 @@ describe('DocumentPreview', () => {
   });
 });
 
+/** ValidatedDocumentPreview loads the organization's font registry. */
+function renderWithQueries(ui: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
+
 describe('ValidatedDocumentPreview', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }),
+        ),
+      ),
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('refuses to render invalid documents and lists issues', () => {
     const broken = { ...createSampleHangTagDocument(), pages: [] };
-    render(<ValidatedDocumentPreview document={broken} />);
+    renderWithQueries(<ValidatedDocumentPreview document={broken} />);
     expect(
       screen.getByText('This document cannot be rendered because it failed validation'),
     ).toBeInTheDocument();
@@ -77,7 +99,7 @@ describe('ValidatedDocumentPreview', () => {
   });
 
   it('refuses unsupported schema versions', () => {
-    render(
+    renderWithQueries(
       <ValidatedDocumentPreview
         document={{ ...createSampleHangTagDocument(), schemaVersion: 42 }}
       />,
@@ -86,7 +108,7 @@ describe('ValidatedDocumentPreview', () => {
   });
 
   it('renders valid stored JSON', () => {
-    render(
+    renderWithQueries(
       <ValidatedDocumentPreview
         document={JSON.parse(JSON.stringify(createSampleHangTagDocument())) as unknown}
       />,
