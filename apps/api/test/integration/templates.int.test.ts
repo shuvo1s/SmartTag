@@ -91,15 +91,13 @@ describe('templates & customers API', () => {
     });
 
     it('returns field errors for invalid input', async () => {
-      const response = await designer
-        .post(`${API}/templates`)
-        .send(
-          hangTagRequest({
-            name: '',
-            code: 'x',
-            dimensions: { unit: 'mm', width: 0, height: 90, bleed: -2, safeMargin: 3 },
-          }),
-        );
+      const response = await designer.post(`${API}/templates`).send(
+        hangTagRequest({
+          name: '',
+          code: 'x',
+          dimensions: { unit: 'mm', width: 0, height: 90, bleed: -2, safeMargin: 3 },
+        }),
+      );
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe('VALIDATION_ERROR');
       expect(response.body.error.details.fieldErrors.map((e: { path: string }) => e.path)).toEqual(

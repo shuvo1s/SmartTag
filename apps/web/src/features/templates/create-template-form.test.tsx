@@ -110,19 +110,17 @@ describe('CreateTemplateForm', () => {
   });
 
   it('maps server field errors back onto the form', async () => {
-    const onSubmit = vi
-      .fn()
-      .mockRejectedValue(
-        new ApiError(
-          409,
-          'VALIDATION_ERROR',
-          'Invalid',
-          {
-            fieldErrors: [{ path: 'code', message: 'A template with code "HT-1" already exists' }],
-          },
-          'req-1',
-        ),
-      );
+    const onSubmit = vi.fn().mockRejectedValue(
+      new ApiError(
+        409,
+        'VALIDATION_ERROR',
+        'Invalid',
+        {
+          fieldErrors: [{ path: 'code', message: 'A template with code "HT-1" already exists' }],
+        },
+        'req-1',
+      ),
+    );
     const { user } = setup(onSubmit);
     await user.type(screen.getByLabelText(/Template name/), 'Tag');
     await user.type(screen.getByLabelText(/Template code/), 'HT-1');

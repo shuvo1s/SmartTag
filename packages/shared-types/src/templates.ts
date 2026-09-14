@@ -79,13 +79,9 @@ export type TemplateDimensionsInput = z.infer<typeof TemplateDimensionsInputSche
 export const CreateTemplateRequestSchema = z
   .object({
     name: z.string().trim().min(1, { error: 'Name is required' }).max(200),
-    code: z
-      .string()
-      .trim()
-      .toUpperCase()
-      .regex(TEMPLATE_CODE_PATTERN, {
-        error: 'Use 2–64 letters, digits, "-" or "_" (e.g. HT-50X90-BASIC)',
-      }),
+    code: z.string().trim().toUpperCase().regex(TEMPLATE_CODE_PATTERN, {
+      error: 'Use 2–64 letters, digits, "-" or "_" (e.g. HT-50X90-BASIC)',
+    }),
     description: z.string().trim().max(2000).default(''),
     customerId: z.uuid().nullable().default(null),
     brandId: z.uuid().nullable().default(null),

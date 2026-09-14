@@ -2,14 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiRequest, describeError } from './api-client';
 
 function mockFetch(status: number, body: unknown) {
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValue(
-      new Response(body === undefined ? null : JSON.stringify(body), {
-        status,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(body === undefined ? null : JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  );
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
