@@ -521,7 +521,7 @@ export class EditorCanvas {
     this.fabric.on('object:modified', ({ target, action, transform }) => {
       this.snapGuides = [];
       this.snapTargets = null;
-      const resolvedAction = action ?? (transform?.action);
+      const resolvedAction = action ?? transform?.action;
       // Fabric is still inside its mouse-up processing here. Committing synchronously would
       // re-sync the canvas (possibly rebuilding the active selection) in the middle of that
       // processing, leaving Fabric with a dangling transform. Commit right after it completes.
