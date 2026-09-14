@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { assertValidDesignDocument } from '@smarttag/document-schema';
-import { DOCUMENT_TYPE_DEFINITIONS, createBlankDesignDocument, isDocumentTypeAvailable } from '@smarttag/document-utils';
+import {
+  DOCUMENT_TYPE_DEFINITIONS,
+  createBlankDesignDocument,
+  isDocumentTypeAvailable,
+} from '@smarttag/document-utils';
 import type {
   ApiFieldError,
   CreateTemplateCommand,
@@ -25,7 +29,10 @@ export class TemplatesService {
     private readonly audit: AuditService,
   ) {}
 
-  async list(actor: ActorContext, query: ListTemplatesQuery): Promise<PaginatedResponse<TemplateDto>> {
+  async list(
+    actor: ActorContext,
+    query: ListTemplatesQuery,
+  ): Promise<PaginatedResponse<TemplateDto>> {
     const where: Prisma.TemplateWhereInput = {
       organizationId: actor.organizationId,
       status: query.status,
@@ -74,10 +81,18 @@ export class TemplatesService {
   async create(actor: ActorContext, input: CreateTemplateCommand): Promise<TemplateDto> {
     if (!isDocumentTypeAvailable(input.documentType)) {
       throw AppError.validation('Document type is not available', [
-        { path: 'documentType', message: `${DOCUMENT_TYPE_DEFINITIONS[input.documentType].label} templates are not available yet` },
+        {
+          path: 'documentType',
+          message: `${DOCUMENT_TYPE_DEFINITIONS[input.documentType].label} templates are not available yet`,
+        },
       ]);
     }
-    await this.assertCustomerAndBrand(this.prisma, actor.organizationId, input.customerId, input.brandId);
+    await this.assertCustomerAndBrand(
+      this.prisma,
+      actor.organizationId,
+      input.customerId,
+      input.brandId,
+    );
     await this.assertCodeAvailable(actor.organizationId, input.code);
 
     const templateId = await this.prisma.$transaction(async (tx) => {
@@ -125,7 +140,10 @@ export class TemplatesService {
         },
         select: { id: true },
       });
-      await tx.template.update({ where: { id: template.id }, data: { currentVersionId: version.id } });
+      await tx.template.update({
+        where: { id: template.id },
+        data: { currentVersionId: version.id },
+      });
 
       await this.audit.recordForActor(tx, actor, {
         action: 'TEMPLATE_CREATED',
@@ -137,7 +155,11 @@ export class TemplatesService {
         action: 'TEMPLATE_VERSION_CREATED',
         resourceType: 'TEMPLATE_VERSION',
         resourceId: version.id,
-        metadata: { templateId: template.id, versionNumber: 1, documentHash: prepared.documentHash },
+        metadata: {
+          templateId: template.id,
+          versionNumber: 1,
+          documentHash: prepared.documentHash,
+        },
       });
       return template.id;
     });
@@ -145,13 +167,24 @@ export class TemplatesService {
     return this.get(actor, templateId);
   }
 
-  async update(actor: ActorContext, templateId: string, input: UpdateTemplateRequest): Promise<TemplateDto> {
+  async update(
+    actor: ActorContext,
+    templateId: string,
+    input: UpdateTemplateRequest,
+  ): Promise<TemplateDto> {
     if (input.status !== undefined) {
       assertPermission(actor, 'template:archive');
     }
     const existing = await this.prisma.template.findFirst({
       where: { id: templateId, organizationId: actor.organizationId },
-      select: { id: true, name: true, description: true, status: true, customerId: true, brandId: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        status: true,
+        customerId: true,
+        brandId: true,
+      },
     });
     if (!existing) {
       throw AppError.notFound('Template');
@@ -160,7 +193,8 @@ export class TemplatesService {
     const customerId = input.customerId !== undefined ? input.customerId : existing.customerId;
     const customerChanged = customerId !== existing.customerId;
     // Changing the customer clears a brand that belonged to the previous customer.
-    const brandId = input.brandId !== undefined ? input.brandId : customerChanged ? null : existing.brandId;
+    const brandId =
+      input.brandId !== undefined ? input.brandId : customerChanged ? null : existing.brandId;
     await this.assertCustomerAndBrand(this.prisma, actor.organizationId, customerId, brandId);
 
     const data = {
@@ -219,13 +253,22 @@ export class TemplatesService {
       fieldErrors.push({ path: 'customerId', message: 'Select the customer that owns the brand' });
     }
     if (customerId !== null) {
-      const customer = await db.customer.findFirst({ where: { id: customerId, organizationId }, select: { id: true } });
+      const customer = await db.customer.findFirst({
+        where: { id: customerId, organizationId },
+        select: { id: true },
+      });
       if (!customer) {
         fieldErrors.push({ path: 'customerId', message: 'Customer not found' });
       } else if (brandId !== null) {
-        const brand = await db.brand.findFirst({ where: { id: brandId, customerId, organizationId }, select: { id: true } });
+        const brand = await db.brand.findFirst({
+          where: { id: brandId, customerId, organizationId },
+          select: { id: true },
+        });
         if (!brand) {
-          fieldErrors.push({ path: 'brandId', message: 'Brand not found for the selected customer' });
+          fieldErrors.push({
+            path: 'brandId',
+            message: 'Brand not found for the selected customer',
+          });
         }
       }
     }

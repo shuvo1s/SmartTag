@@ -110,7 +110,9 @@ export function createRectangleObject(
   };
 }
 
-export function createEllipseObject(init: FrameInit & Overrides<EllipseObject, BaseKeys>): EllipseObject {
+export function createEllipseObject(
+  init: FrameInit & Overrides<EllipseObject, BaseKeys>,
+): EllipseObject {
   return {
     ...base(init, 'ell'),
     type: 'ellipse',
@@ -131,7 +133,9 @@ export function createLineObject(init: FrameInit & Overrides<LineObject, BaseKey
   };
 }
 
-export function createBarcodeObject(init: FrameInit & Overrides<BarcodeObject, BaseKeys>): BarcodeObject {
+export function createBarcodeObject(
+  init: FrameInit & Overrides<BarcodeObject, BaseKeys>,
+): BarcodeObject {
   return {
     ...base(init, 'bc'),
     type: 'barcode',
@@ -150,7 +154,9 @@ export function createBarcodeObject(init: FrameInit & Overrides<BarcodeObject, B
   };
 }
 
-export function createQrCodeObject(init: FrameInit & Overrides<QrCodeObject, BaseKeys>): QrCodeObject {
+export function createQrCodeObject(
+  init: FrameInit & Overrides<QrCodeObject, BaseKeys>,
+): QrCodeObject {
   return {
     ...base(init, 'qr'),
     type: 'qrCode',

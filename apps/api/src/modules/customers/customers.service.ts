@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { BrandDto, CreateBrandRequest, CreateCustomerRequest, CustomerDto } from '@smarttag/shared-types';
+import type {
+  BrandDto,
+  CreateBrandRequest,
+  CreateCustomerRequest,
+  CustomerDto,
+} from '@smarttag/shared-types';
 import { AppError } from '../../common/errors/app-error';
 import type { ActorContext } from '../../common/http/request-context';
 import { PrismaService } from '../../database/prisma.service';
@@ -55,7 +60,12 @@ export class CustomersService {
     }
     const customer = await this.prisma.$transaction(async (tx) => {
       const created = await tx.customer.create({
-        data: { organizationId: actor.organizationId, code: input.code, name: input.name, createdById: actor.userId },
+        data: {
+          organizationId: actor.organizationId,
+          code: input.code,
+          name: input.name,
+          createdById: actor.userId,
+        },
         select: customerSelect,
       });
       await this.audit.recordForActor(tx, actor, {
@@ -69,7 +79,11 @@ export class CustomersService {
     return toCustomerDto(customer);
   }
 
-  async createBrand(actor: ActorContext, customerId: string, input: CreateBrandRequest): Promise<BrandDto> {
+  async createBrand(
+    actor: ActorContext,
+    customerId: string,
+    input: CreateBrandRequest,
+  ): Promise<BrandDto> {
     const customer = await this.prisma.customer.findFirst({
       where: { id: customerId, organizationId: actor.organizationId },
       select: { id: true },

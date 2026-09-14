@@ -8,7 +8,8 @@ import type {
 import { coerceDataValue, isMissingValue, type DataRecord } from './coerce';
 import { forEachBinding } from './collect';
 
-export type BindingIssueCode = 'MISSING_DATA_VALUE' | 'INVALID_DATA_VALUE' | 'UNKNOWN_BINDING_FIELD';
+export type BindingIssueCode =
+  'MISSING_DATA_VALUE' | 'INVALID_DATA_VALUE' | 'UNKNOWN_BINDING_FIELD';
 
 export interface BindingIssue {
   readonly code: BindingIssueCode;
@@ -41,16 +42,19 @@ type ResolvedValue = string | boolean | null;
  * The input document is never mutated. Batch execution, transformations and formatting rules
  * build on this function in the VDP phase.
  */
-export function resolveDocumentBindings(document: DesignDocument, record: DataRecord): BindingResolution {
+export function resolveDocumentBindings(
+  document: DesignDocument,
+  record: DataRecord,
+): BindingResolution {
   const fields = new Map(document.dataSchema.fields.map((field) => [field.key, field]));
   const issues: BindingIssue[] = [];
 
-  const pages = document.pages.map(
-    (page): Page => ({
-      ...page,
-      objects: page.objects.map((object) => resolveObject(page, object, fields, record, document, issues)),
-    }),
-  );
+  const pages = document.pages.map((page): Page => ({
+    ...page,
+    objects: page.objects.map((object) =>
+      resolveObject(page, object, fields, record, document, issues),
+    ),
+  }));
 
   return { ok: issues.length === 0, document: { ...document, pages }, issues };
 }
@@ -70,7 +74,14 @@ function resolveObject(
       return;
     }
     const report = (code: BindingIssueCode, message: string) =>
-      issues.push({ code, pageId: page.id, objectId: object.id, property, field: binding.field, message });
+      issues.push({
+        code,
+        pageId: page.id,
+        objectId: object.id,
+        property,
+        field: binding.field,
+        message,
+      });
 
     const field = fields.get(binding.field);
     if (!field) {
@@ -95,7 +106,10 @@ function resolveObject(
     }
 
     if (field.required || document.settings.missingDataPolicy === 'FAIL') {
-      report('MISSING_DATA_VALUE', `No value for ${field.required ? 'required ' : ''}field "${field.key}"`);
+      report(
+        'MISSING_DATA_VALUE',
+        `No value for ${field.required ? 'required ' : ''}field "${field.key}"`,
+      );
       return;
     }
     overrides[property] = emptyValue(kind);
@@ -104,7 +118,10 @@ function resolveObject(
   return Object.keys(overrides).length === 0 ? object : { ...object, ...overrides };
 }
 
-function toPropertyValue(kind: BindablePropertyKind, value: string | number | boolean): ResolvedValue {
+function toPropertyValue(
+  kind: BindablePropertyKind,
+  value: string | number | boolean,
+): ResolvedValue {
   switch (kind) {
     case 'TEXT':
     case 'SYMBOL_DATA':

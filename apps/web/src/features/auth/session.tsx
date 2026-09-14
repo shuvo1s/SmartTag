@@ -41,7 +41,10 @@ export function useSwitchOrganization() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (organizationId: string) =>
-      apiRequest<SessionDto>('/auth/session/organization', { method: 'PUT', json: { organizationId } }),
+      apiRequest<SessionDto>('/auth/session/organization', {
+        method: 'PUT',
+        json: { organizationId },
+      }),
     onSuccess: (session) => {
       // All cached data belongs to the previous tenant.
       queryClient.clear();

@@ -54,7 +54,14 @@ const PT_PER_MM = 72 / 25.4;
  * Output is deterministic: identical scenes and options yield byte-identical SVG.
  */
 export function renderSceneToSvg(scene: PageScene, options: SvgRenderOptions = {}): string {
-  const guides: SvgGuideOptions = { bleed: true, trim: true, safe: true, margins: true, dieline: true, ...options.guides };
+  const guides: SvgGuideOptions = {
+    bleed: true,
+    trim: true,
+    safe: true,
+    margins: true,
+    dieline: true,
+    ...options.guides,
+  };
   const prefix = sanitizeId(options.idPrefix ?? `st-${scene.pageId}`);
   const { bleed } = scene.boxes;
   const defs: string[] = [hatchPattern(prefix)];
@@ -64,7 +71,10 @@ export function renderSceneToSvg(scene: PageScene, options: SvgRenderOptions = {
     sizeUnit === 'none'
       ? {}
       : sizeUnit === 'mm'
-        ? { width: `${fmt(bleed.width / PT_PER_MM)}mm`, height: `${fmt(bleed.height / PT_PER_MM)}mm` }
+        ? {
+            width: `${fmt(bleed.width / PT_PER_MM)}mm`,
+            height: `${fmt(bleed.height / PT_PER_MM)}mm`,
+          }
         : { width: `${fmt(bleed.width)}pt`, height: `${fmt(bleed.height)}pt` };
 
   let artworkMask: string | null = null;
@@ -99,7 +109,13 @@ export function renderSceneToSvg(scene: PageScene, options: SvgRenderOptions = {
   ].join('');
 }
 
-function renderNode(node: SceneNode, nodeId: string, defs: string[], prefix: string, options: SvgRenderOptions): string {
+function renderNode(
+  node: SceneNode,
+  nodeId: string,
+  defs: string[],
+  prefix: string,
+  options: SvgRenderOptions,
+): string {
   const { frame } = node;
   const cx = frame.x + frame.width / 2;
   const cy = frame.y + frame.height / 2;
@@ -180,8 +196,15 @@ function renderText(node: TextSceneNode, nodeId: string, defs: string[]): string
   })}>${spans}</text>`;
 }
 
-function renderImage(node: ImageSceneNode, nodeId: string, defs: string[], prefix: string, options: SvgRenderOptions): string {
-  const url = node.assetId && options.resolveAssetUrl ? options.resolveAssetUrl(node.assetId) : null;
+function renderImage(
+  node: ImageSceneNode,
+  nodeId: string,
+  defs: string[],
+  prefix: string,
+  options: SvgRenderOptions,
+): string {
+  const url =
+    node.assetId && options.resolveAssetUrl ? options.resolveAssetUrl(node.assetId) : null;
   if (!url || !isSafeImageUrl(url)) {
     return placeholderBox(node.frame, prefix, [node.assetId ? 'IMAGE' : 'NO IMAGE']);
   }
@@ -193,7 +216,8 @@ function renderImage(node: ImageSceneNode, nodeId: string, defs: string[], prefi
   return `<image${attrs({
     href: url,
     ...rectAttrs(node.frame),
-    preserveAspectRatio: node.fit === 'contain' ? 'xMidYMid meet' : node.fit === 'cover' ? 'xMidYMid slice' : 'none',
+    preserveAspectRatio:
+      node.fit === 'contain' ? 'xMidYMid meet' : node.fit === 'cover' ? 'xMidYMid slice' : 'none',
     'clip-path': clip ? `url(#${clip})` : null,
   })}/>`;
 }
@@ -208,9 +232,13 @@ function renderSymbolPlaceholder(node: BarcodeSceneNode | QrCodeSceneNode, prefi
 
 /** A hatched, labelled box that cannot be mistaken for real, scannable artwork. */
 function placeholderBox(frame: Rect, prefix: string, labels: readonly string[]): string {
-  const fontSize = Math.max(2.5, Math.min(7, frame.height / (labels.length * 1.6), frame.width / 12));
+  const fontSize = Math.max(
+    2.5,
+    Math.min(7, frame.height / (labels.length * 1.6), frame.width / 12),
+  );
   const cx = frame.x + frame.width / 2;
-  const firstBaseline = frame.y + frame.height / 2 - ((labels.length - 1) * fontSize * 1.25) / 2 + fontSize * 0.35;
+  const firstBaseline =
+    frame.y + frame.height / 2 - ((labels.length - 1) * fontSize * 1.25) / 2 + fontSize * 0.35;
   const text = labels
     .map(
       (label, index) =>
@@ -242,16 +270,24 @@ function renderGuides(scene: PageScene, guides: SvgGuideOptions): string {
   const parts: string[] = [];
   const { boxes } = scene;
   if (guides.bleed) {
-    parts.push(`<rect${attrs({ ...rectAttrs(boxes.bleed), ...common, stroke: GUIDE_COLORS.bleed, 'stroke-width': 1, 'stroke-dasharray': '4 3', 'data-guide': 'bleed' })}/>`);
+    parts.push(
+      `<rect${attrs({ ...rectAttrs(boxes.bleed), ...common, stroke: GUIDE_COLORS.bleed, 'stroke-width': 1, 'stroke-dasharray': '4 3', 'data-guide': 'bleed' })}/>`,
+    );
   }
   if (guides.margins) {
-    parts.push(`<rect${attrs({ ...rectAttrs(boxes.margin), ...common, stroke: GUIDE_COLORS.margins, 'stroke-width': 1, 'stroke-dasharray': '1 3', 'data-guide': 'margins' })}/>`);
+    parts.push(
+      `<rect${attrs({ ...rectAttrs(boxes.margin), ...common, stroke: GUIDE_COLORS.margins, 'stroke-width': 1, 'stroke-dasharray': '1 3', 'data-guide': 'margins' })}/>`,
+    );
   }
   if (guides.safe) {
-    parts.push(`<rect${attrs({ ...rectAttrs(boxes.safe), ...common, stroke: GUIDE_COLORS.safe, 'stroke-width': 1, 'stroke-dasharray': '6 3', 'data-guide': 'safe' })}/>`);
+    parts.push(
+      `<rect${attrs({ ...rectAttrs(boxes.safe), ...common, stroke: GUIDE_COLORS.safe, 'stroke-width': 1, 'stroke-dasharray': '6 3', 'data-guide': 'safe' })}/>`,
+    );
   }
   if (guides.trim) {
-    parts.push(`<rect${attrs({ ...rectAttrs(boxes.trim), rx: scene.trimCornerRadius > 0 ? scene.trimCornerRadius : null, ...common, stroke: GUIDE_COLORS.trim, 'stroke-width': 1.25, 'data-guide': 'trim' })}/>`);
+    parts.push(
+      `<rect${attrs({ ...rectAttrs(boxes.trim), rx: scene.trimCornerRadius > 0 ? scene.trimCornerRadius : null, ...common, stroke: GUIDE_COLORS.trim, 'stroke-width': 1.25, 'data-guide': 'trim' })}/>`,
+    );
   }
   if (guides.dieline) {
     for (const feature of scene.dieline) {
@@ -261,8 +297,17 @@ function renderGuides(scene: PageScene, guides: SvgGuideOptions): string {
   return `<g${attrs({ 'data-layer': 'guides', 'pointer-events': 'none' })}>${parts.join('')}</g>`;
 }
 
-function renderDielineFeature(feature: SceneDielineFeature, common: Record<string, string>): string {
-  const stroke = { ...common, stroke: GUIDE_COLORS.dieline, 'stroke-width': 1, 'data-guide': 'dieline', 'data-feature-id': feature.id };
+function renderDielineFeature(
+  feature: SceneDielineFeature,
+  common: Record<string, string>,
+): string {
+  const stroke = {
+    ...common,
+    stroke: GUIDE_COLORS.dieline,
+    'stroke-width': 1,
+    'data-guide': 'dieline',
+    'data-feature-id': feature.id,
+  };
   switch (feature.kind) {
     case 'PUNCH_HOLE':
       return `<circle${attrs({ cx: feature.cx, cy: feature.cy, r: feature.radius, ...stroke })}/>`;
@@ -273,7 +318,10 @@ function renderDielineFeature(feature: SceneDielineFeature, common: Record<strin
         width: feature.width,
         height: feature.height,
         rx: Math.min(feature.width, feature.height) / 2,
-        transform: feature.rotation !== 0 ? `rotate(${fmt(feature.rotation)} ${fmt(feature.cx)} ${fmt(feature.cy)})` : null,
+        transform:
+          feature.rotation !== 0
+            ? `rotate(${fmt(feature.rotation)} ${fmt(feature.cx)} ${fmt(feature.cy)})`
+            : null,
         ...stroke,
       })}/>`;
     case 'FOLD_LINE':
@@ -295,7 +343,10 @@ function finishMask(id: string, scene: PageScene): string {
             width: feature.width,
             height: feature.height,
             rx: Math.min(feature.width, feature.height) / 2,
-            transform: feature.rotation !== 0 ? `rotate(${fmt(feature.rotation)} ${fmt(feature.cx)} ${fmt(feature.cy)})` : null,
+            transform:
+              feature.rotation !== 0
+                ? `rotate(${fmt(feature.rotation)} ${fmt(feature.cx)} ${fmt(feature.cy)})`
+                : null,
             fill: 'black',
           })}/>`;
         case 'FOLD_LINE':
@@ -304,19 +355,23 @@ function finishMask(id: string, scene: PageScene): string {
       }
     })
     .join('');
-  return `<mask${attrs({ id, maskUnits: 'userSpaceOnUse', ...rectAttrs(scene.boxes.bleed) })}><rect${attrs({
-    ...rectAttrs(scene.boxes.trim),
-    rx: scene.trimCornerRadius > 0 ? scene.trimCornerRadius : null,
-    fill: 'white',
-  })}/>${cutouts}</mask>`;
+  return `<mask${attrs({ id, maskUnits: 'userSpaceOnUse', ...rectAttrs(scene.boxes.bleed) })}><rect${attrs(
+    {
+      ...rectAttrs(scene.boxes.trim),
+      rx: scene.trimCornerRadius > 0 ? scene.trimCornerRadius : null,
+      fill: 'white',
+    },
+  )}/>${cutouts}</mask>`;
 }
 
 function hatchPattern(prefix: string): string {
-  return `<pattern${attrs({ id: `${prefix}-hatch`, patternUnits: 'userSpaceOnUse', width: 4, height: 4 })}><rect${attrs({
-    width: 4,
-    height: 4,
-    fill: '#F5F7FA',
-  })}/><path${attrs({ d: 'M0 4L4 0', stroke: '#CBD2D9', 'stroke-width': 0.6 })}/></pattern>`;
+  return `<pattern${attrs({ id: `${prefix}-hatch`, patternUnits: 'userSpaceOnUse', width: 4, height: 4 })}><rect${attrs(
+    {
+      width: 4,
+      height: 4,
+      fill: '#F5F7FA',
+    },
+  )}/><path${attrs({ d: 'M0 4L4 0', stroke: '#CBD2D9', 'stroke-width': 0.6 })}/></pattern>`;
 }
 
 function rectAttrs(rect: Rect) {

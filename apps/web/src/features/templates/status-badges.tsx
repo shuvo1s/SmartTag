@@ -20,5 +20,9 @@ export function VersionStatusBadge({ status }: { status: TemplateVersionStatus }
 }
 
 export function TemplateStatusBadge({ status }: { status: TemplateStatus }) {
-  return <Badge tone={status === 'ACTIVE' ? 'info' : 'neutral'}>{status === 'ACTIVE' ? 'Active' : 'Archived'}</Badge>;
+  return (
+    <Badge tone={status === 'ACTIVE' ? 'info' : 'neutral'}>
+      {status === 'ACTIVE' ? 'Active' : 'Archived'}
+    </Badge>
+  );
 }

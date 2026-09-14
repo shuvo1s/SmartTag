@@ -7,7 +7,9 @@ import { z } from 'zod';
  */
 export class EnvironmentValidationError extends Error {
   constructor(readonly problems: readonly string[]) {
-    super(`Invalid environment configuration:\n${problems.map((problem) => `  - ${problem}`).join('\n')}`);
+    super(
+      `Invalid environment configuration:\n${problems.map((problem) => `  - ${problem}`).join('\n')}`,
+    );
     this.name = 'EnvironmentValidationError';
   }
 }
@@ -60,4 +62,6 @@ export const httpUrl = z.url({ protocol: /^https?$/ });
 
 export const nodeEnvironment = z.enum(['development', 'test', 'production']).default('development');
 
-export const logLevel = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info');
+export const logLevel = z
+  .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+  .default('info');

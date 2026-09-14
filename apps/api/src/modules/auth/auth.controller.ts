@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, Put, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Post,
+  Put,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import {
   LoginRequestSchema,
@@ -8,10 +19,18 @@ import {
   type SwitchOrganizationRequest,
 } from '@smarttag/shared-types';
 import type { Response } from 'express';
-import { requestMetadata, type ActorContext, type AppRequest } from '../../common/http/request-context';
+import {
+  requestMetadata,
+  type ActorContext,
+  type AppRequest,
+} from '../../common/http/request-context';
 import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
 import { APP_CONFIG, type AppConfig } from '../../config/env.schema';
-import { AllowAuthenticated, CurrentActor, Public } from '../authorization/authorization.decorators';
+import {
+  AllowAuthenticated,
+  CurrentActor,
+  Public,
+} from '../authorization/authorization.decorators';
 import { AuthService } from './auth.service';
 import { clearSessionCookie, setSessionCookie } from './session-token';
 
@@ -39,7 +58,10 @@ export class AuthController {
   @AllowAuthenticated()
   @Post('logout')
   @HttpCode(204)
-  async logout(@CurrentActor() actor: ActorContext, @Res({ passthrough: true }) response: Response): Promise<void> {
+  async logout(
+    @CurrentActor() actor: ActorContext,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
     await this.auth.logout(actor);
     clearSessionCookie(response, this.config);
   }

@@ -19,7 +19,10 @@ export class AuthService {
     private readonly audit: AuditService,
   ) {}
 
-  async login(input: LoginRequest, meta: RequestMeta): Promise<{ token: string; session: SessionDto }> {
+  async login(
+    input: LoginRequest,
+    meta: RequestMeta,
+  ): Promise<{ token: string; session: SessionDto }> {
     const user = await this.prisma.user.findUnique({
       where: { email: input.email },
       select: {
@@ -47,7 +50,13 @@ export class AuthService {
         organizationId: null,
         actorUserId: user?.id ?? null,
         ...meta,
-        metadata: { reason: !user ? 'UNKNOWN_ACCOUNT' : credentialValid ? 'ACCOUNT_DISABLED' : 'INVALID_PASSWORD' },
+        metadata: {
+          reason: !user
+            ? 'UNKNOWN_ACCOUNT'
+            : credentialValid
+              ? 'ACCOUNT_DISABLED'
+              : 'INVALID_PASSWORD',
+        },
       });
       throw AppError.unauthenticated(INVALID_CREDENTIALS);
     }
@@ -89,7 +98,11 @@ export class AuthService {
   }
 
   async getSession(actor: ActorContext): Promise<SessionDto> {
-    return this.buildSession(actor.userId, actor.organizationId, await this.sessions.expiresAt(actor.sessionId));
+    return this.buildSession(
+      actor.userId,
+      actor.organizationId,
+      await this.sessions.expiresAt(actor.sessionId),
+    );
   }
 
   async switchOrganization(actor: ActorContext, organizationId: string): Promise<SessionDto> {
@@ -112,10 +125,18 @@ export class AuthService {
         metadata: { fromOrganizationId: actor.organizationId },
       });
     });
-    return this.buildSession(actor.userId, organizationId, await this.sessions.expiresAt(actor.sessionId));
+    return this.buildSession(
+      actor.userId,
+      organizationId,
+      await this.sessions.expiresAt(actor.sessionId),
+    );
   }
 
-  private async buildSession(userId: string, activeOrganizationId: string, expiresAt: Date): Promise<SessionDto> {
+  private async buildSession(
+    userId: string,
+    activeOrganizationId: string,
+    expiresAt: Date,
+  ): Promise<SessionDto> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
@@ -134,9 +155,14 @@ export class AuthService {
     });
 
     const memberships = user.memberships
-      .map((membership) => ({ organization: membership.organization, roles: membership.roles.map((r) => r.role) }))
+      .map((membership) => ({
+        organization: membership.organization,
+        roles: membership.roles.map((r) => r.role),
+      }))
       .filter((membership) => membership.roles.length > 0);
-    const active = memberships.find((membership) => membership.organization.id === activeOrganizationId);
+    const active = memberships.find(
+      (membership) => membership.organization.id === activeOrganizationId,
+    );
     if (!active) {
       throw AppError.unauthenticated('Your session has expired. Please sign in again.');
     }

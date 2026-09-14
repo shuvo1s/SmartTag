@@ -7,7 +7,8 @@ export type ButtonSize = 'sm' | 'md';
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-brand-700 text-white hover:bg-brand-800 focus-visible:outline-brand-700',
-  secondary: 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 focus-visible:outline-brand-700',
+  secondary:
+    'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 focus-visible:outline-brand-700',
   ghost: 'text-slate-700 hover:bg-slate-100 focus-visible:outline-brand-700',
   danger: 'bg-red-700 text-white hover:bg-red-800 focus-visible:outline-red-700',
 };
@@ -18,7 +19,10 @@ const SIZES: Record<ButtonSize, string> = {
 };
 
 /** Button styling for non-button elements such as links, avoiding nested interactive elements. */
-export function buttonStyles({ variant = 'primary', size = 'md' }: { variant?: ButtonVariant; size?: ButtonSize } = {}): string {
+export function buttonStyles({
+  variant = 'primary',
+  size = 'md',
+}: { variant?: ButtonVariant; size?: ButtonSize } = {}): string {
   return cn(
     'inline-flex items-center justify-center rounded-md font-medium transition-colors',
     'focus-visible:outline-2 focus-visible:outline-offset-2',
@@ -34,7 +38,16 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', loading = false, disabled, className, children, type = 'button', ...props },
+  {
+    variant = 'primary',
+    size = 'md',
+    loading = false,
+    disabled,
+    className,
+    children,
+    type = 'button',
+    ...props
+  },
   ref,
 ) {
   return (

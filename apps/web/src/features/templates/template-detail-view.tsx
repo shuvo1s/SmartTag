@@ -1,13 +1,34 @@
 'use client';
 
-import { DOCUMENT_TYPE_DEFINITIONS, formatDimensions, formatLength } from '@smarttag/document-utils';
-import { Alert, Button, Card, CardBody, CardHeader, DescriptionList, PageHeader, Spinner, buttonStyles } from '@smarttag/ui';
+import {
+  DOCUMENT_TYPE_DEFINITIONS,
+  formatDimensions,
+  formatLength,
+} from '@smarttag/document-utils';
+import {
+  Alert,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  DescriptionList,
+  PageHeader,
+  Spinner,
+  buttonStyles,
+} from '@smarttag/ui';
 import Link from 'next/link';
 import { describeError } from '@/lib/api-client';
 import { formatDateTime, shortHash } from '@/lib/format';
 import { useSession } from '../auth/session';
 import { ValidatedDocumentPreview } from '../document-preview/document-preview';
-import { useCreateVersion, useTemplate, useTemplateVersion, useTemplateVersions, useTransitionVersion, useUpdateTemplate } from './api';
+import {
+  useCreateVersion,
+  useTemplate,
+  useTemplateVersion,
+  useTemplateVersions,
+  useTransitionVersion,
+  useUpdateTemplate,
+} from './api';
 import { TemplateStatusBadge, VersionStatusBadge } from './status-badges';
 import { VersionsTable } from './versions-table';
 
@@ -19,7 +40,8 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
   const transition = useTransitionVersion();
   const createVersion = useCreateVersion(templateId);
   const updateTemplate = useUpdateTemplate(templateId);
-  const can = (permission: (typeof session.permissions)[number]) => session.permissions.includes(permission);
+  const can = (permission: (typeof session.permissions)[number]) =>
+    session.permissions.includes(permission);
 
   if (template.error) {
     return <Alert tone="danger">{describeError(template.error)}</Alert>;
@@ -35,7 +57,11 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
   return (
     <>
       <PageHeader
-        eyebrow={<Link href="/templates" className="hover:underline">Templates</Link>}
+        eyebrow={
+          <Link href="/templates" className="hover:underline">
+            Templates
+          </Link>
+        }
         title={data.name}
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
@@ -50,7 +76,12 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
               <Button
                 variant="secondary"
                 loading={createVersion.isPending}
-                onClick={() => createVersion.mutate({ basedOnVersionId: data.currentVersion!.id, changeSummary: `Based on v${data.currentVersion!.versionNumber}` })}
+                onClick={() =>
+                  createVersion.mutate({
+                    basedOnVersionId: data.currentVersion!.id,
+                    changeSummary: `Based on v${data.currentVersion!.versionNumber}`,
+                  })
+                }
               >
                 New version from v{data.currentVersion.versionNumber}
               </Button>
@@ -59,7 +90,11 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
               <Button
                 variant="secondary"
                 loading={updateTemplate.isPending}
-                onClick={() => updateTemplate.mutate({ status: data.status === 'ACTIVE' ? 'ARCHIVED' : 'ACTIVE' })}
+                onClick={() =>
+                  updateTemplate.mutate({
+                    status: data.status === 'ACTIVE' ? 'ARCHIVED' : 'ACTIVE',
+                  })
+                }
               >
                 {data.status === 'ACTIVE' ? 'Archive' : 'Restore'}
               </Button>
@@ -68,7 +103,11 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
         }
       />
 
-      {mutationError ? <Alert tone="danger" className="mb-4">{describeError(mutationError)}</Alert> : null}
+      {mutationError ? (
+        <Alert tone="danger" className="mb-4">
+          {describeError(mutationError)}
+        </Alert>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -76,11 +115,22 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
           <CardBody>
             <DescriptionList
               items={[
-                { term: 'Customer', description: data.customer ? `${data.customer.name} (${data.customer.code})` : '—' },
-                { term: 'Brand', description: data.brand ? `${data.brand.name} (${data.brand.code})` : '—' },
+                {
+                  term: 'Customer',
+                  description: data.customer
+                    ? `${data.customer.name} (${data.customer.code})`
+                    : '—',
+                },
+                {
+                  term: 'Brand',
+                  description: data.brand ? `${data.brand.name} (${data.brand.code})` : '—',
+                },
                 { term: 'Description', description: data.description || '—' },
                 { term: 'Latest version', description: `v${data.latestVersionNumber}` },
-                { term: 'Created', description: `${formatDateTime(data.createdAt)} by ${data.createdBy.displayName}` },
+                {
+                  term: 'Created',
+                  description: `${formatDateTime(data.createdAt)} by ${data.createdBy.displayName}`,
+                },
                 { term: 'Last updated', description: formatDateTime(data.updatedAt) },
               ]}
             />
@@ -90,21 +140,57 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
         <Card>
           <CardHeader
             title="Physical format"
-            description={data.currentVersion ? <>From current version v{data.currentVersion.versionNumber} <VersionStatusBadge status={data.currentVersion.status} /></> : undefined}
+            description={
+              data.currentVersion ? (
+                <>
+                  From current version v{data.currentVersion.versionNumber}{' '}
+                  <VersionStatusBadge status={data.currentVersion.status} />
+                </>
+              ) : undefined
+            }
           />
           <CardBody>
             {summary ? (
               <DescriptionList
                 items={[
-                  { term: 'Trim size', description: formatDimensions(summary.widthPt, summary.heightPt, summary.displayUnit) },
-                  { term: 'Trim size (points)', description: formatDimensions(summary.widthPt, summary.heightPt, 'pt') },
-                  { term: 'Bleed', description: formatLength(summary.bleedPt.top, summary.displayUnit) },
-                  { term: 'Safe margin', description: formatLength(summary.safeAreaPt.top, summary.displayUnit) },
+                  {
+                    term: 'Trim size',
+                    description: formatDimensions(
+                      summary.widthPt,
+                      summary.heightPt,
+                      summary.displayUnit,
+                    ),
+                  },
+                  {
+                    term: 'Trim size (points)',
+                    description: formatDimensions(summary.widthPt, summary.heightPt, 'pt'),
+                  },
+                  {
+                    term: 'Bleed',
+                    description: formatLength(summary.bleedPt.top, summary.displayUnit),
+                  },
+                  {
+                    term: 'Safe margin',
+                    description: formatLength(summary.safeAreaPt.top, summary.displayUnit),
+                  },
                   { term: 'Orientation', description: summary.orientation.toLowerCase() },
-                  { term: 'Pages', description: summary.pageSides.map((side) => side.toLowerCase()).join(' + ') },
+                  {
+                    term: 'Pages',
+                    description: summary.pageSides.map((side) => side.toLowerCase()).join(' + '),
+                  },
                   { term: 'Artwork objects', description: summary.objectCount },
-                  { term: 'Data fields bound', description: summary.boundFieldKeys.join(', ') || '—' },
-                  { term: 'Document hash', description: <code className="font-mono text-xs" title={data.currentVersion?.documentHash}>{shortHash(data.currentVersion?.documentHash ?? '')}</code> },
+                  {
+                    term: 'Data fields bound',
+                    description: summary.boundFieldKeys.join(', ') || '—',
+                  },
+                  {
+                    term: 'Document hash',
+                    description: (
+                      <code className="font-mono text-xs" title={data.currentVersion?.documentHash}>
+                        {shortHash(data.currentVersion?.documentHash ?? '')}
+                      </code>
+                    ),
+                  },
                 ]}
               />
             ) : (
@@ -129,7 +215,9 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
             currentVersionId={data.currentVersion?.id ?? null}
             permissions={session.permissions}
             pendingVersionId={transition.isPending ? transition.variables?.versionId : null}
-            onTransition={(versionId, targetStatus) => transition.mutate({ versionId, targetStatus })}
+            onTransition={(versionId, targetStatus) =>
+              transition.mutate({ versionId, targetStatus })
+            }
           />
         ) : (
           <CardBody>
@@ -144,13 +232,20 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
             title={`Preview — v${data.currentVersion.versionNumber}`}
             description="Rendered from the stored canonical document. Barcodes and QR codes are placeholders in Phase 1."
             actions={
-              <Link href={`/developer/playground?versionId=${data.currentVersion.id}`} className={buttonStyles({ variant: 'secondary', size: 'sm' })}>
+              <Link
+                href={`/developer/playground?versionId=${data.currentVersion.id}`}
+                className={buttonStyles({ variant: 'secondary', size: 'sm' })}
+              >
                 Open in playground
               </Link>
             }
           />
           <CardBody>
-            {currentVersion.data ? <ValidatedDocumentPreview document={currentVersion.data.document} /> : <Spinner />}
+            {currentVersion.data ? (
+              <ValidatedDocumentPreview document={currentVersion.data.document} />
+            ) : (
+              <Spinner />
+            )}
           </CardBody>
         </Card>
       ) : null}

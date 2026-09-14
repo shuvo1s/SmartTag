@@ -34,7 +34,9 @@ function inRanges(codePoint: number, ranges: readonly CodePointRange[]): boolean
  * Resolves paragraph direction. With AUTO, the first strong directional character decides
  * (a simplification of Unicode bidi rules P2/P3). Full bidi reordering is the renderer's job.
  */
-export function resolveTextDirection(object: Pick<TextObject, 'direction' | 'content'>): 'ltr' | 'rtl' {
+export function resolveTextDirection(
+  object: Pick<TextObject, 'direction' | 'content'>,
+): 'ltr' | 'rtl' {
   if (object.direction !== 'AUTO') {
     return object.direction === 'RTL' ? 'rtl' : 'ltr';
   }
@@ -56,7 +58,10 @@ const APPROXIMATE_ASCENT = 0.8;
  * those require font metrics and belong to the server-side renderer. The layout here is a
  * deterministic approximation for previews.
  */
-export function layoutTextLines(object: TextObject, direction: 'ltr' | 'rtl'): Pick<TextSceneNode, 'lines' | 'anchor'> {
+export function layoutTextLines(
+  object: TextObject,
+  direction: 'ltr' | 'rtl',
+): Pick<TextSceneNode, 'lines' | 'anchor'> {
   const rawLines = object.content.split('\n');
   const lineAdvance = object.fontSize * object.lineHeight;
   const blockHeight = rawLines.length * lineAdvance;
@@ -67,7 +72,8 @@ export function layoutTextLines(object: TextObject, direction: 'ltr' | 'rtl'): P
       : object.verticalAlign === 'MIDDLE'
         ? object.y + (object.height - blockHeight) / 2
         : object.y + object.height - blockHeight;
-  const firstBaseline = blockTop + (lineAdvance - object.fontSize) / 2 + object.fontSize * APPROXIMATE_ASCENT;
+  const firstBaseline =
+    blockTop + (lineAdvance - object.fontSize) / 2 + object.fontSize * APPROXIMATE_ASCENT;
 
   const left = object.x;
   const right = object.x + object.width;
@@ -90,6 +96,10 @@ export function layoutTextLines(object: TextObject, direction: 'ltr' | 'rtl'): P
       break;
   }
 
-  const lines: SceneTextLine[] = rawLines.map((text, index) => ({ text, x, y: firstBaseline + index * lineAdvance }));
+  const lines: SceneTextLine[] = rawLines.map((text, index) => ({
+    text,
+    x,
+    y: firstBaseline + index * lineAdvance,
+  }));
   return { lines, anchor };
 }

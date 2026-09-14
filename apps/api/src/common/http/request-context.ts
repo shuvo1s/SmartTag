@@ -22,7 +22,9 @@ export interface AppRequest extends Request {
   actor?: ActorContext;
 }
 
-export function requestMetadata(request: AppRequest): Pick<ActorContext, 'requestId' | 'ipAddress' | 'userAgent'> {
+export function requestMetadata(
+  request: AppRequest,
+): Pick<ActorContext, 'requestId' | 'ipAddress' | 'userAgent'> {
   const userAgent = request.headers['user-agent'];
   return {
     requestId: typeof request.id === 'string' ? request.id : null,

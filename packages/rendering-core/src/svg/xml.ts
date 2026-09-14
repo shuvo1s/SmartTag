@@ -21,7 +21,9 @@ export function fmt(value: number): string {
 }
 
 /** Builds ` name="value"` pairs, skipping null/undefined/false. Values are escaped. */
-export function attrs(values: Readonly<Record<string, string | number | boolean | null | undefined>>): string {
+export function attrs(
+  values: Readonly<Record<string, string | number | boolean | null | undefined>>,
+): string {
   let result = '';
   for (const [name, value] of Object.entries(values)) {
     if (value === null || value === undefined || value === false) {

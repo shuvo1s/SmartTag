@@ -15,7 +15,11 @@ const v1ToV2: DocumentMigration = {
   description: 'v1→v2: rename settings.missingDataPolicy to settings.onMissingData',
   migrate: (doc) => {
     const { missingDataPolicy, ...settings } = doc.settings as Record<string, unknown>;
-    return { ...doc, schemaVersion: 2, settings: { ...settings, onMissingData: missingDataPolicy } };
+    return {
+      ...doc,
+      schemaVersion: 2,
+      settings: { ...settings, onMissingData: missingDataPolicy },
+    };
   },
 };
 
@@ -31,7 +35,11 @@ const v2ToV3: DocumentMigration = {
 };
 
 describe('createDocumentMigrator', () => {
-  const migrator = createDocumentMigrator({ currentVersion: 3, minimumVersion: 1, migrations: [v2ToV3, v1ToV2] });
+  const migrator = createDocumentMigrator({
+    currentVersion: 3,
+    minimumVersion: 1,
+    migrations: [v2ToV3, v1ToV2],
+  });
 
   it('applies single-step migrations in order until the current version', () => {
     const result = migrator.migrate(minimalDocument());
@@ -63,15 +71,22 @@ describe('createDocumentMigrator', () => {
   });
 
   it('refuses input without an integer schemaVersion', () => {
-    expect(migrator.migrate({ pages: [] })).toMatchObject({ ok: false, issue: { code: 'INVALID_STRUCTURE' } });
+    expect(migrator.migrate({ pages: [] })).toMatchObject({
+      ok: false,
+      issue: { code: 'INVALID_STRUCTURE' },
+    });
   });
 
   it('verifies the registry forms a complete chain', () => {
-    expect(() => createDocumentMigrator({ currentVersion: 3, minimumVersion: 1, migrations: [v1ToV2] })).toThrow(
-      /Missing migration from schema version 2/,
-    );
     expect(() =>
-      createDocumentMigrator({ currentVersion: 2, minimumVersion: 1, migrations: [v1ToV2, v1ToV2] }),
+      createDocumentMigrator({ currentVersion: 3, minimumVersion: 1, migrations: [v1ToV2] }),
+    ).toThrow(/Missing migration from schema version 2/);
+    expect(() =>
+      createDocumentMigrator({
+        currentVersion: 2,
+        minimumVersion: 1,
+        migrations: [v1ToV2, v1ToV2],
+      }),
     ).toThrow(/Duplicate migration/);
     expect(() =>
       createDocumentMigrator({
@@ -102,6 +117,8 @@ describe('production migration registry', () => {
     const result = parseDesignDocument(minimalDocument());
     expect(result.valid).toBe(true);
     expect(result.originalSchemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(parseDesignDocument({ schemaVersion: 99 }).errors[0]?.code).toBe('UNSUPPORTED_SCHEMA_VERSION');
+    expect(parseDesignDocument({ schemaVersion: 99 }).errors[0]?.code).toBe(
+      'UNSUPPORTED_SCHEMA_VERSION',
+    );
   });
 });

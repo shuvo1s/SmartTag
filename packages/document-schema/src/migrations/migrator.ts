@@ -67,8 +67,15 @@ export function createDocumentMigrator(options: DocumentMigratorOptions): Docume
   return {
     currentVersion,
     migrate(input: unknown): DocumentMigrationResult {
-      if (!isPlainObject(input) || typeof input.schemaVersion !== 'number' || !Number.isInteger(input.schemaVersion)) {
-        return failure('INVALID_STRUCTURE', 'Design document must be an object with an integer schemaVersion');
+      if (
+        !isPlainObject(input) ||
+        typeof input.schemaVersion !== 'number' ||
+        !Number.isInteger(input.schemaVersion)
+      ) {
+        return failure(
+          'INVALID_STRUCTURE',
+          'Design document must be an object with an integer schemaVersion',
+        );
       }
       const fromVersion = input.schemaVersion;
       if (fromVersion > currentVersion || fromVersion < minimumVersion) {
@@ -84,11 +91,16 @@ export function createDocumentMigrator(options: DocumentMigratorOptions): Docume
       for (let version = fromVersion; version < currentVersion; version += 1) {
         const migration = byFromVersion.get(version);
         if (!migration) {
-          return failure('UNSUPPORTED_SCHEMA_VERSION', `No migration from schema version ${version}`);
+          return failure(
+            'UNSUPPORTED_SCHEMA_VERSION',
+            `No migration from schema version ${version}`,
+          );
         }
         document = migration.migrate(document);
         if (document.schemaVersion !== migration.toVersion) {
-          throw new Error(`Migration "${migration.description}" did not set schemaVersion to ${migration.toVersion}`);
+          throw new Error(
+            `Migration "${migration.description}" did not set schemaVersion to ${migration.toVersion}`,
+          );
         }
         applied.push(migration.description);
       }
@@ -97,6 +109,9 @@ export function createDocumentMigrator(options: DocumentMigratorOptions): Docume
   };
 }
 
-function failure(code: 'INVALID_STRUCTURE' | 'UNSUPPORTED_SCHEMA_VERSION', message: string): DocumentMigrationResult {
+function failure(
+  code: 'INVALID_STRUCTURE' | 'UNSUPPORTED_SCHEMA_VERSION',
+  message: string,
+): DocumentMigrationResult {
   return { ok: false, issue: { code, severity: 'error', path: ['schemaVersion'], message } };
 }

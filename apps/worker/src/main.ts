@@ -36,11 +36,18 @@ function main(): void {
         throw error instanceof PermanentJobError ? new UnrecoverableError(error.message) : error;
       }
     },
-    { connection: { url: config.redisUrl, maxRetriesPerRequest: null }, concurrency: config.concurrency },
+    {
+      connection: { url: config.redisUrl, maxRetriesPerRequest: null },
+      concurrency: config.concurrency,
+    },
   );
 
-  worker.on('ready', () => logger.info({ queue: QUEUE_NAMES.SYSTEM, concurrency: config.concurrency }, 'worker ready'));
-  worker.on('failed', (job, error) => logger.error({ jobId: job?.id, jobName: job?.name, err: error }, 'job failed'));
+  worker.on('ready', () =>
+    logger.info({ queue: QUEUE_NAMES.SYSTEM, concurrency: config.concurrency }, 'worker ready'),
+  );
+  worker.on('failed', (job, error) =>
+    logger.error({ jobId: job?.id, jobName: job?.name, err: error }, 'job failed'),
+  );
   worker.on('error', (error) => logger.error({ err: error }, 'worker error'));
 
   const shutdown = async (signal: string) => {

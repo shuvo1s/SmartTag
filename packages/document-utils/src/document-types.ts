@@ -30,7 +30,9 @@ export function isDocumentTypeAvailable(type: DocumentType): boolean {
   return DOCUMENT_TYPE_DEFINITIONS[type].availability === 'AVAILABLE';
 }
 
-export function listDocumentTypes(availability?: DocumentTypeAvailability): DocumentTypeDefinition[] {
+export function listDocumentTypes(
+  availability?: DocumentTypeAvailability,
+): DocumentTypeDefinition[] {
   return DOCUMENT_TYPES.map((type) => DOCUMENT_TYPE_DEFINITIONS[type]).filter(
     (definition) => availability === undefined || definition.availability === availability,
   );

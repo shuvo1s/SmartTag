@@ -25,7 +25,8 @@ export const templateKeys = {
 export function useTemplates(query: Partial<ListTemplatesQuery>) {
   return useQuery({
     queryKey: templateKeys.list(query),
-    queryFn: ({ signal }) => apiRequest<PaginatedResponse<TemplateDto>>('/templates', { query, signal }),
+    queryFn: ({ signal }) =>
+      apiRequest<PaginatedResponse<TemplateDto>>('/templates', { query, signal }),
     placeholderData: keepPreviousData,
   });
 }
@@ -40,14 +41,16 @@ export function useTemplate(templateId: string) {
 export function useTemplateVersions(templateId: string) {
   return useQuery({
     queryKey: templateKeys.versions(templateId),
-    queryFn: ({ signal }) => apiRequest<TemplateVersionSummaryDto[]>(`/templates/${templateId}/versions`, { signal }),
+    queryFn: ({ signal }) =>
+      apiRequest<TemplateVersionSummaryDto[]>(`/templates/${templateId}/versions`, { signal }),
   });
 }
 
 export function useTemplateVersion(versionId: string | null) {
   return useQuery({
     queryKey: templateKeys.version(versionId ?? 'none'),
-    queryFn: ({ signal }) => apiRequest<TemplateVersionDetailDto>(`/template-versions/${versionId}`, { signal }),
+    queryFn: ({ signal }) =>
+      apiRequest<TemplateVersionDetailDto>(`/template-versions/${versionId}`, { signal }),
     enabled: versionId !== null,
   });
 }
@@ -62,7 +65,8 @@ export function useCustomers() {
 export function useCreateTemplate() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateTemplateRequest) => apiRequest<TemplateDto>('/templates', { json: input }),
+    mutationFn: (input: CreateTemplateRequest) =>
+      apiRequest<TemplateDto>('/templates', { json: input }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: templateKeys.all }),
   });
 }
@@ -70,7 +74,8 @@ export function useCreateTemplate() {
 export function useUpdateTemplate(templateId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: UpdateTemplateRequest) => apiRequest<TemplateDto>(`/templates/${templateId}`, { method: 'PATCH', json: input }),
+    mutationFn: (input: UpdateTemplateRequest) =>
+      apiRequest<TemplateDto>(`/templates/${templateId}`, { method: 'PATCH', json: input }),
     onSuccess: (template) => {
       queryClient.setQueryData(templateKeys.detail(templateId), template);
       return queryClient.invalidateQueries({ queryKey: ['templates', 'list'] });
@@ -90,8 +95,16 @@ export function useCreateVersion(templateId: string) {
 export function useTransitionVersion() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ versionId, targetStatus }: { versionId: string; targetStatus: TemplateVersionStatus }) =>
-      apiRequest<TemplateVersionDetailDto>(`/template-versions/${versionId}/transitions`, { json: { targetStatus } }),
+    mutationFn: ({
+      versionId,
+      targetStatus,
+    }: {
+      versionId: string;
+      targetStatus: TemplateVersionStatus;
+    }) =>
+      apiRequest<TemplateVersionDetailDto>(`/template-versions/${versionId}/transitions`, {
+        json: { targetStatus },
+      }),
     onSuccess: (version) => {
       queryClient.setQueryData(templateKeys.version(version.id), version);
       return queryClient.invalidateQueries({ queryKey: templateKeys.all });

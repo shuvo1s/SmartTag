@@ -23,14 +23,22 @@ export function DashboardView() {
 
   return (
     <>
-      <PageHeader title={`Welcome, ${session.user.displayName}`} description={`You are working in ${session.activeOrganization.name}.`} />
+      <PageHeader
+        title={`Welcome, ${session.user.displayName}`}
+        description={`You are working in ${session.activeOrganization.name}.`}
+      />
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardBody>
             <p className="text-sm text-slate-500">Active templates</p>
-            <p className="mt-1 text-3xl font-semibold text-slate-900">{active.data?.total ?? '—'}</p>
+            <p className="mt-1 text-3xl font-semibold text-slate-900">
+              {active.data?.total ?? '—'}
+            </p>
             {canReadTemplates ? (
-              <Link href="/templates" className={`${buttonStyles({ variant: 'ghost', size: 'sm' })} mt-2 -ml-3`}>
+              <Link
+                href="/templates"
+                className={`${buttonStyles({ variant: 'ghost', size: 'sm' })} mt-2 -ml-3`}
+              >
                 View templates →
               </Link>
             ) : null}
@@ -39,7 +47,9 @@ export function DashboardView() {
         <Card>
           <CardBody>
             <p className="text-sm text-slate-500">Customers</p>
-            <p className="mt-1 text-3xl font-semibold text-slate-900">{customers.data?.length ?? '—'}</p>
+            <p className="mt-1 text-3xl font-semibold text-slate-900">
+              {customers.data?.length ?? '—'}
+            </p>
           </CardBody>
         </Card>
         <Card>
@@ -56,13 +66,18 @@ export function DashboardView() {
         </Card>
       </div>
       <Card className="mt-6">
-        <CardHeader title="Platform capabilities" description="What is available in this release." />
+        <CardHeader
+          title="Platform capabilities"
+          description="What is available in this release."
+        />
         <CardBody>
           <ul className="divide-y divide-slate-100">
             {PLATFORM_STATUS.map((item) => (
               <li key={item.area} className="flex items-center justify-between py-2 text-sm">
                 <span className="text-slate-700">{item.area}</span>
-                <Badge tone={item.status === 'Available' ? 'success' : 'neutral'}>{item.status}</Badge>
+                <Badge tone={item.status === 'Available' ? 'success' : 'neutral'}>
+                  {item.status}
+                </Badge>
               </li>
             ))}
           </ul>

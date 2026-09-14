@@ -23,7 +23,11 @@ export interface TemplateIdentity {
  */
 @Injectable()
 export class TemplateDocumentService {
-  async validateForTemplate(db: DbClient, template: TemplateIdentity, input: unknown): Promise<DesignDocument> {
+  async validateForTemplate(
+    db: DbClient,
+    template: TemplateIdentity,
+    input: unknown,
+  ): Promise<DesignDocument> {
     const parsed = parseDesignDocument(input);
     if (!parsed.valid) {
       throw AppError.invalidDocument(parsed.errors);
@@ -67,19 +71,32 @@ export class TemplateDocumentService {
   }
 }
 
-function assetReferenceIssues(document: DesignDocument, assetId: string): DocumentValidationIssue[] {
+function assetReferenceIssues(
+  document: DesignDocument,
+  assetId: string,
+): DocumentValidationIssue[] {
   const issues: DocumentValidationIssue[] = [];
   const message = `Asset ${assetId} does not exist in this organization`;
   document.pages.forEach((page, pageIndex) =>
     page.objects.forEach((object, objectIndex) => {
       if (object.type === 'image' && object.assetId === assetId) {
-        issues.push({ code: 'UNKNOWN_ASSET_REFERENCE', severity: 'error', path: ['pages', pageIndex, 'objects', objectIndex, 'assetId'], message });
+        issues.push({
+          code: 'UNKNOWN_ASSET_REFERENCE',
+          severity: 'error',
+          path: ['pages', pageIndex, 'objects', objectIndex, 'assetId'],
+          message,
+        });
       }
     }),
   );
   document.dataSchema.fields.forEach((field, fieldIndex) => {
     if (field.type === 'image' && field.defaultValue === assetId) {
-      issues.push({ code: 'UNKNOWN_ASSET_REFERENCE', severity: 'error', path: ['dataSchema', 'fields', fieldIndex, 'defaultValue'], message });
+      issues.push({
+        code: 'UNKNOWN_ASSET_REFERENCE',
+        severity: 'error',
+        path: ['dataSchema', 'fields', fieldIndex, 'defaultValue'],
+        message,
+      });
     }
   });
   return issues;

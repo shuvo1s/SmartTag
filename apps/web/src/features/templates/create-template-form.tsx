@@ -4,7 +4,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { MEASUREMENT_UNITS } from '@smarttag/document-schema';
 import type { DocumentTypeDefinition } from '@smarttag/document-utils';
 import { CreateTemplateRequestSchema, type CustomerDto } from '@smarttag/shared-types';
-import { Alert, Button, Card, CardBody, CardHeader, Field, Input, Select, Textarea } from '@smarttag/ui';
+import {
+  Alert,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Field,
+  Input,
+  Select,
+  Textarea,
+} from '@smarttag/ui';
 import { useForm, useWatch, type FieldPath } from 'react-hook-form';
 import type { z } from 'zod';
 import { ApiError, describeError } from '@/lib/api-client';
@@ -12,7 +22,12 @@ import { ApiError, describeError } from '@/lib/api-client';
 type FormInput = z.input<typeof CreateTemplateRequestSchema>;
 type FormOutput = z.output<typeof CreateTemplateRequestSchema>;
 
-const UNIT_LABELS = { mm: 'Millimetres (mm)', cm: 'Centimetres (cm)', in: 'Inches (in)', pt: 'Points (pt)' } as const;
+const UNIT_LABELS = {
+  mm: 'Millimetres (mm)',
+  cm: 'Centimetres (cm)',
+  in: 'Inches (in)',
+  pt: 'Points (pt)',
+} as const;
 
 export interface CreateTemplateFormProps {
   customers: readonly CustomerDto[];
@@ -27,7 +42,12 @@ const nullableId = (value: unknown) => (value === '' || value === undefined ? nu
  * Validates with the SAME Zod contract the API uses. Server-side field errors (e.g. duplicate
  * code, unknown brand) are mapped back onto the matching fields.
  */
-export function CreateTemplateForm({ customers, documentTypes, onSubmit, onCancel }: CreateTemplateFormProps) {
+export function CreateTemplateForm({
+  customers,
+  documentTypes,
+  onSubmit,
+  onCancel,
+}: CreateTemplateFormProps) {
   const {
     register,
     control,
@@ -70,15 +90,25 @@ export function CreateTemplateForm({ customers, documentTypes, onSubmit, onCance
 
   return (
     <form noValidate onSubmit={(event) => void submit(event)} className="space-y-6">
-      {errors.root?.server?.message ? <Alert tone="danger">{errors.root.server.message}</Alert> : null}
+      {errors.root?.server?.message ? (
+        <Alert tone="danger">{errors.root.server.message}</Alert>
+      ) : null}
 
       <Card>
-        <CardHeader title="Template" description="The code is a stable identifier used by integrations and cannot be changed later." />
+        <CardHeader
+          title="Template"
+          description="The code is a stable identifier used by integrations and cannot be changed later."
+        />
         <CardBody className="grid gap-4 sm:grid-cols-2">
           <Field label="Template name" error={errors.name?.message} required>
             <Input {...register('name')} />
           </Field>
-          <Field label="Template code" error={errors.code?.message} hint="e.g. HT-50X90-BASIC" required>
+          <Field
+            label="Template code"
+            error={errors.code?.message}
+            hint="e.g. HT-50X90-BASIC"
+            required
+          >
             <Input className="font-mono uppercase" {...register('code')} />
           </Field>
           <Field label="Document type" error={errors.documentType?.message} required>
@@ -107,7 +137,10 @@ export function CreateTemplateForm({ customers, documentTypes, onSubmit, onCance
               </Select>
             </Field>
             <Field label="Brand" error={errors.brandId?.message}>
-              <Select disabled={!customerId || brands.length === 0} {...register('brandId', { setValueAs: nullableId })}>
+              <Select
+                disabled={!customerId || brands.length === 0}
+                {...register('brandId', { setValueAs: nullableId })}
+              >
                 <option value="">No brand</option>
                 {brands.map((brand) => (
                   <option key={brand.id} value={brand.id}>
@@ -139,16 +172,50 @@ export function CreateTemplateForm({ customers, documentTypes, onSubmit, onCance
             </Select>
           </Field>
           <Field label={`Trim width (${unit})`} error={errors.dimensions?.width?.message} required>
-            <Input type="number" step="any" inputMode="decimal" {...register('dimensions.width', { valueAsNumber: true })} />
+            <Input
+              type="number"
+              step="any"
+              inputMode="decimal"
+              {...register('dimensions.width', { valueAsNumber: true })}
+            />
           </Field>
-          <Field label={`Trim height (${unit})`} error={errors.dimensions?.height?.message} required>
-            <Input type="number" step="any" inputMode="decimal" {...register('dimensions.height', { valueAsNumber: true })} />
+          <Field
+            label={`Trim height (${unit})`}
+            error={errors.dimensions?.height?.message}
+            required
+          >
+            <Input
+              type="number"
+              step="any"
+              inputMode="decimal"
+              {...register('dimensions.height', { valueAsNumber: true })}
+            />
           </Field>
-          <Field label={`Bleed (${unit})`} error={errors.dimensions?.bleed?.message} hint="Artwork extension beyond the cut line" required>
-            <Input type="number" step="any" inputMode="decimal" {...register('dimensions.bleed', { valueAsNumber: true })} />
+          <Field
+            label={`Bleed (${unit})`}
+            error={errors.dimensions?.bleed?.message}
+            hint="Artwork extension beyond the cut line"
+            required
+          >
+            <Input
+              type="number"
+              step="any"
+              inputMode="decimal"
+              {...register('dimensions.bleed', { valueAsNumber: true })}
+            />
           </Field>
-          <Field label={`Safe margin (${unit})`} error={errors.dimensions?.safeMargin?.message} hint="Keep critical content inside" required>
-            <Input type="number" step="any" inputMode="decimal" {...register('dimensions.safeMargin', { valueAsNumber: true })} />
+          <Field
+            label={`Safe margin (${unit})`}
+            error={errors.dimensions?.safeMargin?.message}
+            hint="Keep critical content inside"
+            required
+          >
+            <Input
+              type="number"
+              step="any"
+              inputMode="decimal"
+              {...register('dimensions.safeMargin', { valueAsNumber: true })}
+            />
           </Field>
           <fieldset className="space-y-1.5">
             <legend className="text-sm font-medium text-slate-800">Sides</legend>

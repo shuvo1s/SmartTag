@@ -36,7 +36,10 @@ export const LOG_REDACT_PATHS = [
           redact: { paths: LOG_REDACT_PATHS, censor: '[REDACTED]' },
           genReqId: (request: IncomingMessage, response: ServerResponse) => {
             const incoming = request.headers[REQUEST_ID_HEADER];
-            const id = typeof incoming === 'string' && INCOMING_REQUEST_ID.test(incoming) ? incoming : randomUUID();
+            const id =
+              typeof incoming === 'string' && INCOMING_REQUEST_ID.test(incoming)
+                ? incoming
+                : randomUUID();
             response.setHeader(REQUEST_ID_HEADER, id);
             return id;
           },

@@ -9,7 +9,9 @@ export class HealthController {
 
   @Public()
   @Get()
-  async health(@Res({ passthrough: true }) response: Response): Promise<{ status: 'ok' | 'degraded'; database: 'up' | 'down' }> {
+  async health(
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ status: 'ok' | 'degraded'; database: 'up' | 'down' }> {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       return { status: 'ok', database: 'up' };

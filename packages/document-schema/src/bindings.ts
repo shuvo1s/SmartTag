@@ -39,14 +39,18 @@ export type BindablePropertyKind = 'TEXT' | 'SYMBOL_DATA' | 'IMAGE_ASSET' | 'VIS
  * Which data field types may feed each property kind. Formatting/conversion of e.g. numbers to
  * text happens in the binding resolver, never in the renderer.
  */
-export const BINDING_COMPATIBILITY: Readonly<Record<BindablePropertyKind, readonly DataFieldType[]>> =
-  {
-    TEXT: ['string', 'number', 'decimal', 'date', 'url'],
-    SYMBOL_DATA: ['string', 'number', 'decimal', 'url'],
-    IMAGE_ASSET: ['image'],
-    VISIBILITY: ['boolean'],
-  };
+export const BINDING_COMPATIBILITY: Readonly<
+  Record<BindablePropertyKind, readonly DataFieldType[]>
+> = {
+  TEXT: ['string', 'number', 'decimal', 'date', 'url'],
+  SYMBOL_DATA: ['string', 'number', 'decimal', 'url'],
+  IMAGE_ASSET: ['image'],
+  VISIBILITY: ['boolean'],
+};
 
-export function isFieldTypeCompatible(kind: BindablePropertyKind, fieldType: DataFieldType): boolean {
+export function isFieldTypeCompatible(
+  kind: BindablePropertyKind,
+  fieldType: DataFieldType,
+): boolean {
   return BINDING_COMPATIBILITY[kind].includes(fieldType);
 }

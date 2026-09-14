@@ -11,7 +11,10 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { assertValidDesignDocument } from '@smarttag/document-schema';
 import { createBlankDesignDocument, createTextObject, rgb } from '@smarttag/document-utils';
-import { SAMPLE_BRAND_LOGO_ASSET_ID, createSampleHangTagDocument } from '@smarttag/document-utils/fixtures';
+import {
+  SAMPLE_BRAND_LOGO_ASSET_ID,
+  createSampleHangTagDocument,
+} from '@smarttag/document-utils/fixtures';
 import type { Role } from '@smarttag/shared-types';
 import { createHash } from 'node:crypto';
 import { loadAppConfig } from '../src/config/env.schema';
@@ -41,7 +44,9 @@ if (password.length < 12) {
   throw new Error('SEED_USER_PASSWORD must be set (at least 12 characters)');
 }
 
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: config.database.url }) });
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: config.database.url }),
+});
 const hasher = new PasswordHasher();
 const storage = createObjectStorage(config.objectStorage);
 
@@ -49,11 +54,19 @@ async function upsertOrganization(slug: string, name: string) {
   return prisma.organization.upsert({ where: { slug }, update: {}, create: { slug, name } });
 }
 
-async function upsertUser(email: string, displayName: string, memberships: { organizationId: string; roles: Role[] }[]) {
+async function upsertUser(
+  email: string,
+  displayName: string,
+  memberships: { organizationId: string; roles: Role[] }[],
+) {
   const user = await prisma.user.upsert({
     where: { email },
     update: {},
-    create: { email, displayName, passwordCredential: { create: { passwordHash: await hasher.hash(password) } } },
+    create: {
+      email,
+      displayName,
+      passwordCredential: { create: { passwordHash: await hasher.hash(password) } },
+    },
   });
   for (const { organizationId, roles } of memberships) {
     const membership = await prisma.membership.upsert({
@@ -69,7 +82,13 @@ async function upsertUser(email: string, displayName: string, memberships: { org
   return user;
 }
 
-async function upsertCustomer(organizationId: string, createdById: string, code: string, name: string, brands: [string, string][]) {
+async function upsertCustomer(
+  organizationId: string,
+  createdById: string,
+  code: string,
+  name: string,
+  brands: [string, string][],
+) {
   const customer = await prisma.customer.upsert({
     where: { organizationId_code: { organizationId, code } },
     update: {},
@@ -80,7 +99,13 @@ async function upsertCustomer(organizationId: string, createdById: string, code:
     const brand = await prisma.brand.upsert({
       where: { customerId_code: { customerId: customer.id, code: brandCode } },
       update: {},
-      create: { organizationId, customerId: customer.id, code: brandCode, name: brandName, createdById },
+      create: {
+        organizationId,
+        customerId: customer.id,
+        code: brandCode,
+        name: brandName,
+        createdById,
+      },
     });
     brandIds[brandCode] = brand.id;
   }
@@ -129,22 +154,42 @@ async function main() {
     { organizationId: yunusco.id, roles: ['ORG_ADMIN'] },
     { organizationId: acme.id, roles: ['VIEWER'] },
   ]);
-  const designer = await upsertUser('designer@smarttag.local', 'Demo Designer', [{ organizationId: yunusco.id, roles: ['DESIGNER'] }]);
-  const approver = await upsertUser('approver@smarttag.local', 'Demo Approver', [{ organizationId: yunusco.id, roles: ['APPROVER', 'QA'] }]);
-  await upsertUser('viewer@smarttag.local', 'Demo Viewer', [{ organizationId: yunusco.id, roles: ['VIEWER'] }]);
-  const acmeAdmin = await upsertUser('acme.admin@smarttag.local', 'Acme Org Admin', [{ organizationId: acme.id, roles: ['ORG_ADMIN'] }]);
-
-  const demoApparel = await upsertCustomer(yunusco.id, admin.id, 'DEMO-APPAREL', 'Demo Apparel Co.', [
-    ['DEMO-ACTIVE', 'Demo Active'],
-    ['DEMO-KIDS', 'Demo Kids'],
+  const designer = await upsertUser('designer@smarttag.local', 'Demo Designer', [
+    { organizationId: yunusco.id, roles: ['DESIGNER'] },
   ]);
-  const acmeRetail = await upsertCustomer(acme.id, acmeAdmin.id, 'ACME-RETAIL', 'Acme Retail', [['ACME-BASICS', 'Acme Basics']]);
+  const approver = await upsertUser('approver@smarttag.local', 'Demo Approver', [
+    { organizationId: yunusco.id, roles: ['APPROVER', 'QA'] },
+  ]);
+  await upsertUser('viewer@smarttag.local', 'Demo Viewer', [
+    { organizationId: yunusco.id, roles: ['VIEWER'] },
+  ]);
+  const acmeAdmin = await upsertUser('acme.admin@smarttag.local', 'Acme Org Admin', [
+    { organizationId: acme.id, roles: ['ORG_ADMIN'] },
+  ]);
+
+  const demoApparel = await upsertCustomer(
+    yunusco.id,
+    admin.id,
+    'DEMO-APPAREL',
+    'Demo Apparel Co.',
+    [
+      ['DEMO-ACTIVE', 'Demo Active'],
+      ['DEMO-KIDS', 'Demo Kids'],
+    ],
+  );
+  const acmeRetail = await upsertCustomer(acme.id, acmeAdmin.id, 'ACME-RETAIL', 'Acme Retail', [
+    ['ACME-BASICS', 'Acme Basics'],
+  ]);
 
   await seedLogoAsset(yunusco.id, admin.id);
 
   // --- Yunusco: sample hang tag with an approved v1 and a draft v2 --------------------------
   const code = 'HT-DEMO-50X90';
-  if (!(await prisma.template.findUnique({ where: { organizationId_code: { organizationId: yunusco.id, code } } }))) {
+  if (
+    !(await prisma.template.findUnique({
+      where: { organizationId_code: { organizationId: yunusco.id, code } },
+    }))
+  ) {
     const template = await prisma.template.create({
       data: {
         organizationId: yunusco.id,
@@ -160,7 +205,9 @@ async function main() {
       },
     });
 
-    const v1Document = assertValidDesignDocument(createSampleHangTagDocument({ documentId: template.id }));
+    const v1Document = assertValidDesignDocument(
+      createSampleHangTagDocument({ documentId: template.id }),
+    );
     const v1 = await prisma.templateVersion.create({
       data: {
         organizationId: yunusco.id,
@@ -173,16 +220,25 @@ async function main() {
     });
     // Walk the lifecycle so the database guard trigger validates every step.
     const submittedAt = new Date(Date.now() - 2 * 86_400_000);
-    await prisma.templateVersion.update({ where: { id: v1.id }, data: { status: 'IN_REVIEW', submittedAt, submittedById: designer.id } });
     await prisma.templateVersion.update({
       where: { id: v1.id },
-      data: { status: 'APPROVED', approvedAt: new Date(submittedAt.getTime() + 3_600_000), approvedById: approver.id },
+      data: { status: 'IN_REVIEW', submittedAt, submittedById: designer.id },
+    });
+    await prisma.templateVersion.update({
+      where: { id: v1.id },
+      data: {
+        status: 'APPROVED',
+        approvedAt: new Date(submittedAt.getTime() + 3_600_000),
+        approvedById: approver.id,
+      },
     });
 
     const v2Document = structuredClone(v1Document);
     const front = v2Document.pages[0]!;
     front.objects = front.objects.map((object) =>
-      object.id === 'front-product-name' && object.type === 'text' ? { ...object, fontSize: 12, textColor: rgb('#0B6E4F') } : object,
+      object.id === 'front-product-name' && object.type === 'text'
+        ? { ...object, fontSize: 12, textColor: rgb('#0B6E4F') }
+        : object,
     );
     front.objects.push(
       createTextObject({
@@ -216,7 +272,11 @@ async function main() {
 
   // --- Acme (second tenant): a template that Yunusco users must never see -------------------
   const acmeCode = 'ACME-HT-BASIC';
-  if (!(await prisma.template.findUnique({ where: { organizationId_code: { organizationId: acme.id, code: acmeCode } } }))) {
+  if (
+    !(await prisma.template.findUnique({
+      where: { organizationId_code: { organizationId: acme.id, code: acmeCode } },
+    }))
+  ) {
     const template = await prisma.template.create({
       data: {
         organizationId: acme.id,
@@ -253,11 +313,20 @@ async function main() {
         createdById: acmeAdmin.id,
       },
     });
-    await prisma.template.update({ where: { id: template.id }, data: { currentVersionId: version.id } });
+    await prisma.template.update({
+      where: { id: template.id },
+      data: { currentVersionId: version.id },
+    });
   }
 
   console.log('Seed complete. Development users (password from SEED_USER_PASSWORD):');
-  for (const email of ['admin@smarttag.local', 'designer@smarttag.local', 'approver@smarttag.local', 'viewer@smarttag.local', 'acme.admin@smarttag.local']) {
+  for (const email of [
+    'admin@smarttag.local',
+    'designer@smarttag.local',
+    'approver@smarttag.local',
+    'viewer@smarttag.local',
+    'acme.admin@smarttag.local',
+  ]) {
     console.log(`  - ${email}`);
   }
 }

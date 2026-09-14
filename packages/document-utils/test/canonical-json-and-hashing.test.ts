@@ -24,7 +24,9 @@ function reverseKeyOrder(value: unknown): unknown {
 
 describe('canonicalizeJson', () => {
   it('sorts object keys recursively and removes whitespace', () => {
-    expect(canonicalizeJson({ b: 1, a: { d: [3, 1], c: null } })).toBe('{"a":{"c":null,"d":[3,1]},"b":1}');
+    expect(canonicalizeJson({ b: 1, a: { d: [3, 1], c: null } })).toBe(
+      '{"a":{"c":null,"d":[3,1]},"b":1}',
+    );
   });
 
   it('is independent of key insertion order', () => {
@@ -50,7 +52,7 @@ describe('canonicalizeJson', () => {
   });
 
   it('sorts keys by UTF-16 code units, as RFC 8785 requires', () => {
-    expect(canonicalizeJson({ '€': 1, '\r': 2, 'ö': 3, '1': 4, a: 5, '😀': 6, 'ﬂ': 7 })).toBe(
+    expect(canonicalizeJson({ '€': 1, '\r': 2, ö: 3, '1': 4, a: 5, '😀': 6, ﬂ: 7 })).toBe(
       '{"\\r":2,"1":4,"a":5,"ö":3,"€":1,"😀":6,"ﬂ":7}',
     );
   });
@@ -87,8 +89,12 @@ describe('canonicalizeJson', () => {
 
 describe('SHA-256 hashing', () => {
   it('matches the FIPS 180-2 test vectors', async () => {
-    expect(await sha256Hex('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
-    expect(await sha256Hex('')).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+    expect(await sha256Hex('abc')).toBe(
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    );
+    expect(await sha256Hex('')).toBe(
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    );
   });
 
   it('hashes UTF-8 bytes of non-ASCII text', async () => {
@@ -99,9 +105,9 @@ describe('SHA-256 hashing', () => {
     // Guards against accidental changes to the canonicalization scheme. Changing this value means
     // every stored document hash in every environment changes — that requires a formal migration.
     // Reference digest computed independently with Node's crypto.createHash('sha256').
-    expect(await hashCanonicalJson({ z: [1, 2.5, 'x'], a: { width: 141.73228346456693, unit: 'pt' } })).toBe(
-      'a1ac77d9457cf48f5344e1b53a7893493fbd54ac3be72b62132d2fed21c1d387',
-    );
+    expect(
+      await hashCanonicalJson({ z: [1, 2.5, 'x'], a: { width: 141.73228346456693, unit: 'pt' } }),
+    ).toBe('a1ac77d9457cf48f5344e1b53a7893493fbd54ac3be72b62132d2fed21c1d387');
   });
 });
 
@@ -114,7 +120,9 @@ describe('computeDocumentHash', () => {
     const doc = createSampleHangTagDocument();
     const reordered = reverseKeyOrder(doc) as typeof doc;
     expect(await computeDocumentHash(reordered)).toBe(await computeDocumentHash(doc));
-    expect(await computeDocumentHash(createSampleHangTagDocument())).toBe(await computeDocumentHash(doc));
+    expect(await computeDocumentHash(createSampleHangTagDocument())).toBe(
+      await computeDocumentHash(doc),
+    );
   });
 
   it('changes when any design property changes', async () => {

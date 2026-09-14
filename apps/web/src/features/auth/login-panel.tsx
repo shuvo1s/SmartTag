@@ -6,7 +6,9 @@ import { useLogin } from './session';
 
 /** Only allow same-site relative redirects after login (prevents open redirects). */
 export function safeNextPath(value: string | null): string {
-  return value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\') ? value : '/dashboard';
+  return value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')
+    ? value
+    : '/dashboard';
 }
 
 export function LoginPanel() {

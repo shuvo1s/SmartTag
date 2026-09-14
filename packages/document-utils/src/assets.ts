@@ -35,14 +35,24 @@ export interface EffectiveResolution {
   readonly effectivePpi: number;
 }
 
-type Placement = Pick<ImageObject, 'width' | 'height' | 'fitMode'> & { readonly crop: ImageCrop | null };
+type Placement = Pick<ImageObject, 'width' | 'height' | 'fitMode'> & {
+  readonly crop: ImageCrop | null;
+};
 
 /**
  * Effective print resolution of a placed raster image, from the asset's pixel dimensions and the
  * physical (point) size at which the visible part of the image is printed.
  */
-export function computeEffectiveResolution(source: SourcePixelSize, placement: Placement): EffectiveResolution {
-  if (source.widthPx <= 0 || source.heightPx <= 0 || placement.width <= 0 || placement.height <= 0) {
+export function computeEffectiveResolution(
+  source: SourcePixelSize,
+  placement: Placement,
+): EffectiveResolution {
+  if (
+    source.widthPx <= 0 ||
+    source.heightPx <= 0 ||
+    placement.width <= 0 ||
+    placement.height <= 0
+  ) {
     throw new RangeError('Source pixel size and placement size must be positive');
   }
   const crop = placement.crop ?? { x: 0, y: 0, width: 1, height: 1 };
@@ -60,7 +70,8 @@ export function computeEffectiveResolution(source: SourcePixelSize, placement: P
     case 'COVER': {
       const scaleX = placement.width / visibleWidthPx;
       const scaleY = placement.height / visibleHeightPx;
-      const scale = placement.fitMode === 'CONTAIN' ? Math.min(scaleX, scaleY) : Math.max(scaleX, scaleY);
+      const scale =
+        placement.fitMode === 'CONTAIN' ? Math.min(scaleX, scaleY) : Math.max(scaleX, scaleY);
       printedWidthPt = visibleWidthPx * scale;
       printedHeightPt = visibleHeightPx * scale;
       break;

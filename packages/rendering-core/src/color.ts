@@ -26,13 +26,20 @@ function cmykToHex({ c, m, y, k }: CmykColor): string {
 }
 
 function mixWithWhite(hex: string, amount: number): string {
-  const [r, g, b] = [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16)) as [number, number, number];
+  const [r, g, b] = [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16)) as [
+    number,
+    number,
+    number,
+  ];
   const mix = (value: number) => Math.round(255 - (255 - value) * amount);
   return toHex(mix(r), mix(g), mix(b));
 }
 
 function toHex(r: number, g: number, b: number): string {
-  return `#${[r, g, b].map((value) => value.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+  return `#${[r, g, b]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase()}`;
 }
 
 export function strokeToScene(stroke: Stroke): SceneStroke {

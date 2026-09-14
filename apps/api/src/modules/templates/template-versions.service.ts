@@ -14,10 +14,17 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { prepareDocumentForStorage } from './document-storage';
 import { TemplateDocumentService } from './template-document.service';
-import { toVersionDetailDto, toVersionSummaryDto, versionDetailSelect, versionSummarySelect } from './template.mappers';
+import {
+  toVersionDetailDto,
+  toVersionSummaryDto,
+  versionDetailSelect,
+  versionSummarySelect,
+} from './template.mappers';
 import { planStatusTransition } from './version-status-policy';
 
-type CreateVersionCommand = Omit<CreateTemplateVersionRequest, 'changeSummary'> & { changeSummary: string };
+type CreateVersionCommand = Omit<CreateTemplateVersionRequest, 'changeSummary'> & {
+  changeSummary: string;
+};
 
 @Injectable()
 export class TemplateVersionsService {
@@ -29,7 +36,10 @@ export class TemplateVersionsService {
     private readonly audit: AuditService,
   ) {}
 
-  async listForTemplate(actor: ActorContext, templateId: string): Promise<TemplateVersionSummaryDto[]> {
+  async listForTemplate(
+    actor: ActorContext,
+    templateId: string,
+  ): Promise<TemplateVersionSummaryDto[]> {
     await this.requireTemplate(actor, templateId);
     const rows = await this.prisma.templateVersion.findMany({
       where: { templateId, organizationId: actor.organizationId },
@@ -55,7 +65,11 @@ export class TemplateVersionsService {
    * incrementing Template.latestVersionNumber inside the transaction: the row lock serialises
    * concurrent creators, and the (template_id, version_number) unique constraint backs it up.
    */
-  async create(actor: ActorContext, templateId: string, input: CreateVersionCommand): Promise<TemplateVersionDetailDto> {
+  async create(
+    actor: ActorContext,
+    templateId: string,
+    input: CreateVersionCommand,
+  ): Promise<TemplateVersionDetailDto> {
     const template = await this.requireTemplate(actor, templateId);
     if (template.status === 'ARCHIVED') {
       throw AppError.conflict('Archived templates cannot receive new versions');
@@ -83,12 +97,20 @@ export class TemplateVersionsService {
         },
         select: { id: true },
       });
-      await tx.template.update({ where: { id: templateId }, data: { currentVersionId: version.id } });
+      await tx.template.update({
+        where: { id: templateId },
+        data: { currentVersionId: version.id },
+      });
       await this.audit.recordForActor(tx, actor, {
         action: 'TEMPLATE_VERSION_CREATED',
         resourceType: 'TEMPLATE_VERSION',
         resourceId: version.id,
-        metadata: { templateId, versionNumber: latestVersionNumber, documentHash: prepared.documentHash, basedOnVersionId },
+        metadata: {
+          templateId,
+          versionNumber: latestVersionNumber,
+          documentHash: prepared.documentHash,
+          basedOnVersionId,
+        },
       });
       return version.id;
     });
@@ -97,22 +119,40 @@ export class TemplateVersionsService {
   }
 
   /** Replaces the content of a DRAFT version, guarded by optimistic concurrency. */
-  async updateDraft(actor: ActorContext, versionId: string, input: UpdateTemplateVersionRequest): Promise<TemplateVersionDetailDto> {
+  async updateDraft(
+    actor: ActorContext,
+    versionId: string,
+    input: UpdateTemplateVersionRequest,
+  ): Promise<TemplateVersionDetailDto> {
     const version = await this.prisma.templateVersion.findFirst({
       where: { id: versionId, organizationId: actor.organizationId },
-      select: { id: true, status: true, revision: true, template: { select: { id: true, organizationId: true, documentType: true } } },
+      select: {
+        id: true,
+        status: true,
+        revision: true,
+        template: { select: { id: true, organizationId: true, documentType: true } },
+      },
     });
     if (!version) {
       throw AppError.notFound('Template version');
     }
     this.assertEditable(version.status, version.revision, input.expectedRevision);
 
-    const document = await this.documents.validateForTemplate(this.prisma, version.template, input.document);
+    const document = await this.documents.validateForTemplate(
+      this.prisma,
+      version.template,
+      input.document,
+    );
     const prepared = await prepareDocumentForStorage(document);
 
     await this.prisma.$transaction(async (tx) => {
       const result = await tx.templateVersion.updateMany({
-        where: { id: versionId, organizationId: actor.organizationId, status: 'DRAFT', revision: input.expectedRevision },
+        where: {
+          id: versionId,
+          organizationId: actor.organizationId,
+          status: 'DRAFT',
+          revision: input.expectedRevision,
+        },
         data: {
           ...prepared,
           ...(input.changeSummary !== undefined && { changeSummary: input.changeSummary }),
@@ -121,11 +161,20 @@ export class TemplateVersionsService {
       });
       if (result.count === 0) {
         // Lost a race: re-read to report the precise reason.
-        const current = await tx.templateVersion.findFirstOrThrow({ where: { id: versionId }, select: { status: true, revision: true } });
+        const current = await tx.templateVersion.findFirstOrThrow({
+          where: { id: versionId },
+          select: { status: true, revision: true },
+        });
         this.assertEditable(current.status, current.revision, input.expectedRevision);
-        throw new AppError('VERSION_CONFLICT', 'The version was modified concurrently. Reload and try again.');
+        throw new AppError(
+          'VERSION_CONFLICT',
+          'The version was modified concurrently. Reload and try again.',
+        );
       }
-      await tx.template.update({ where: { id: version.template.id }, data: { updatedById: actor.userId } });
+      await tx.template.update({
+        where: { id: version.template.id },
+        data: { updatedById: actor.userId },
+      });
       await this.audit.recordForActor(tx, actor, {
         action: 'TEMPLATE_VERSION_UPDATED',
         resourceType: 'TEMPLATE_VERSION',
@@ -136,7 +185,11 @@ export class TemplateVersionsService {
     return this.get(actor, versionId);
   }
 
-  async transition(actor: ActorContext, versionId: string, input: TransitionTemplateVersionRequest): Promise<TemplateVersionDetailDto> {
+  async transition(
+    actor: ActorContext,
+    versionId: string,
+    input: TransitionTemplateVersionRequest,
+  ): Promise<TemplateVersionDetailDto> {
     const version = await this.prisma.templateVersion.findFirst({
       where: { id: versionId, organizationId: actor.organizationId },
       select: { id: true, status: true, documentJson: true, documentHash: true },
@@ -151,7 +204,10 @@ export class TemplateVersionsService {
       // Never send for review or approve content whose stored bytes no longer match their hash.
       const actualHash = await hashCanonicalJson(version.documentJson);
       if (actualHash !== version.documentHash) {
-        this.logger.error({ versionId, expected: version.documentHash, actual: actualHash }, 'Template version document hash mismatch');
+        this.logger.error(
+          { versionId, expected: version.documentHash, actual: actualHash },
+          'Template version document hash mismatch',
+        );
         throw new AppError('INTERNAL_ERROR', 'Document integrity check failed');
       }
     }
@@ -162,7 +218,10 @@ export class TemplateVersionsService {
         data: plan.changes,
       });
       if (result.count === 0) {
-        throw new AppError('VERSION_CONFLICT', 'The version status changed concurrently. Reload and try again.');
+        throw new AppError(
+          'VERSION_CONFLICT',
+          'The version status changed concurrently. Reload and try again.',
+        );
       }
       await this.audit.recordForActor(tx, actor, {
         action: 'TEMPLATE_VERSION_STATUS_CHANGED',
@@ -179,21 +238,38 @@ export class TemplateVersionsService {
     return this.get(actor, versionId);
   }
 
-  private assertEditable(status: TemplateVersionDetailDto['status'], revision: number, expectedRevision: number): void {
+  private assertEditable(
+    status: TemplateVersionDetailDto['status'],
+    revision: number,
+    expectedRevision: number,
+  ): void {
     if (!isVersionContentEditable(status)) {
-      throw new AppError('VERSION_IMMUTABLE', `This version is ${status} and cannot be modified. Create a new version instead.`);
+      throw new AppError(
+        'VERSION_IMMUTABLE',
+        `This version is ${status} and cannot be modified. Create a new version instead.`,
+      );
     }
     if (revision !== expectedRevision) {
-      throw new AppError('VERSION_CONFLICT', 'The version was modified by someone else. Reload and try again.', {
-        currentRevision: revision,
-      });
+      throw new AppError(
+        'VERSION_CONFLICT',
+        'The version was modified by someone else. Reload and try again.',
+        {
+          currentRevision: revision,
+        },
+      );
     }
   }
 
   private async requireTemplate(actor: ActorContext, templateId: string) {
     const template = await this.prisma.template.findFirst({
       where: { id: templateId, organizationId: actor.organizationId },
-      select: { id: true, organizationId: true, documentType: true, status: true, currentVersionId: true },
+      select: {
+        id: true,
+        organizationId: true,
+        documentType: true,
+        status: true,
+        currentVersionId: true,
+      },
     });
     if (!template) {
       throw AppError.notFound('Template');
@@ -223,7 +299,9 @@ export class TemplateVersionsService {
       return { source: input.document, basedOnVersionId: base?.id ?? null };
     }
     if (!base) {
-      throw AppError.validation('A document is required', [{ path: 'document', message: 'Provide a document' }]);
+      throw AppError.validation('A document is required', [
+        { path: 'document', message: 'Provide a document' },
+      ]);
     }
     return { source: base.documentJson, basedOnVersionId: base.id };
   }

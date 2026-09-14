@@ -27,7 +27,12 @@ export class SessionService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  async create(db: DbClient, userId: string, organizationId: string, meta: RequestMeta): Promise<NewSession> {
+  async create(
+    db: DbClient,
+    userId: string,
+    organizationId: string,
+    meta: RequestMeta,
+  ): Promise<NewSession> {
     const token = generateSessionToken();
     const now = new Date();
     const session = await db.session.create({
@@ -80,7 +85,10 @@ export class SessionService {
     }
 
     if (now - session.lastSeenAt.getTime() > TOUCH_INTERVAL_MS) {
-      await this.prisma.session.update({ where: { id: session.id }, data: { lastSeenAt: new Date(now) } });
+      await this.prisma.session.update({
+        where: { id: session.id },
+        data: { lastSeenAt: new Date(now) },
+      });
     }
 
     return {
@@ -94,7 +102,11 @@ export class SessionService {
   }
 
   /** Roles of an ACTIVE membership in an ACTIVE organization, or null when there is none. */
-  async activeRoles(userId: string, organizationId: string, db: DbClient = this.prisma): Promise<Role[] | null> {
+  async activeRoles(
+    userId: string,
+    organizationId: string,
+    db: DbClient = this.prisma,
+  ): Promise<Role[] | null> {
     const membership = await db.membership.findFirst({
       where: { userId, organizationId, status: 'ACTIVE', organization: { status: 'ACTIVE' } },
       select: { roles: { select: { role: true }, orderBy: { role: 'asc' } } },
@@ -106,15 +118,24 @@ export class SessionService {
   }
 
   async revoke(db: DbClient, sessionId: string): Promise<void> {
-    await db.session.updateMany({ where: { id: sessionId, revokedAt: null }, data: { revokedAt: new Date() } });
+    await db.session.updateMany({
+      where: { id: sessionId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   async switchOrganization(db: DbClient, sessionId: string, organizationId: string): Promise<void> {
-    await db.session.update({ where: { id: sessionId }, data: { activeOrganizationId: organizationId } });
+    await db.session.update({
+      where: { id: sessionId },
+      data: { activeOrganizationId: organizationId },
+    });
   }
 
   async expiresAt(sessionId: string): Promise<Date> {
-    const session = await this.prisma.session.findUniqueOrThrow({ where: { id: sessionId }, select: { expiresAt: true } });
+    const session = await this.prisma.session.findUniqueOrThrow({
+      where: { id: sessionId },
+      select: { expiresAt: true },
+    });
     return session.expiresAt;
   }
 }

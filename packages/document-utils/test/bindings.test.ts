@@ -1,9 +1,10 @@
-import { validateDesignDocument, type DesignDocument, type TextObject } from '@smarttag/document-schema';
-import { describe, expect, it } from 'vitest';
 import {
-  SAMPLE_HANG_TAG_RECORD,
-  createSampleHangTagDocument,
-} from '../src/fixtures';
+  validateDesignDocument,
+  type DesignDocument,
+  type TextObject,
+} from '@smarttag/document-schema';
+import { describe, expect, it } from 'vitest';
+import { SAMPLE_HANG_TAG_RECORD, createSampleHangTagDocument } from '../src/fixtures';
 import {
   coerceDataValue,
   collectBoundProperties,
@@ -16,7 +17,9 @@ import {
 } from '../src';
 
 function findObject(document: DesignDocument, id: string) {
-  const object = document.pages.flatMap((page) => page.objects).find((candidate) => candidate.id === id);
+  const object = document.pages
+    .flatMap((page) => page.objects)
+    .find((candidate) => candidate.id === id);
   if (!object) throw new Error(`object ${id} not found`);
   return object;
 }
@@ -25,17 +28,35 @@ describe('collectBoundProperties', () => {
   it('lists every field-bound property with its kind', () => {
     const bound = collectBoundProperties(createSampleHangTagDocument());
     expect(bound).toContainEqual({
-      pageId: 'page-front', objectId: 'front-product-name', objectType: 'text', property: 'content', kind: 'TEXT', field: 'product_name',
+      pageId: 'page-front',
+      objectId: 'front-product-name',
+      objectType: 'text',
+      property: 'content',
+      kind: 'TEXT',
+      field: 'product_name',
     });
     expect(bound).toContainEqual({
-      pageId: 'page-front', objectId: 'front-barcode', objectType: 'barcode', property: 'value', kind: 'SYMBOL_DATA', field: 'gtin',
+      pageId: 'page-front',
+      objectId: 'front-barcode',
+      objectType: 'barcode',
+      property: 'value',
+      kind: 'SYMBOL_DATA',
+      field: 'gtin',
     });
     expect(bound.every((entry) => entry.property !== 'visible')).toBe(true);
   });
 
   it('lists distinct bound field keys', () => {
     expect(listBoundFieldKeys(createSampleHangTagDocument())).toEqual([
-      'product_name', 'size', 'currency', 'price', 'gtin', 'style', 'color', 'country_of_origin', 'product_url',
+      'product_name',
+      'size',
+      'currency',
+      'price',
+      'gtin',
+      'style',
+      'color',
+      'country_of_origin',
+      'product_url',
     ]);
   });
 });
@@ -43,7 +64,13 @@ describe('collectBoundProperties', () => {
 describe('resolveDocumentBindings', () => {
   it('replaces bound values with record values and keeps static values untouched', () => {
     const document = createSampleHangTagDocument();
-    const record: DataRecord = { ...SAMPLE_HANG_TAG_RECORD, product_name: 'Linen Shirt', size: 'XL', price: '49.50', gtin: '5901234123457' };
+    const record: DataRecord = {
+      ...SAMPLE_HANG_TAG_RECORD,
+      product_name: 'Linen Shirt',
+      size: 'XL',
+      price: '49.50',
+      gtin: '5901234123457',
+    };
     const { ok, issues, document: resolved } = resolveDocumentBindings(document, record);
 
     expect(issues).toEqual([]);
@@ -55,7 +82,10 @@ describe('resolveDocumentBindings', () => {
     expect(findObject(resolved, 'front-size-label')).toMatchObject({ content: 'SIZE' });
     expect(findObject(resolved, 'back-origin-bn')).toMatchObject({ content: 'বাংলাদেশে তৈরি' });
     // bindings are retained so the resolved document is still traceable to its data schema
-    expect(findObject(resolved, 'front-price').bindings).toEqual({ content: { mode: 'FIELD', field: 'price' }, visible: { mode: 'STATIC' } });
+    expect(findObject(resolved, 'front-price').bindings).toEqual({
+      content: { mode: 'FIELD', field: 'price' },
+      visible: { mode: 'STATIC' },
+    });
     expect(validateDesignDocument(resolved).valid).toBe(true);
   });
 
@@ -68,7 +98,9 @@ describe('resolveDocumentBindings', () => {
 
   it('falls back to field default values', () => {
     const { document, ok } = resolveDocumentBindings(createSampleHangTagDocument(), {
-      ...SAMPLE_HANG_TAG_RECORD, currency: undefined, country_of_origin: null,
+      ...SAMPLE_HANG_TAG_RECORD,
+      currency: undefined,
+      country_of_origin: null,
     });
     expect(ok).toBe(true);
     expect(findObject(document, 'front-currency')).toMatchObject({ content: 'EUR' });
@@ -76,40 +108,76 @@ describe('resolveDocumentBindings', () => {
   });
 
   it('reports missing required values', () => {
-    const { ok, issues } = resolveDocumentBindings(createSampleHangTagDocument(), { ...SAMPLE_HANG_TAG_RECORD, gtin: undefined });
+    const { ok, issues } = resolveDocumentBindings(createSampleHangTagDocument(), {
+      ...SAMPLE_HANG_TAG_RECORD,
+      gtin: undefined,
+    });
     expect(ok).toBe(false);
-    expect(issues).toEqual([expect.objectContaining({ code: 'MISSING_DATA_VALUE', objectId: 'front-barcode', field: 'gtin' })]);
+    expect(issues).toEqual([
+      expect.objectContaining({
+        code: 'MISSING_DATA_VALUE',
+        objectId: 'front-barcode',
+        field: 'gtin',
+      }),
+    ]);
   });
 
   it('reports values that do not match the field type', () => {
-    const { issues } = resolveDocumentBindings(createSampleHangTagDocument(), { ...SAMPLE_HANG_TAG_RECORD, price: '19,99' });
-    expect(issues).toEqual([expect.objectContaining({ code: 'INVALID_DATA_VALUE', field: 'price' })]);
+    const { issues } = resolveDocumentBindings(createSampleHangTagDocument(), {
+      ...SAMPLE_HANG_TAG_RECORD,
+      price: '19,99',
+    });
+    expect(issues).toEqual([
+      expect.objectContaining({ code: 'INVALID_DATA_VALUE', field: 'price' }),
+    ]);
   });
 
   it('applies the EMPTY missing-data policy to optional fields without defaults', () => {
     const document = createSampleHangTagDocument();
     document.settings = { missingDataPolicy: 'EMPTY' };
-    const { ok, document: resolved } = resolveDocumentBindings(document, { ...SAMPLE_HANG_TAG_RECORD, product_url: undefined });
+    const { ok, document: resolved } = resolveDocumentBindings(document, {
+      ...SAMPLE_HANG_TAG_RECORD,
+      product_url: undefined,
+    });
     expect(ok).toBe(true);
     expect(findObject(resolved, 'back-qr')).toMatchObject({ value: '' });
   });
 
   it('applies the FAIL missing-data policy to optional fields without defaults', () => {
-    const { issues } = resolveDocumentBindings(createSampleHangTagDocument(), { ...SAMPLE_HANG_TAG_RECORD, product_url: undefined });
+    const { issues } = resolveDocumentBindings(createSampleHangTagDocument(), {
+      ...SAMPLE_HANG_TAG_RECORD,
+      product_url: undefined,
+    });
     expect(issues.map((issue) => issue.field)).toEqual(['product_url']);
   });
 
   it('binds object visibility to boolean fields', () => {
     const document = createSampleHangTagDocument();
-    document.dataSchema.fields.push({ key: 'show_sale', displayName: 'Show sale badge', type: 'boolean', required: false, defaultValue: false, description: '' });
+    document.dataSchema.fields.push({
+      key: 'show_sale',
+      displayName: 'Show sale badge',
+      type: 'boolean',
+      required: false,
+      defaultValue: false,
+      description: '',
+    });
     const badge: TextObject = createTextObject({
-      id: 'sale-badge', x: 10, y: 10, width: 40, height: 10, zIndex: 99, content: 'SALE',
+      id: 'sale-badge',
+      x: 10,
+      y: 10,
+      width: 40,
+      height: 10,
+      zIndex: 99,
+      content: 'SALE',
       bindings: { visible: fieldBinding('show_sale') },
     });
     document.pages[0]!.objects.push(badge);
     expect(validateDesignDocument(document).valid).toBe(true);
 
-    const shown = resolveDocumentBindings(document, { ...SAMPLE_HANG_TAG_RECORD, show_sale: 'yes' });
+    const shown = resolveDocumentBindings(document, {
+      ...SAMPLE_HANG_TAG_RECORD,
+      show_sale: 'yes',
+    });
     const hidden = resolveDocumentBindings(document, { ...SAMPLE_HANG_TAG_RECORD });
     expect(findObject(shown.document, 'sale-badge').visible).toBe(true);
     expect(findObject(hidden.document, 'sale-badge').visible).toBe(false);
@@ -118,7 +186,14 @@ describe('resolveDocumentBindings', () => {
 
 describe('coerceDataValue', () => {
   const field = <T extends string>(type: T) =>
-    ({ key: 'f', displayName: 'F', type, required: false, defaultValue: null, description: '' }) as never;
+    ({
+      key: 'f',
+      displayName: 'F',
+      type,
+      required: false,
+      defaultValue: null,
+      description: '',
+    }) as never;
 
   it.each([
     ['string', 42, '42'],

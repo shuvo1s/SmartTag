@@ -1,7 +1,16 @@
 'use client';
 
 import { TEMPLATE_STATUSES, type TemplateStatus } from '@smarttag/shared-types';
-import { Alert, Button, Card, Input, PageHeader, Select, Spinner, buttonStyles } from '@smarttag/ui';
+import {
+  Alert,
+  Button,
+  Card,
+  Input,
+  PageHeader,
+  Select,
+  Spinner,
+  buttonStyles,
+} from '@smarttag/ui';
 import Link from 'next/link';
 import { useDeferredValue, useState } from 'react';
 import { describeError } from '@/lib/api-client';
@@ -17,7 +26,12 @@ export function TemplatesListView() {
   const [status, setStatus] = useState<TemplateStatus | ''>('ACTIVE');
   const [page, setPage] = useState(1);
   const deferredSearch = useDeferredValue(search.trim());
-  const templates = useTemplates({ page, pageSize: PAGE_SIZE, search: deferredSearch || undefined, status: status || undefined });
+  const templates = useTemplates({
+    page,
+    pageSize: PAGE_SIZE,
+    search: deferredSearch || undefined,
+    status: status || undefined,
+  });
 
   return (
     <>
@@ -82,13 +96,23 @@ export function TemplatesListView() {
                 {templates.data.total} template{templates.data.total === 1 ? '' : 's'}
               </span>
               <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
                   Previous
                 </Button>
                 <span>
                   Page {templates.data.page} of {templates.data.totalPages}
                 </span>
-                <Button variant="secondary" size="sm" disabled={page >= templates.data.totalPages} onClick={() => setPage((p) => p + 1)}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={page >= templates.data.totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
                   Next
                 </Button>
               </div>

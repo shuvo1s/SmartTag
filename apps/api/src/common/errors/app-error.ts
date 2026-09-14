@@ -37,7 +37,11 @@ export class AppError extends Error {
   }
 
   static validation(message: string, fieldErrors: readonly ApiFieldError[] = []): AppError {
-    return new AppError('VALIDATION_ERROR', message, fieldErrors.length > 0 ? { fieldErrors } : null);
+    return new AppError(
+      'VALIDATION_ERROR',
+      message,
+      fieldErrors.length > 0 ? { fieldErrors } : null,
+    );
   }
 
   static unauthenticated(message = 'Authentication is required'): AppError {
@@ -60,10 +64,17 @@ export class AppError extends Error {
     return new AppError('CONFLICT', message);
   }
 
-  static invalidDocument(issues: readonly DocumentValidationIssue[], message = 'The design document is invalid'): AppError {
+  static invalidDocument(
+    issues: readonly DocumentValidationIssue[],
+    message = 'The design document is invalid',
+  ): AppError {
     const unsupported = issues.some((issue) => issue.code === 'UNSUPPORTED_SCHEMA_VERSION');
-    return new AppError(unsupported ? 'UNSUPPORTED_SCHEMA_VERSION' : 'INVALID_DOCUMENT', unsupported ? 'The design document schema version is not supported' : message, {
-      documentIssues: issues,
-    });
+    return new AppError(
+      unsupported ? 'UNSUPPORTED_SCHEMA_VERSION' : 'INVALID_DOCUMENT',
+      unsupported ? 'The design document schema version is not supported' : message,
+      {
+        documentIssues: issues,
+      },
+    );
   }
 }

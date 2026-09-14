@@ -3,7 +3,15 @@ import { hashCanonicalJson, mmToPt } from '@smarttag/document-utils';
 import type { TemplateDto, TemplateVersionDetailDto } from '@smarttag/shared-types';
 import type TestAgent from 'supertest/lib/agent';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { API, createTestApp, hangTagRequest, loginAs, resetDatabase, seedTenants, type TestApp } from './helpers';
+import {
+  API,
+  createTestApp,
+  hangTagRequest,
+  loginAs,
+  resetDatabase,
+  seedTenants,
+  type TestApp,
+} from './helpers';
 
 describe('templates & customers API', () => {
   let t: TestApp;
@@ -29,7 +37,9 @@ describe('templates & customers API', () => {
   async function createCustomerWithBrand(agent: TestAgent, code = 'APPAREL', brandCode = 'ACTIVE') {
     const customer = await agent.post(`${API}/customers`).send({ code, name: `${code} Co.` });
     expect(customer.status).toBe(201);
-    const brand = await agent.post(`${API}/customers/${customer.body.id}/brands`).send({ code: brandCode, name: brandCode });
+    const brand = await agent
+      .post(`${API}/customers/${customer.body.id}/brands`)
+      .send({ code: brandCode, name: brandCode });
     expect(brand.status).toBe(201);
     return { customerId: customer.body.id as string, brandId: brand.body.id as string };
   }
@@ -52,11 +62,17 @@ describe('templates & customers API', () => {
         brand: { id: brandId, code: 'ACTIVE' },
         currentVersion: { versionNumber: 1, status: 'DRAFT' },
       });
-      expect(template.currentVersion!.summary).toMatchObject({ pageCount: 2, pageSides: ['FRONT', 'BACK'], displayUnit: 'mm' });
+      expect(template.currentVersion!.summary).toMatchObject({
+        pageCount: 2,
+        pageSides: ['FRONT', 'BACK'],
+        displayUnit: 'mm',
+      });
       expect(template.currentVersion!.summary.widthPt).toBeCloseTo(mmToPt(50), 10);
       expect(template.currentVersion!.summary.bleedPt.top).toBeCloseTo(mmToPt(3), 10);
 
-      const version = (await designer.get(`${API}/template-versions/${template.currentVersion!.id}`)).body as TemplateVersionDetailDto;
+      const version = (
+        await designer.get(`${API}/template-versions/${template.currentVersion!.id}`)
+      ).body as TemplateVersionDetailDto;
       const parsed = parseDesignDocument(version.document);
       expect(parsed.valid).toBe(true);
       const document = parsed.document as DesignDocument;
@@ -65,14 +81,25 @@ describe('templates & customers API', () => {
       // The hash stored in the database matches the document as read back from PostgreSQL (jsonb round trip).
       expect(await hashCanonicalJson(version.document)).toBe(version.documentHash);
 
-      const actions = await t.prisma.auditEvent.findMany({ where: { organizationId: tenants.orgA.id }, orderBy: { occurredAt: 'asc' } });
-      expect(actions.map((event) => event.action)).toEqual(expect.arrayContaining(['TEMPLATE_CREATED', 'TEMPLATE_VERSION_CREATED']));
+      const actions = await t.prisma.auditEvent.findMany({
+        where: { organizationId: tenants.orgA.id },
+        orderBy: { occurredAt: 'asc' },
+      });
+      expect(actions.map((event) => event.action)).toEqual(
+        expect.arrayContaining(['TEMPLATE_CREATED', 'TEMPLATE_VERSION_CREATED']),
+      );
     });
 
     it('returns field errors for invalid input', async () => {
-      const response = await designer.post(`${API}/templates`).send(
-        hangTagRequest({ name: '', code: 'x', dimensions: { unit: 'mm', width: 0, height: 90, bleed: -2, safeMargin: 3 } }),
-      );
+      const response = await designer
+        .post(`${API}/templates`)
+        .send(
+          hangTagRequest({
+            name: '',
+            code: 'x',
+            dimensions: { unit: 'mm', width: 0, height: 90, bleed: -2, safeMargin: 3 },
+          }),
+        );
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe('VALIDATION_ERROR');
       expect(response.body.error.details.fieldErrors.map((e: { path: string }) => e.path)).toEqual(
@@ -81,14 +108,18 @@ describe('templates & customers API', () => {
     });
 
     it('rejects document types that are not available yet', async () => {
-      const response = await designer.post(`${API}/templates`).send(hangTagRequest({ documentType: 'RFID_LABEL' }));
+      const response = await designer
+        .post(`${API}/templates`)
+        .send(hangTagRequest({ documentType: 'RFID_LABEL' }));
       expect(response.status).toBe(400);
       expect(response.body.error.details.fieldErrors[0]).toMatchObject({ path: 'documentType' });
     });
 
     it('rejects duplicate codes within the organization', async () => {
       expect((await designer.post(`${API}/templates`).send(hangTagRequest())).status).toBe(201);
-      const duplicate = await designer.post(`${API}/templates`).send(hangTagRequest({ code: 'ht-basic' }));
+      const duplicate = await designer
+        .post(`${API}/templates`)
+        .send(hangTagRequest({ code: 'ht-basic' }));
       expect(duplicate.status).toBe(409);
       expect(duplicate.body.error.code).toBe('CONFLICT');
     });
@@ -100,7 +131,9 @@ describe('templates & customers API', () => {
         .post(`${API}/templates`)
         .send(hangTagRequest({ customerId: first.customerId, brandId: second.brandId }));
       expect(response.status).toBe(400);
-      expect(response.body.error.details.fieldErrors).toEqual([{ path: 'brandId', message: 'Brand not found for the selected customer' }]);
+      expect(response.body.error.details.fieldErrors).toEqual([
+        { path: 'brandId', message: 'Brand not found for the selected customer' },
+      ]);
     });
 
     it('is forbidden for roles without template:create', async () => {
@@ -114,7 +147,13 @@ describe('templates & customers API', () => {
   describe('GET /templates', () => {
     it('lists with pagination, search and filters', async () => {
       for (const code of ['HT-ALPHA', 'HT-BETA', 'HT-GAMMA']) {
-        expect((await designer.post(`${API}/templates`).send(hangTagRequest({ code, name: `Tag ${code}` }))).status).toBe(201);
+        expect(
+          (
+            await designer
+              .post(`${API}/templates`)
+              .send(hangTagRequest({ code, name: `Tag ${code}` }))
+          ).status,
+        ).toBe(201);
       }
       const page = await viewer.get(`${API}/templates`).query({ page: 1, pageSize: 2 });
       expect(page.status).toBe(200);
@@ -132,34 +171,56 @@ describe('templates & customers API', () => {
     });
 
     it('returns 404 for unknown or malformed template ids', async () => {
-      expect((await viewer.get(`${API}/templates/0192f0a0-5b1e-7c3d-8e4f-000000000000`)).status).toBe(404);
+      expect(
+        (await viewer.get(`${API}/templates/0192f0a0-5b1e-7c3d-8e4f-000000000000`)).status,
+      ).toBe(404);
       expect((await viewer.get(`${API}/templates/not-a-uuid`)).status).toBe(404);
     });
   });
 
   describe('PATCH /templates/:id', () => {
     it('updates metadata and audits the change', async () => {
-      const created = (await designer.post(`${API}/templates`).send(hangTagRequest())).body as TemplateDto;
-      const response = await designer.patch(`${API}/templates/${created.id}`).send({ name: 'Renamed tag', description: 'Updated' });
+      const created = (await designer.post(`${API}/templates`).send(hangTagRequest()))
+        .body as TemplateDto;
+      const response = await designer
+        .patch(`${API}/templates/${created.id}`)
+        .send({ name: 'Renamed tag', description: 'Updated' });
       expect(response.status).toBe(200);
-      expect(response.body).toMatchObject({ name: 'Renamed tag', description: 'Updated', code: 'HT-BASIC' });
-      const audit = await t.prisma.auditEvent.findFirstOrThrow({ where: { action: 'TEMPLATE_UPDATED' } });
+      expect(response.body).toMatchObject({
+        name: 'Renamed tag',
+        description: 'Updated',
+        code: 'HT-BASIC',
+      });
+      const audit = await t.prisma.auditEvent.findFirstOrThrow({
+        where: { action: 'TEMPLATE_UPDATED' },
+      });
       expect(audit.metadata).toEqual({ changedFields: ['name', 'description'] });
     });
 
     it('requires template:archive to change status and records the status change', async () => {
-      const created = (await designer.post(`${API}/templates`).send(hangTagRequest())).body as TemplateDto;
-      expect((await designer.patch(`${API}/templates/${created.id}`).send({ status: 'ARCHIVED' })).status).toBe(403);
+      const created = (await designer.post(`${API}/templates`).send(hangTagRequest()))
+        .body as TemplateDto;
+      expect(
+        (await designer.patch(`${API}/templates/${created.id}`).send({ status: 'ARCHIVED' }))
+          .status,
+      ).toBe(403);
 
-      const archived = await admin.patch(`${API}/templates/${created.id}`).send({ status: 'ARCHIVED' });
+      const archived = await admin
+        .patch(`${API}/templates/${created.id}`)
+        .send({ status: 'ARCHIVED' });
       expect(archived.status).toBe(200);
       expect(archived.body.status).toBe('ARCHIVED');
-      expect(await t.prisma.auditEvent.count({ where: { action: 'TEMPLATE_STATUS_CHANGED' } })).toBe(1);
+      expect(
+        await t.prisma.auditEvent.count({ where: { action: 'TEMPLATE_STATUS_CHANGED' } }),
+      ).toBe(1);
     });
 
     it('rejects immutable or unknown fields', async () => {
-      const created = (await designer.post(`${API}/templates`).send(hangTagRequest())).body as TemplateDto;
-      const response = await designer.patch(`${API}/templates/${created.id}`).send({ code: 'NEW-CODE' });
+      const created = (await designer.post(`${API}/templates`).send(hangTagRequest()))
+        .body as TemplateDto;
+      const response = await designer
+        .patch(`${API}/templates/${created.id}`)
+        .send({ code: 'NEW-CODE' });
       expect(response.status).toBe(400);
     });
   });
@@ -172,14 +233,24 @@ describe('templates & customers API', () => {
       expect(list.body).toHaveLength(1);
       expect(list.body[0]).toMatchObject({ code: 'APPAREL', brands: [{ code: 'ACTIVE' }] });
 
-      const duplicate = await admin.post(`${API}/customers`).send({ code: 'apparel', name: 'Again' });
+      const duplicate = await admin
+        .post(`${API}/customers`)
+        .send({ code: 'apparel', name: 'Again' });
       expect(duplicate.status).toBe(409);
-      expect(await t.prisma.auditEvent.count({ where: { action: { in: ['CUSTOMER_CREATED', 'BRAND_CREATED'] } } })).toBe(2);
+      expect(
+        await t.prisma.auditEvent.count({
+          where: { action: { in: ['CUSTOMER_CREATED', 'BRAND_CREATED'] } },
+        }),
+      ).toBe(2);
     });
 
     it('requires customer:manage to create customers', async () => {
-      expect((await designer.post(`${API}/customers`).send({ code: 'NOPE', name: 'Nope' })).status).toBe(403);
-      expect((await viewer.post(`${API}/customers`).send({ code: 'NOPE', name: 'Nope' })).status).toBe(403);
+      expect(
+        (await designer.post(`${API}/customers`).send({ code: 'NOPE', name: 'Nope' })).status,
+      ).toBe(403);
+      expect(
+        (await viewer.post(`${API}/customers`).send({ code: 'NOPE', name: 'Nope' })).status,
+      ).toBe(403);
     });
   });
 });

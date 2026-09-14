@@ -16,7 +16,9 @@
       "default": "./dist/fixtures/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "node ../../scripts/clean.mjs dist && tsc -p tsconfig.build.json",
@@ -25,5 +27,7 @@
     "lint": "eslint .",
     "test": "vitest run"
   },
-  "dependencies": { "@smarttag/document-schema": "0.1.0" }
+  "dependencies": {
+    "@smarttag/document-schema": "0.1.0"
+  }
 }

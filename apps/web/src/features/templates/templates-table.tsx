@@ -7,7 +7,12 @@ import { TemplateStatusBadge, VersionStatusBadge } from './status-badges';
 
 export function TemplatesTable({ templates }: { templates: readonly TemplateDto[] }) {
   if (templates.length === 0) {
-    return <EmptyState title="No templates found" description="Create a template or adjust the filters." />;
+    return (
+      <EmptyState
+        title="No templates found"
+        description="Create a template or adjust the filters."
+      />
+    );
   }
   return (
     <Table>
@@ -30,13 +35,24 @@ export function TemplatesTable({ templates }: { templates: readonly TemplateDto[
             <tr key={template.id} className="hover:bg-slate-50">
               <Td className="font-mono text-xs text-slate-900">{template.code}</Td>
               <Td>
-                <Link href={`/templates/${template.id}`} className="font-medium text-brand-700 hover:underline">
+                <Link
+                  href={`/templates/${template.id}`}
+                  className="font-medium text-brand-700 hover:underline"
+                >
                   {template.name}
                 </Link>
               </Td>
               <Td>{DOCUMENT_TYPE_DEFINITIONS[template.documentType].label}</Td>
-              <Td>{template.customer ? `${template.customer.name}${template.brand ? ` / ${template.brand.name}` : ''}` : '—'}</Td>
-              <Td>{summary ? formatDimensions(summary.widthPt, summary.heightPt, summary.displayUnit) : '—'}</Td>
+              <Td>
+                {template.customer
+                  ? `${template.customer.name}${template.brand ? ` / ${template.brand.name}` : ''}`
+                  : '—'}
+              </Td>
+              <Td>
+                {summary
+                  ? formatDimensions(summary.widthPt, summary.heightPt, summary.displayUnit)
+                  : '—'}
+              </Td>
               <Td>
                 {template.currentVersion ? (
                   <span className="inline-flex items-center gap-2">

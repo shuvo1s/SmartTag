@@ -30,7 +30,10 @@ function cookieOptions(config: AppConfig): CookieOptions {
 }
 
 export function setSessionCookie(response: Response, config: AppConfig, token: string): void {
-  response.cookie(config.auth.cookieName, token, { ...cookieOptions(config), maxAge: config.auth.sessionTtlMs });
+  response.cookie(config.auth.cookieName, token, {
+    ...cookieOptions(config),
+    maxAge: config.auth.sessionTtlMs,
+  });
 }
 
 export function clearSessionCookie(response: Response, config: AppConfig): void {

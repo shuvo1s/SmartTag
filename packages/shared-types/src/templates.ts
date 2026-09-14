@@ -10,7 +10,10 @@ import {
 import { PAGE_LAYOUTS, toPoints } from '@smarttag/document-utils';
 import { z } from 'zod';
 import { PaginationQuerySchema } from './pagination';
-import { TEMPLATE_VERSION_STATUSES, type TemplateVersionStatus } from './template-version-lifecycle';
+import {
+  TEMPLATE_VERSION_STATUSES,
+  type TemplateVersionStatus,
+} from './template-version-lifecycle';
 
 export const TEMPLATE_STATUSES = ['ACTIVE', 'ARCHIVED'] as const;
 export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number];
@@ -24,7 +27,12 @@ export const MIN_DOCUMENT_EDGE_PT = toPoints(5, 'mm');
 export const MAX_BLEED_PT = 72;
 
 const requiredNumber = (label: string) =>
-  z.number({ error: (issue) => (issue.input === undefined || Number.isNaN(issue.input) ? `${label} is required` : `${label} must be a number`) });
+  z.number({
+    error: (issue) =>
+      issue.input === undefined || Number.isNaN(issue.input)
+        ? `${label} is required`
+        : `${label} must be a number`,
+  });
 
 export const TemplateDimensionsInputSchema = z
   .object({
@@ -38,16 +46,32 @@ export const TemplateDimensionsInputSchema = z
     const pt = (n: number) => toPoints(n, value.unit);
     for (const edge of ['width', 'height'] as const) {
       if (pt(value[edge]) < MIN_DOCUMENT_EDGE_PT) {
-        ctx.addIssue({ code: 'custom', path: [edge], message: `${edge === 'width' ? 'Width' : 'Height'} must be at least 5 mm` });
+        ctx.addIssue({
+          code: 'custom',
+          path: [edge],
+          message: `${edge === 'width' ? 'Width' : 'Height'} must be at least 5 mm`,
+        });
       } else if (pt(value[edge]) > MAX_LENGTH_PT) {
-        ctx.addIssue({ code: 'custom', path: [edge], message: `${edge === 'width' ? 'Width' : 'Height'} cannot exceed 200 in` });
+        ctx.addIssue({
+          code: 'custom',
+          path: [edge],
+          message: `${edge === 'width' ? 'Width' : 'Height'} cannot exceed 200 in`,
+        });
       }
     }
     if (pt(value.bleed) > MAX_BLEED_PT) {
-      ctx.addIssue({ code: 'custom', path: ['bleed'], message: 'Bleed cannot exceed 25.4 mm (1 in)' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['bleed'],
+        message: 'Bleed cannot exceed 25.4 mm (1 in)',
+      });
     }
     if (value.safeMargin * 2 >= Math.min(value.width, value.height)) {
-      ctx.addIssue({ code: 'custom', path: ['safeMargin'], message: 'Safe margin leaves no usable area' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['safeMargin'],
+        message: 'Safe margin leaves no usable area',
+      });
     }
   });
 export type TemplateDimensionsInput = z.infer<typeof TemplateDimensionsInputSchema>;
@@ -59,7 +83,9 @@ export const CreateTemplateRequestSchema = z
       .string()
       .trim()
       .toUpperCase()
-      .regex(TEMPLATE_CODE_PATTERN, { error: 'Use 2–64 letters, digits, "-" or "_" (e.g. HT-50X90-BASIC)' }),
+      .regex(TEMPLATE_CODE_PATTERN, {
+        error: 'Use 2–64 letters, digits, "-" or "_" (e.g. HT-50X90-BASIC)',
+      }),
     description: z.string().trim().max(2000).default(''),
     customerId: z.uuid().nullable().default(null),
     brandId: z.uuid().nullable().default(null),
@@ -69,7 +95,11 @@ export const CreateTemplateRequestSchema = z
   })
   .superRefine((value, ctx) => {
     if (value.brandId !== null && value.customerId === null) {
-      ctx.addIssue({ code: 'custom', path: ['customerId'], message: 'Select the customer that owns the brand' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['customerId'],
+        message: 'Select the customer that owns the brand',
+      });
     }
   });
 export type CreateTemplateRequest = z.input<typeof CreateTemplateRequestSchema>;
@@ -84,7 +114,9 @@ export const UpdateTemplateRequestSchema = z
     status: z.enum(TEMPLATE_STATUSES).optional(),
   })
   .strict()
-  .refine((value) => Object.keys(value).length > 0, { error: 'Provide at least one field to update' });
+  .refine((value) => Object.keys(value).length > 0, {
+    error: 'Provide at least one field to update',
+  });
 export type UpdateTemplateRequest = z.infer<typeof UpdateTemplateRequestSchema>;
 
 export const ListTemplatesQuerySchema = PaginationQuerySchema.extend({
@@ -115,7 +147,9 @@ export const TransitionTemplateVersionRequestSchema = z.object({
   targetStatus: z.enum(TEMPLATE_VERSION_STATUSES),
   comment: z.string().trim().max(1000).optional(),
 });
-export type TransitionTemplateVersionRequest = z.infer<typeof TransitionTemplateVersionRequestSchema>;
+export type TransitionTemplateVersionRequest = z.infer<
+  typeof TransitionTemplateVersionRequestSchema
+>;
 
 // ---------------------------------------------------------------------------------------------
 // Response DTOs (dates are ISO-8601 strings)

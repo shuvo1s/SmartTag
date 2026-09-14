@@ -87,7 +87,10 @@ function serializeObject(value: object, path: string, ancestors: Set<object>): s
           throw new CanonicalJsonError('Object members must not be undefined', memberPath);
         }
         if (LONE_SURROGATE.test(key)) {
-          throw new CanonicalJsonError('Object key contains an unpaired UTF-16 surrogate', memberPath);
+          throw new CanonicalJsonError(
+            'Object key contains an unpaired UTF-16 surrogate',
+            memberPath,
+          );
         }
         return `${JSON.stringify(key)}:${serialize(member, memberPath, ancestors)}`;
       });

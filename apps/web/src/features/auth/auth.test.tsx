@@ -22,11 +22,21 @@ describe('LoginForm', () => {
     await userEvent.type(screen.getByLabelText(/Email/), '  Designer@SmartTag.local ');
     await userEvent.type(screen.getByLabelText(/Password/), 'secret-password');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ email: 'designer@smarttag.local', password: 'secret-password' }));
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({
+        email: 'designer@smarttag.local',
+        password: 'secret-password',
+      }),
+    );
   });
 
   it('shows the server error', () => {
-    render(<LoginForm onSubmit={vi.fn()} error={new ApiError(401, 'UNAUTHENTICATED', 'Invalid email or password', null, null)} />);
+    render(
+      <LoginForm
+        onSubmit={vi.fn()}
+        error={new ApiError(401, 'UNAUTHENTICATED', 'Invalid email or password', null, null)}
+      />,
+    );
     expect(screen.getByRole('alert')).toHaveTextContent('Invalid email or password');
   });
 });

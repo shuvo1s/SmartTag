@@ -21,13 +21,15 @@ export const RequirePermissions = (...permissions: [Permission, ...Permission[]]
   SetMetadata(REQUIRED_PERMISSIONS_KEY, permissions);
 
 /** Injects the authenticated ActorContext. */
-export const CurrentActor = createParamDecorator((_data: unknown, context: ExecutionContext): ActorContext => {
-  const request = context.switchToHttp().getRequest<AppRequest>();
-  if (!request.actor) {
-    throw AppError.unauthenticated();
-  }
-  return request.actor;
-});
+export const CurrentActor = createParamDecorator(
+  (_data: unknown, context: ExecutionContext): ActorContext => {
+    const request = context.switchToHttp().getRequest<AppRequest>();
+    if (!request.actor) {
+      throw AppError.unauthenticated();
+    }
+    return request.actor;
+  },
+);
 
 export function assertPermission(actor: ActorContext, permission: Permission): void {
   if (!actor.permissions.has(permission)) {

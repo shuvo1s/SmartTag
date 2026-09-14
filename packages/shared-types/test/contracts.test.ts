@@ -26,7 +26,9 @@ const validTemplate: CreateTemplateRequest = {
 function fieldErrors(input: unknown): Record<string, string> {
   const result = CreateTemplateRequestSchema.safeParse(input);
   if (result.success) return {};
-  return Object.fromEntries(result.error.issues.map((issue) => [issue.path.join('.'), issue.message]));
+  return Object.fromEntries(
+    result.error.issues.map((issue) => [issue.path.join('.'), issue.message]),
+  );
 }
 
 describe('RBAC policy', () => {
@@ -47,7 +49,9 @@ describe('RBAC policy', () => {
   });
 
   it('keeps viewers read-only and separates design from approval', () => {
-    expect(permissionsForRoles(['VIEWER']).every((permission) => permission.endsWith(':read'))).toBe(true);
+    expect(
+      permissionsForRoles(['VIEWER']).every((permission) => permission.endsWith(':read')),
+    ).toBe(true);
     expect(permissionsForRoles(['DESIGNER'])).not.toContain('template-version:approve');
     expect(permissionsForRoles(['APPROVER'])).toContain('template-version:approve');
     expect(permissionsForRoles(['APPROVER'])).not.toContain('template-version:edit-draft');
@@ -71,11 +75,12 @@ describe('template version lifecycle', () => {
   });
 
   it('filters available transitions by permission', () => {
-    expect(availableTransitions('IN_REVIEW', permissionsForRoles(['QA'])).map((t) => t.to)).toEqual(['DRAFT']);
-    expect(availableTransitions('IN_REVIEW', permissionsForRoles(['APPROVER'])).map((t) => t.to)).toEqual([
-      'DRAFT',
-      'APPROVED',
-    ]);
+    expect(availableTransitions('IN_REVIEW', permissionsForRoles(['QA'])).map((t) => t.to)).toEqual(
+      ['DRAFT'],
+    );
+    expect(
+      availableTransitions('IN_REVIEW', permissionsForRoles(['APPROVER'])).map((t) => t.to),
+    ).toEqual(['DRAFT', 'APPROVED']);
     expect(availableTransitions('DRAFT', permissionsForRoles(['VIEWER']))).toEqual([]);
   });
 
@@ -111,20 +116,32 @@ describe('CreateTemplateRequestSchema', () => {
     [{ width: 6000 }, 'dimensions.width', 'Width cannot exceed 200 in'],
     [{ safeMargin: 25 }, 'dimensions.safeMargin', 'Safe margin leaves no usable area'],
   ])('rejects invalid dimensions %p', (patch, path, message) => {
-    expect(fieldErrors({ ...validTemplate, dimensions: { ...validTemplate.dimensions, ...patch } })[path]).toBe(message);
+    expect(
+      fieldErrors({ ...validTemplate, dimensions: { ...validTemplate.dimensions, ...patch } })[
+        path
+      ],
+    ).toBe(message);
   });
 
   it('checks physical limits in the chosen unit', () => {
     expect(
-      fieldErrors({ ...validTemplate, dimensions: { unit: 'in', width: 0.1, height: 3, bleed: 0, safeMargin: 0 } }),
+      fieldErrors({
+        ...validTemplate,
+        dimensions: { unit: 'in', width: 0.1, height: 3, bleed: 0, safeMargin: 0 },
+      }),
     ).toHaveProperty(['dimensions.width']);
     expect(
-      fieldErrors({ ...validTemplate, dimensions: { unit: 'in', width: 2, height: 3.5, bleed: 0.125, safeMargin: 0.125 } }),
+      fieldErrors({
+        ...validTemplate,
+        dimensions: { unit: 'in', width: 2, height: 3.5, bleed: 0.125, safeMargin: 0.125 },
+      }),
     ).toEqual({});
   });
 
   it('requires a customer when a brand is selected', () => {
-    expect(fieldErrors({ ...validTemplate, brandId: '0192f0a0-5b1e-7c3d-8e4f-1a2b3c4d5e6f' })).toEqual({
+    expect(
+      fieldErrors({ ...validTemplate, brandId: '0192f0a0-5b1e-7c3d-8e4f-1a2b3c4d5e6f' }),
+    ).toEqual({
       customerId: 'Select the customer that owns the brand',
     });
   });
@@ -137,9 +154,9 @@ describe('CreateTemplateRequestSchema', () => {
 
 describe('other contracts', () => {
   it('normalises login emails', () => {
-    expect(LoginRequestSchema.parse({ email: '  Admin@SmartTag.Local ', password: 'x' }).email).toBe(
-      'admin@smarttag.local',
-    );
+    expect(
+      LoginRequestSchema.parse({ email: '  Admin@SmartTag.Local ', password: 'x' }).email,
+    ).toBe('admin@smarttag.local');
   });
 
   it('rejects empty or unknown template updates', () => {
@@ -149,7 +166,11 @@ describe('other contracts', () => {
   });
 
   it('recognises API error envelopes', () => {
-    expect(isApiErrorBody({ error: { code: 'NOT_FOUND', message: 'x', details: null, requestId: null } })).toBe(true);
+    expect(
+      isApiErrorBody({
+        error: { code: 'NOT_FOUND', message: 'x', details: null, requestId: null },
+      }),
+    ).toBe(true);
     expect(isApiErrorBody({ message: 'x' })).toBe(false);
   });
 });

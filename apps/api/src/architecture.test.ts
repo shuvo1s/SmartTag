@@ -9,7 +9,14 @@ import {
   TEMPLATE_VERSION_STATUSES,
 } from '@smarttag/shared-types';
 import { describe, expect, it } from 'vitest';
-import { AssetType, DocumentType, RecordStatus, Role, TemplateStatus, TemplateVersionStatus } from './generated/prisma/enums';
+import {
+  AssetType,
+  DocumentType,
+  RecordStatus,
+  Role,
+  TemplateStatus,
+  TemplateVersionStatus,
+} from './generated/prisma/enums';
 import { AssetsController } from './modules/assets/assets.controller';
 import { AuthController } from './modules/auth/auth.controller';
 import {
@@ -48,23 +55,35 @@ describe('authorization coverage', () => {
   const routes = controllers.flatMap((controller) =>
     Object.getOwnPropertyNames(controller.prototype)
       .filter((name) => name !== 'constructor')
-      .map((name) => ({ name: `${controller.name}.${name}`, handler: (controller.prototype as unknown as Record<string, unknown>)[name] }))
-      .filter(({ handler }) => typeof handler === 'function' && Reflect.getMetadata(PATH_METADATA, handler) !== undefined),
+      .map((name) => ({
+        name: `${controller.name}.${name}`,
+        handler: (controller.prototype as unknown as Record<string, unknown>)[name],
+      }))
+      .filter(
+        ({ handler }) =>
+          typeof handler === 'function' &&
+          Reflect.getMetadata(PATH_METADATA, handler) !== undefined,
+      ),
   );
 
   it('discovers the route handlers', () => {
     expect(routes.length).toBeGreaterThanOrEqual(17);
   });
 
-  it.each(routes.map((route) => [route.name, route.handler] as const))('%s declares an authorization policy', (_name, handler) => {
-    const policies = [IS_PUBLIC_KEY, ALLOW_AUTHENTICATED_KEY, REQUIRED_PERMISSIONS_KEY].filter(
-      (key) => Reflect.getMetadata(key, handler as object) !== undefined,
-    );
-    expect(policies).toHaveLength(1);
-  });
+  it.each(routes.map((route) => [route.name, route.handler] as const))(
+    '%s declares an authorization policy',
+    (_name, handler) => {
+      const policies = [IS_PUBLIC_KEY, ALLOW_AUTHENTICATED_KEY, REQUIRED_PERMISSIONS_KEY].filter(
+        (key) => Reflect.getMetadata(key, handler as object) !== undefined,
+      );
+      expect(policies).toHaveLength(1);
+    },
+  );
 
   it('keeps public endpoints to an explicit allow-list', () => {
-    const publicRoutes = routes.filter((route) => Reflect.getMetadata(IS_PUBLIC_KEY, route.handler as object) === true).map((route) => route.name);
+    const publicRoutes = routes
+      .filter((route) => Reflect.getMetadata(IS_PUBLIC_KEY, route.handler as object) === true)
+      .map((route) => route.name);
     expect(publicRoutes.sort()).toEqual(['AuthController.login', 'HealthController.health']);
   });
 });

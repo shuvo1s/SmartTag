@@ -14,7 +14,9 @@ export interface PreparedDocument {
  * Converts a VALIDATED document into the persisted column values. The hash is computed over the
  * canonical form, so it can be re-verified from the stored JSON at any time.
  */
-export async function prepareDocumentForStorage(document: DesignDocument): Promise<PreparedDocument> {
+export async function prepareDocumentForStorage(
+  document: DesignDocument,
+): Promise<PreparedDocument> {
   const summary: DocumentSummaryDto = summarizeDesignDocument(document);
   return {
     schemaVersion: document.schemaVersion,

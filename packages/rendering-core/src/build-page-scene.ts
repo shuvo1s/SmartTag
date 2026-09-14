@@ -30,7 +30,11 @@ export class PageNotFoundError extends Error {
  * Builds the display list for one page. The document must already be validated
  * (and, for production output, have its data bindings resolved).
  */
-export function buildPageScene(document: DesignDocument, pageId: string, options: BuildSceneOptions = {}): PageScene {
+export function buildPageScene(
+  document: DesignDocument,
+  pageId: string,
+  options: BuildSceneOptions = {},
+): PageScene {
   const page = document.pages.find((candidate) => candidate.id === pageId);
   if (!page) {
     throw new PageNotFoundError(pageId);
@@ -65,12 +69,15 @@ export function buildPageScene(document: DesignDocument, pageId: string, options
 }
 
 function visibleObjectsInPaintOrder(page: Page, includeHidden: boolean): ArtworkObject[] {
-  const hiddenGroups = new Set(page.groups.filter((group) => !group.visible).map((group) => group.id));
+  const hiddenGroups = new Set(
+    page.groups.filter((group) => !group.visible).map((group) => group.id),
+  );
   return page.objects
     .map((object, index) => ({ object, index }))
     .filter(
       ({ object }) =>
-        includeHidden || (object.visible && (object.groupId === null || !hiddenGroups.has(object.groupId))),
+        includeHidden ||
+        (object.visible && (object.groupId === null || !hiddenGroups.has(object.groupId))),
     )
     .sort((a, b) => a.object.zIndex - b.object.zIndex || a.index - b.index)
     .map(({ object }) => object);
@@ -110,7 +117,12 @@ function toSceneNode(object: ArtworkObject, dataBound: boolean): SceneNode {
         ...base,
         kind: 'image',
         assetId: object.assetId,
-        fit: object.fitMode === 'CONTAIN' ? 'contain' : object.fitMode === 'COVER' ? 'cover' : 'stretch',
+        fit:
+          object.fitMode === 'CONTAIN'
+            ? 'contain'
+            : object.fitMode === 'COVER'
+              ? 'cover'
+              : 'stretch',
       };
     case 'rectangle':
       return {
@@ -171,7 +183,13 @@ function toSceneFeature(
 
   switch (feature.type) {
     case 'PUNCH_HOLE':
-      return { id: feature.id, kind: 'PUNCH_HOLE', cx: mx(feature.center.x), cy: my(feature.center.y), radius: feature.diameter / 2 };
+      return {
+        id: feature.id,
+        kind: 'PUNCH_HOLE',
+        cx: mx(feature.center.x),
+        cy: my(feature.center.y),
+        radius: feature.diameter / 2,
+      };
     case 'SLOT_HOLE':
       return {
         id: feature.id,
@@ -197,6 +215,9 @@ function toSceneFeature(
 }
 
 /** Builds scenes for every page, in document order. */
-export function buildDocumentScenes(document: DesignDocument, options: BuildSceneOptions = {}): PageScene[] {
+export function buildDocumentScenes(
+  document: DesignDocument,
+  options: BuildSceneOptions = {},
+): PageScene[] {
   return document.pages.map((page) => buildPageScene(document, page.id, options));
 }

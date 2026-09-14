@@ -1,7 +1,16 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { hashSessionToken } from '../../src/modules/auth/session-token';
-import { API, TEST_PASSWORD, createTestApp, createUser, loginAs, resetDatabase, seedTenants, type TestApp } from './helpers';
+import {
+  API,
+  TEST_PASSWORD,
+  createTestApp,
+  createUser,
+  loginAs,
+  resetDatabase,
+  seedTenants,
+  type TestApp,
+} from './helpers';
 
 describe('authentication & sessions (HTTP)', () => {
   let t: TestApp;
@@ -45,41 +54,75 @@ describe('authentication & sessions (HTTP)', () => {
     expect(sessions[0]!.tokenHash).toBe(hashSessionToken(token));
 
     const audit = await t.prisma.auditEvent.findFirstOrThrow({ where: { action: 'USER_LOGIN' } });
-    expect(audit).toMatchObject({ actorUserId: tenants.users.designerA.id, organizationId: tenants.orgA.id, resourceType: 'SESSION' });
+    expect(audit).toMatchObject({
+      actorUserId: tenants.users.designerA.id,
+      organizationId: tenants.orgA.id,
+      resourceType: 'SESSION',
+    });
     expect(JSON.stringify(audit)).not.toContain(TEST_PASSWORD);
   });
 
   it.each([
     ['wrong password', 'designer.a@test.local', 'not-the-password'],
     ['unknown account', 'nobody@test.local', TEST_PASSWORD],
-  ])('rejects %s with a generic message and records the failure', async (_label, email, password) => {
-    const response = await t.http.post(`${API}/auth/login`).send({ email, password });
-    expect(response.status).toBe(401);
-    expect(response.body.error).toMatchObject({ code: 'UNAUTHENTICATED', message: 'Invalid email or password' });
-    expect(response.headers['set-cookie']).toBeUndefined();
-    expect(await t.prisma.auditEvent.count({ where: { action: 'USER_LOGIN_FAILED' } })).toBe(1);
-  });
+  ])(
+    'rejects %s with a generic message and records the failure',
+    async (_label, email, password) => {
+      const response = await t.http.post(`${API}/auth/login`).send({ email, password });
+      expect(response.status).toBe(401);
+      expect(response.body.error).toMatchObject({
+        code: 'UNAUTHENTICATED',
+        message: 'Invalid email or password',
+      });
+      expect(response.headers['set-cookie']).toBeUndefined();
+      expect(await t.prisma.auditEvent.count({ where: { action: 'USER_LOGIN_FAILED' } })).toBe(1);
+    },
+  );
 
   it('rejects disabled users and users without organization access', async () => {
-    await createUser(t.prisma, 'disabled@test.local', [{ organizationId: tenants.orgA.id, roles: ['DESIGNER'] }], { status: 'DISABLED' });
+    await createUser(
+      t.prisma,
+      'disabled@test.local',
+      [{ organizationId: tenants.orgA.id, roles: ['DESIGNER'] }],
+      { status: 'DISABLED' },
+    );
     await createUser(t.prisma, 'orphan@test.local', []);
-    expect((await t.http.post(`${API}/auth/login`).send({ email: 'disabled@test.local', password: TEST_PASSWORD })).status).toBe(401);
-    const orphan = await t.http.post(`${API}/auth/login`).send({ email: 'orphan@test.local', password: TEST_PASSWORD });
+    expect(
+      (
+        await t.http
+          .post(`${API}/auth/login`)
+          .send({ email: 'disabled@test.local', password: TEST_PASSWORD })
+      ).status,
+    ).toBe(401);
+    const orphan = await t.http
+      .post(`${API}/auth/login`)
+      .send({ email: 'orphan@test.local', password: TEST_PASSWORD });
     expect(orphan.status).toBe(403);
     expect(orphan.body.error.code).toBe('FORBIDDEN');
   });
 
   it('validates the login payload', async () => {
-    const response = await t.http.post(`${API}/auth/login`).send({ email: 'not-an-email', password: '' });
+    const response = await t.http
+      .post(`${API}/auth/login`)
+      .send({ email: 'not-an-email', password: '' });
     expect(response.status).toBe(400);
-    expect(response.body.error.details.fieldErrors.map((e: { path: string }) => e.path)).toEqual(['email', 'password']);
+    expect(response.body.error.details.fieldErrors.map((e: { path: string }) => e.path)).toEqual([
+      'email',
+      'password',
+    ]);
   });
 
   it('requires a session for protected endpoints', async () => {
     const response = await t.http.get(`${API}/auth/session`);
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe('UNAUTHENTICATED');
-    expect((await t.http.get(`${API}/templates`).set('Cookie', 'smarttag_session=forged-token-value-that-is-exactly-43-chars')).status).toBe(401);
+    expect(
+      (
+        await t.http
+          .get(`${API}/templates`)
+          .set('Cookie', 'smarttag_session=forged-token-value-that-is-exactly-43-chars')
+      ).status,
+    ).toBe(401);
   });
 
   it('logout revokes the session server-side', async () => {
@@ -93,7 +136,9 @@ describe('authentication & sessions (HTTP)', () => {
 
   it('rejects expired and idle sessions', async () => {
     const agent = await loginAs(t, 'designer.a@test.local');
-    await t.prisma.session.updateMany({ data: { expiresAt: new Date(Date.now() - 1000), createdAt: new Date(Date.now() - 5000) } });
+    await t.prisma.session.updateMany({
+      data: { expiresAt: new Date(Date.now() - 1000), createdAt: new Date(Date.now() - 5000) },
+    });
     expect((await agent.get(`${API}/auth/session`)).status).toBe(401);
 
     const idle = await loginAs(t, 'viewer.a@test.local');
@@ -106,7 +151,10 @@ describe('authentication & sessions (HTTP)', () => {
 
   it('immediately loses access when the membership is suspended', async () => {
     const agent = await loginAs(t, 'designer.a@test.local');
-    await t.prisma.membership.updateMany({ where: { userId: tenants.users.designerA.id }, data: { status: 'SUSPENDED' } });
+    await t.prisma.membership.updateMany({
+      where: { userId: tenants.users.designerA.id },
+      data: { status: 'SUSPENDED' },
+    });
     expect((await agent.get(`${API}/templates`)).status).toBe(401);
   });
 
@@ -115,12 +163,19 @@ describe('authentication & sessions (HTTP)', () => {
     const initial = await agent.get(`${API}/auth/session`);
     expect(initial.body.memberships).toHaveLength(2);
 
-    const switched = await agent.put(`${API}/auth/session/organization`).send({ organizationId: tenants.orgB.id });
+    const switched = await agent
+      .put(`${API}/auth/session/organization`)
+      .send({ organizationId: tenants.orgB.id });
     expect(switched.status).toBe(200);
-    expect(switched.body).toMatchObject({ activeOrganization: { id: tenants.orgB.id }, roles: ['DESIGNER'] });
+    expect(switched.body).toMatchObject({
+      activeOrganization: { id: tenants.orgB.id },
+      roles: ['DESIGNER'],
+    });
 
     const designer = await loginAs(t, 'designer.a@test.local');
-    const denied = await designer.put(`${API}/auth/session/organization`).send({ organizationId: tenants.orgB.id });
+    const denied = await designer
+      .put(`${API}/auth/session/organization`)
+      .send({ organizationId: tenants.orgB.id });
     expect(denied.status).toBe(404);
     expect(denied.body.error.code).toBe('NOT_FOUND');
   });
@@ -130,13 +185,18 @@ describe('authentication & sessions (HTTP)', () => {
     const response = await agent.post(`${API}/auth/logout`).set('Origin', 'https://evil.example');
     expect(response.status).toBe(403);
     expect((await agent.get(`${API}/auth/session`)).status).toBe(200);
-    expect((await agent.post(`${API}/auth/logout`).set('Origin', 'http://localhost:3000')).status).toBe(204);
+    expect(
+      (await agent.post(`${API}/auth/logout`).set('Origin', 'http://localhost:3000')).status,
+    ).toBe(204);
   });
 
   it('rate-limits login attempts', async () => {
     const limited = await createTestApp({ AUTH_LOGIN_RATE_LIMIT_PER_MINUTE: '3' });
     try {
-      const attempt = () => request(limited.app.getHttpServer()).post(`${API}/auth/login`).send({ email: 'x@test.local', password: 'wrong' });
+      const attempt = () =>
+        request(limited.app.getHttpServer())
+          .post(`${API}/auth/login`)
+          .send({ email: 'x@test.local', password: 'wrong' });
       for (let i = 0; i < 3; i += 1) {
         expect((await attempt()).status).toBe(401);
       }
@@ -149,7 +209,9 @@ describe('authentication & sessions (HTTP)', () => {
   });
 
   it('propagates a well-formed incoming request id', async () => {
-    const response = await t.http.get(`${API}/templates`).set('X-Request-Id', 'erp-sync-2026-09-14-0001');
+    const response = await t.http
+      .get(`${API}/templates`)
+      .set('X-Request-Id', 'erp-sync-2026-09-14-0001');
     expect(response.headers['x-request-id']).toBe('erp-sync-2026-09-14-0001');
     expect(response.body.error.requestId).toBe('erp-sync-2026-09-14-0001');
   });

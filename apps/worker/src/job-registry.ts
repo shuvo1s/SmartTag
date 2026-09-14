@@ -30,7 +30,9 @@ export class PermanentJobError extends Error {
   }
 }
 
-export function defineJobHandler<TSchema extends z.ZodType>(handler: JobHandler<TSchema>): JobHandler<TSchema> {
+export function defineJobHandler<TSchema extends z.ZodType>(
+  handler: JobHandler<TSchema>,
+): JobHandler<TSchema> {
   return handler;
 }
 
@@ -54,11 +56,18 @@ export function createJobDispatcher(handlers: readonly JobHandler[], logger: Log
     }
     const parsed = handler.schema.safeParse(job.data);
     if (!parsed.success) {
-      throw new PermanentJobError(`Invalid payload for job "${job.name}": ${parsed.error.issues.map((i) => i.message).join('; ')}`);
+      throw new PermanentJobError(
+        `Invalid payload for job "${job.name}": ${parsed.error.issues.map((i) => i.message).join('; ')}`,
+      );
     }
     const payload = parsed.data as { correlationId?: unknown };
     const correlationId = typeof payload.correlationId === 'string' ? payload.correlationId : null;
-    const jobLogger = logger.child({ jobId: job.id ?? null, jobName: job.name, correlationId, attempt: job.attemptsMade + 1 });
+    const jobLogger = logger.child({
+      jobId: job.id ?? null,
+      jobName: job.name,
+      correlationId,
+      attempt: job.attemptsMade + 1,
+    });
     return handler.handle(parsed.data, { jobId: job.id ?? null, correlationId, logger: jobLogger });
   };
 }

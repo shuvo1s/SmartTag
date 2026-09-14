@@ -46,7 +46,9 @@ const TABLES = [
 ];
 
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
-  await prisma.$executeRawUnsafe(`TRUNCATE ${TABLES.map((table) => `"${table}"`).join(', ')} CASCADE`);
+  await prisma.$executeRawUnsafe(
+    `TRUNCATE ${TABLES.map((table) => `"${table}"`).join(', ')} CASCADE`,
+  );
 }
 
 let cachedPasswordHash: Promise<string> | null = null;
@@ -83,7 +85,9 @@ export async function loginAs(testApp: TestApp, email: string): Promise<TestAgen
   const agent = request.agent(testApp.app.getHttpServer());
   const response = await agent.post(`${API}/auth/login`).send({ email, password: TEST_PASSWORD });
   if (response.status !== 200) {
-    throw new Error(`login failed for ${email}: ${response.status} ${JSON.stringify(response.body)}`);
+    throw new Error(
+      `login failed for ${email}: ${response.status} ${JSON.stringify(response.body)}`,
+    );
   }
   return agent;
 }
@@ -93,11 +97,21 @@ export async function seedTenants(prisma: PrismaService) {
   const orgA = await createOrganization(prisma, 'org-a');
   const orgB = await createOrganization(prisma, 'org-b');
   const users = {
-    adminA: await createUser(prisma, 'admin.a@test.local', [{ organizationId: orgA.id, roles: ['ORG_ADMIN'] }]),
-    designerA: await createUser(prisma, 'designer.a@test.local', [{ organizationId: orgA.id, roles: ['DESIGNER'] }]),
-    approverA: await createUser(prisma, 'approver.a@test.local', [{ organizationId: orgA.id, roles: ['APPROVER', 'QA'] }]),
-    viewerA: await createUser(prisma, 'viewer.a@test.local', [{ organizationId: orgA.id, roles: ['VIEWER'] }]),
-    adminB: await createUser(prisma, 'admin.b@test.local', [{ organizationId: orgB.id, roles: ['ORG_ADMIN'] }]),
+    adminA: await createUser(prisma, 'admin.a@test.local', [
+      { organizationId: orgA.id, roles: ['ORG_ADMIN'] },
+    ]),
+    designerA: await createUser(prisma, 'designer.a@test.local', [
+      { organizationId: orgA.id, roles: ['DESIGNER'] },
+    ]),
+    approverA: await createUser(prisma, 'approver.a@test.local', [
+      { organizationId: orgA.id, roles: ['APPROVER', 'QA'] },
+    ]),
+    viewerA: await createUser(prisma, 'viewer.a@test.local', [
+      { organizationId: orgA.id, roles: ['VIEWER'] },
+    ]),
+    adminB: await createUser(prisma, 'admin.b@test.local', [
+      { organizationId: orgB.id, roles: ['ORG_ADMIN'] },
+    ]),
     multi: await createUser(prisma, 'multi@test.local', [
       { organizationId: orgA.id, roles: ['VIEWER'] },
       { organizationId: orgB.id, roles: ['DESIGNER'] },

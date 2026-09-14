@@ -21,7 +21,9 @@ export const templateSelect = {
   customer: { select: { id: true, code: true, name: true } },
   brand: { select: { id: true, code: true, name: true } },
   createdBy: userRef,
-  currentVersion: { select: { id: true, versionNumber: true, status: true, documentHash: true, summaryJson: true } },
+  currentVersion: {
+    select: { id: true, versionNumber: true, status: true, documentHash: true, summaryJson: true },
+  },
 } as const satisfies Prisma.TemplateSelect;
 
 export const versionSummarySelect = {

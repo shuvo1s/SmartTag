@@ -1,8 +1,4 @@
-import {
-  DECIMAL_PATTERN,
-  ISO_DATE_PATTERN,
-  type DataField,
-} from '@smarttag/document-schema';
+import { DECIMAL_PATTERN, ISO_DATE_PATTERN, type DataField } from '@smarttag/document-schema';
 
 /** A raw value as it arrives from a data source (CSV cell, JSON payload, ERP message). */
 export type DataValue = string | number | boolean | null;
@@ -49,7 +45,8 @@ export function coerceDataValue(field: DataField, raw: string | number | boolean
     }
 
     case 'decimal': {
-      const text = typeof raw === 'number' && Number.isFinite(raw) ? String(raw) : String(raw).trim();
+      const text =
+        typeof raw === 'number' && Number.isFinite(raw) ? String(raw) : String(raw).trim();
       return typeof raw !== 'boolean' && DECIMAL_PATTERN.test(text)
         ? { ok: true, value: text }
         : fail('a decimal such as "19.99"');
@@ -74,12 +71,16 @@ export function coerceDataValue(field: DataField, raw: string | number | boolean
 
     case 'url': {
       const text = String(raw).trim();
-      return typeof raw === 'string' && HTTP_URL_PATTERN.test(text) ? { ok: true, value: text } : fail('an http(s) URL');
+      return typeof raw === 'string' && HTTP_URL_PATTERN.test(text)
+        ? { ok: true, value: text }
+        : fail('an http(s) URL');
     }
 
     case 'image': {
       const text = String(raw).trim().toLowerCase();
-      return typeof raw === 'string' && UUID_PATTERN.test(text) ? { ok: true, value: text } : fail('an asset id');
+      return typeof raw === 'string' && UUID_PATTERN.test(text)
+        ? { ok: true, value: text }
+        : fail('an asset id');
     }
   }
 }
@@ -87,5 +88,7 @@ export function coerceDataValue(field: DataField, raw: string | number | boolean
 function isRealCalendarDate(isoDate: string): boolean {
   const [year, month, day] = isoDate.split('-').map(Number) as [number, number, number];
   const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  return (
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  );
 }

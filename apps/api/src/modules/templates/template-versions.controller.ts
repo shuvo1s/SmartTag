@@ -29,7 +29,8 @@ export class TemplateVersionsController {
   update(
     @CurrentActor() actor: ActorContext,
     @Param('versionId', new UuidParamPipe('Template version')) versionId: string,
-    @Body(new ZodValidationPipe(UpdateTemplateVersionRequestSchema)) body: UpdateTemplateVersionRequest,
+    @Body(new ZodValidationPipe(UpdateTemplateVersionRequestSchema))
+    body: UpdateTemplateVersionRequest,
   ): Promise<TemplateVersionDetailDto> {
     return this.versions.updateDraft(actor, versionId, body);
   }
@@ -41,7 +42,8 @@ export class TemplateVersionsController {
   transition(
     @CurrentActor() actor: ActorContext,
     @Param('versionId', new UuidParamPipe('Template version')) versionId: string,
-    @Body(new ZodValidationPipe(TransitionTemplateVersionRequestSchema)) body: TransitionTemplateVersionRequest,
+    @Body(new ZodValidationPipe(TransitionTemplateVersionRequestSchema))
+    body: TransitionTemplateVersionRequest,
   ): Promise<TemplateVersionDetailDto> {
     return this.versions.transition(actor, versionId, body);
   }

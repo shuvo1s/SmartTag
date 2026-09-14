@@ -84,7 +84,7 @@ export function ptToCssPx(pt: number, zoom = 1): number {
 export function roundTo(value: number, decimals: number): number {
   assertFinite(value, 'value');
   const factor = 10 ** decimals;
-  return Math.sign(value) * (Math.round((Math.abs(value) * factor) * (1 + Number.EPSILON)) / factor);
+  return Math.sign(value) * (Math.round(Math.abs(value) * factor * (1 + Number.EPSILON)) / factor);
 }
 
 /** Sensible display precision per unit (≈0.01 mm resolution). */
@@ -107,7 +107,11 @@ function formatNumber(pt: number, unit: MeasurementUnit, decimals: number): stri
 }
 
 /** Formats a canonical point length for display, e.g. `formatLength(141.73, 'mm')` → "50 mm". */
-export function formatLength(pt: number, unit: MeasurementUnit, decimals = DISPLAY_PRECISION[unit]): string {
+export function formatLength(
+  pt: number,
+  unit: MeasurementUnit,
+  decimals = DISPLAY_PRECISION[unit],
+): string {
   return `${formatNumber(pt, unit, decimals)} ${UNIT_LABELS[unit]}`;
 }
 

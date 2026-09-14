@@ -40,7 +40,9 @@ describe('session tokens', () => {
     const token = generateSessionToken();
     const request = (cookies: Record<string, string>) => ({ cookies }) as never;
     expect(readSessionToken(request({ smarttag_session: token }), config)).toBe(token);
-    expect(readSessionToken(request({ smarttag_session: `${token}; injected` }), config)).toBeNull();
+    expect(
+      readSessionToken(request({ smarttag_session: `${token}; injected` }), config),
+    ).toBeNull();
     expect(readSessionToken(request({ other: token }), config)).toBeNull();
   });
 });

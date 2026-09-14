@@ -43,7 +43,8 @@ function findBinDir() {
     if (!existsSync(base)) return;
     for (const version of readdirSync(base)) {
       const bin = join(base, version, suffix);
-      if (existsSync(join(bin, `initdb${EXE}`))) candidates.push({ version: Number.parseFloat(version) || 0, bin });
+      if (existsSync(join(bin, `initdb${EXE}`)))
+        candidates.push({ version: Number.parseFloat(version) || 0, bin });
     }
   };
   if (process.platform === 'win32') scan('C:\\Program Files\\PostgreSQL', 'bin');
@@ -74,7 +75,10 @@ function run(name, args, { allowFailure = false, quiet = false } = {}) {
 }
 
 function isRunning() {
-  return existsSync(DATA_DIR) && run('pg_ctl', ['-D', DATA_DIR, 'status'], { allowFailure: true, quiet: true });
+  return (
+    existsSync(DATA_DIR) &&
+    run('pg_ctl', ['-D', DATA_DIR, 'status'], { allowFailure: true, quiet: true })
+  );
 }
 
 function start() {
@@ -85,7 +89,22 @@ function start() {
     console.log(`Local PostgreSQL already running on 127.0.0.1:${PORT}`);
     return;
   }
-  run('pg_ctl', ['-D', DATA_DIR, '-l', LOG_FILE, '-w', '-t', '60', '-o', `-p ${PORT} -c listen_addresses=127.0.0.1`, 'start'], { quiet: true });
+  run(
+    'pg_ctl',
+    [
+      '-D',
+      DATA_DIR,
+      '-l',
+      LOG_FILE,
+      '-w',
+      '-t',
+      '60',
+      '-o',
+      `-p ${PORT} -c listen_addresses=127.0.0.1`,
+      'start',
+    ],
+    { quiet: true },
+  );
   console.log(`Local PostgreSQL started on 127.0.0.1:${PORT} (log: ${LOG_FILE})`);
 }
 
@@ -97,7 +116,16 @@ function init() {
     const pwFile = join(BASE_DIR, '.pwfile');
     writeFileSync(pwFile, PASSWORD);
     try {
-      run('initdb', ['-D', DATA_DIR, '-U', USER, `--pwfile=${pwFile}`, '--auth=scram-sha-256', '--encoding=UTF8', '--locale=C']);
+      run('initdb', [
+        '-D',
+        DATA_DIR,
+        '-U',
+        USER,
+        `--pwfile=${pwFile}`,
+        '--auth=scram-sha-256',
+        '--encoding=UTF8',
+        '--locale=C',
+      ]);
     } finally {
       rmSync(pwFile, { force: true });
     }
@@ -106,7 +134,18 @@ function init() {
   for (const database of DATABASES) {
     const exists = spawnSync(
       bin('psql'),
-      ['-h', '127.0.0.1', '-p', PORT, '-U', USER, '-d', 'postgres', '-tAc', `SELECT 1 FROM pg_database WHERE datname = '${database}'`],
+      [
+        '-h',
+        '127.0.0.1',
+        '-p',
+        PORT,
+        '-U',
+        USER,
+        '-d',
+        'postgres',
+        '-tAc',
+        `SELECT 1 FROM pg_database WHERE datname = '${database}'`,
+      ],
       { env: { ...process.env, PGPASSWORD: PASSWORD }, encoding: 'utf8' },
     );
     if (exists.stdout.trim() === '1') {

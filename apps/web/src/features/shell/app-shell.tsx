@@ -17,22 +17,33 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
         <div className="flex h-14 items-center gap-2 border-b border-slate-200 px-4">
-          <span className="flex size-8 items-center justify-center rounded-md bg-brand-700 text-sm font-bold text-white">ST</span>
+          <span className="flex size-8 items-center justify-center rounded-md bg-brand-700 text-sm font-bold text-white">
+            ST
+          </span>
           <span className="text-sm font-semibold text-slate-900">SmartTag Platform</span>
         </div>
         <nav aria-label="Main" className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
           {NAVIGATION.map((section, index) => (
             <div key={section.label ?? index}>
-              {section.label ? <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">{section.label}</p> : null}
+              {section.label ? (
+                <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  {section.label}
+                </p>
+              ) : null}
               <ul className="space-y-0.5">
                 {section.items.map((item) => {
                   const allowed = !item.permission || session.permissions.includes(item.permission);
                   if (item.availability === 'PLANNED' || !allowed) {
                     return (
                       <li key={item.href}>
-                        <span aria-disabled="true" className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm text-slate-400">
+                        <span
+                          aria-disabled="true"
+                          className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm text-slate-400"
+                        >
                           {item.label}
-                          {item.availability === 'PLANNED' ? <Badge className="text-[10px]">{item.plannedFor}</Badge> : null}
+                          {item.availability === 'PLANNED' ? (
+                            <Badge className="text-[10px]">{item.plannedFor}</Badge>
+                          ) : null}
                         </span>
                       </li>
                     );
@@ -45,7 +56,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                         aria-current={active ? 'page' : undefined}
                         className={cn(
                           'block rounded-md px-2 py-1.5 text-sm font-medium',
-                          active ? 'bg-brand-50 text-brand-800' : 'text-slate-700 hover:bg-slate-100',
+                          active
+                            ? 'bg-brand-50 text-brand-800'
+                            : 'text-slate-700 hover:bg-slate-100',
                         )}
                       >
                         {item.label}
@@ -80,15 +93,24 @@ export function AppShell({ children }: { children: ReactNode }) {
                 ))}
               </Select>
             ) : (
-              <span className="text-sm font-medium text-slate-800">{session.activeOrganization.name}</span>
+              <span className="text-sm font-medium text-slate-800">
+                {session.activeOrganization.name}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-slate-900">{session.user.displayName}</p>
-              <p className="text-xs text-slate-500">{session.roles.map((role) => role.replace(/_/g, ' ').toLowerCase()).join(', ')}</p>
+              <p className="text-xs text-slate-500">
+                {session.roles.map((role) => role.replace(/_/g, ' ').toLowerCase()).join(', ')}
+              </p>
             </div>
-            <Button variant="secondary" size="sm" loading={logout.isPending} onClick={() => logout.mutate()}>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={logout.isPending}
+              onClick={() => logout.mutate()}
+            >
               Sign out
             </Button>
           </div>

@@ -32,7 +32,12 @@ describe('document boxes', () => {
 
 describe('getRotatedBounds', () => {
   it('returns the frame unchanged without rotation', () => {
-    expect(getRotatedBounds({ x: 1, y: 2, width: 30, height: 10, rotation: 0 })).toEqual({ x: 1, y: 2, width: 30, height: 10 });
+    expect(getRotatedBounds({ x: 1, y: 2, width: 30, height: 10, rotation: 0 })).toEqual({
+      x: 1,
+      y: 2,
+      width: 30,
+      height: 10,
+    });
   });
 
   it('swaps extents about the centre for a 90° rotation', () => {
@@ -49,14 +54,20 @@ describe('getRotatedBounds', () => {
   });
 
   it('detects intersections', () => {
-    expect(rectsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 9, y: 9, width: 5, height: 5 })).toBe(true);
-    expect(rectsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 10, y: 0, width: 5, height: 5 })).toBe(false);
+    expect(
+      rectsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 9, y: 9, width: 5, height: 5 }),
+    ).toBe(true);
+    expect(
+      rectsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 10, y: 0, width: 5, height: 5 }),
+    ).toBe(false);
   });
 });
 
 describe('binding model', () => {
   it('declares bindable properties for every artwork object type', () => {
-    expect(Object.keys(OBJECT_BINDABLE_PROPERTIES).sort()).toEqual([...ARTWORK_OBJECT_TYPES].sort());
+    expect(Object.keys(OBJECT_BINDABLE_PROPERTIES).sort()).toEqual(
+      [...ARTWORK_OBJECT_TYPES].sort(),
+    );
     for (const properties of Object.values(OBJECT_BINDABLE_PROPERTIES)) {
       expect(properties).toHaveProperty('visible', 'VISIBILITY');
     }

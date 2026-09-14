@@ -1,4 +1,8 @@
-import { isFieldTypeCompatible, type BindablePropertyKind, type PropertyBinding } from '../bindings';
+import {
+  isFieldTypeCompatible,
+  type BindablePropertyKind,
+  type PropertyBinding,
+} from '../bindings';
 import type { DataField } from '../data-schema';
 import type { DesignDocument, Page } from '../document';
 import {
@@ -34,10 +38,18 @@ function checkDimensions(document: DesignDocument, issues: IssueCollector): void
   const path = ['dimensions'] as const;
 
   if (width > height && orientation !== 'LANDSCAPE') {
-    issues.error('INVALID_GEOMETRY', [...path, 'orientation'], 'Width exceeds height; orientation must be LANDSCAPE');
+    issues.error(
+      'INVALID_GEOMETRY',
+      [...path, 'orientation'],
+      'Width exceeds height; orientation must be LANDSCAPE',
+    );
   }
   if (height > width && orientation !== 'PORTRAIT') {
-    issues.error('INVALID_GEOMETRY', [...path, 'orientation'], 'Height exceeds width; orientation must be PORTRAIT');
+    issues.error(
+      'INVALID_GEOMETRY',
+      [...path, 'orientation'],
+      'Height exceeds width; orientation must be PORTRAIT',
+    );
   }
 
   for (const [name, insets] of [
@@ -45,7 +57,11 @@ function checkDimensions(document: DesignDocument, issues: IssueCollector): void
     ['margins', margins],
   ] as const) {
     if (insets.left + insets.right >= width || insets.top + insets.bottom >= height) {
-      issues.error('INVALID_GEOMETRY', [...path, name], `${name} insets leave no usable area inside the trim box`);
+      issues.error(
+        'INVALID_GEOMETRY',
+        [...path, name],
+        `${name} insets leave no usable area inside the trim box`,
+      );
     }
   }
 
@@ -63,21 +79,41 @@ function checkDimensions(document: DesignDocument, issues: IssueCollector): void
     switch (feature.type) {
       case 'PUNCH_HOLE': {
         const r = feature.diameter / 2;
-        const holeBox: Rect = { x: feature.center.x - r, y: feature.center.y - r, width: r * 2, height: r * 2 };
+        const holeBox: Rect = {
+          x: feature.center.x - r,
+          y: feature.center.y - r,
+          width: r * 2,
+          height: r * 2,
+        };
         if (!rectContainsRect(trimBox, holeBox)) {
-          issues.error('INVALID_GEOMETRY', featurePath, 'Punch hole must lie entirely inside the trim box');
+          issues.error(
+            'INVALID_GEOMETRY',
+            featurePath,
+            'Punch hole must lie entirely inside the trim box',
+          );
         }
         break;
       }
       case 'SLOT_HOLE':
         if (!rectContainsPoint(trimBox, feature.center)) {
-          issues.error('INVALID_GEOMETRY', featurePath, 'Slot hole centre must lie inside the trim box');
+          issues.error(
+            'INVALID_GEOMETRY',
+            featurePath,
+            'Slot hole centre must lie inside the trim box',
+          );
         }
         break;
       case 'FOLD_LINE':
       case 'PERFORATION':
-        if (!rectContainsPoint(trimBox, feature.start) || !rectContainsPoint(trimBox, feature.end)) {
-          issues.error('INVALID_GEOMETRY', featurePath, 'Line features must start and end inside the trim box');
+        if (
+          !rectContainsPoint(trimBox, feature.start) ||
+          !rectContainsPoint(trimBox, feature.end)
+        ) {
+          issues.error(
+            'INVALID_GEOMETRY',
+            featurePath,
+            'Line features must start and end inside the trim box',
+          );
         }
         break;
       default:
@@ -91,7 +127,11 @@ function checkUniqueElementIds(document: DesignDocument, issues: IssueCollector)
   const register = (id: string, path: DocumentIssuePath) => {
     const first = seen.get(id);
     if (first) {
-      issues.error('DUPLICATE_ID', [...path, 'id'], `Element id "${id}" is not unique within the document`);
+      issues.error(
+        'DUPLICATE_ID',
+        [...path, 'id'],
+        `Element id "${id}" is not unique within the document`,
+      );
     } else {
       seen.set(id, path);
     }
@@ -137,19 +177,31 @@ function checkPage(
     const objectPath = [...pagePath, 'objects', index];
 
     if (zIndexes.has(object.zIndex)) {
-      issues.error('DUPLICATE_Z_INDEX', [...objectPath, 'zIndex'], `zIndex ${object.zIndex} is used by more than one object on page "${page.id}"`);
+      issues.error(
+        'DUPLICATE_Z_INDEX',
+        [...objectPath, 'zIndex'],
+        `zIndex ${object.zIndex} is used by more than one object on page "${page.id}"`,
+      );
     }
     zIndexes.add(object.zIndex);
 
     if (object.groupId !== null && !groupIds.has(object.groupId)) {
-      issues.error('UNKNOWN_GROUP_REFERENCE', [...objectPath, 'groupId'], `Group "${object.groupId}" does not exist on page "${page.id}"`);
+      issues.error(
+        'UNKNOWN_GROUP_REFERENCE',
+        [...objectPath, 'groupId'],
+        `Group "${object.groupId}" does not exist on page "${page.id}"`,
+      );
     }
 
     checkBindings(object, objectPath, fieldsByKey, issues);
     checkObjectProperties(object, objectPath, issues);
 
     if (!rectsIntersect(getRotatedBounds(object), bleedBox)) {
-      issues.warning('OBJECT_OUTSIDE_BLEED', objectPath, `Object "${object.id}" lies completely outside the bleed box and will not print`);
+      issues.warning(
+        'OBJECT_OUTSIDE_BLEED',
+        objectPath,
+        `Object "${object.id}" lies completely outside the bleed box and will not print`,
+      );
     }
   });
 }
@@ -160,7 +212,8 @@ function checkBindings(
   fieldsByKey: ReadonlyMap<string, DataField>,
   issues: IssueCollector,
 ): void {
-  const properties: Readonly<Record<string, BindablePropertyKind>> = OBJECT_BINDABLE_PROPERTIES[object.type];
+  const properties: Readonly<Record<string, BindablePropertyKind>> =
+    OBJECT_BINDABLE_PROPERTIES[object.type];
   const bindings = object.bindings as Readonly<Record<string, PropertyBinding>>;
 
   for (const [property, kind] of Object.entries(properties)) {
@@ -171,7 +224,11 @@ function checkBindings(
     const bindingPath = [...objectPath, 'bindings', property, 'field'];
     const field = fieldsByKey.get(binding.field);
     if (!field) {
-      issues.error('UNKNOWN_BINDING_FIELD', bindingPath, `Property "${property}" is bound to unknown data field "${binding.field}"`);
+      issues.error(
+        'UNKNOWN_BINDING_FIELD',
+        bindingPath,
+        `Property "${property}" is bound to unknown data field "${binding.field}"`,
+      );
     } else if (!isFieldTypeCompatible(kind, field.type)) {
       issues.error(
         'INCOMPATIBLE_BINDING',
@@ -182,34 +239,69 @@ function checkBindings(
   }
 }
 
-function checkObjectProperties(object: ArtworkObject, path: DocumentIssuePath, issues: IssueCollector): void {
+function checkObjectProperties(
+  object: ArtworkObject,
+  path: DocumentIssuePath,
+  issues: IssueCollector,
+): void {
   switch (object.type) {
     case 'text':
-      if (object.overflow.mode === 'SHRINK_TO_FIT' && object.overflow.minFontSize > object.fontSize) {
-        issues.error('INVALID_PROPERTY', [...path, 'overflow', 'minFontSize'], 'Minimum font size cannot exceed the font size');
+      if (
+        object.overflow.mode === 'SHRINK_TO_FIT' &&
+        object.overflow.minFontSize > object.fontSize
+      ) {
+        issues.error(
+          'INVALID_PROPERTY',
+          [...path, 'overflow', 'minFontSize'],
+          'Minimum font size cannot exceed the font size',
+        );
       }
       break;
     case 'image':
-      if (object.crop && (object.crop.x + object.crop.width > 1 + 1e-9 || object.crop.y + object.crop.height > 1 + 1e-9)) {
-        issues.error('INVALID_GEOMETRY', [...path, 'crop'], 'Crop rectangle must lie within the source image');
+      if (
+        object.crop &&
+        (object.crop.x + object.crop.width > 1 + 1e-9 ||
+          object.crop.y + object.crop.height > 1 + 1e-9)
+      ) {
+        issues.error(
+          'INVALID_GEOMETRY',
+          [...path, 'crop'],
+          'Crop rectangle must lie within the source image',
+        );
       }
       if (object.assetId === null && object.bindings.assetId.mode === 'STATIC') {
-        issues.warning('IMAGE_SOURCE_MISSING', [...path, 'assetId'], `Image "${object.id}" has no asset and no data binding`);
+        issues.warning(
+          'IMAGE_SOURCE_MISSING',
+          [...path, 'assetId'],
+          `Image "${object.id}" has no asset and no data binding`,
+        );
       }
       break;
     case 'rectangle':
       if (object.cornerRadius > Math.min(object.width, object.height) / 2 + GEOMETRY_EPSILON_PT) {
-        issues.error('INVALID_GEOMETRY', [...path, 'cornerRadius'], 'Corner radius cannot exceed half of the shortest side');
+        issues.error(
+          'INVALID_GEOMETRY',
+          [...path, 'cornerRadius'],
+          'Corner radius cannot exceed half of the shortest side',
+        );
       }
       break;
     case 'barcode':
       if (object.barHeight > object.height + GEOMETRY_EPSILON_PT) {
-        issues.error('INVALID_GEOMETRY', [...path, 'barHeight'], 'Bar height cannot exceed the object height');
+        issues.error(
+          'INVALID_GEOMETRY',
+          [...path, 'barHeight'],
+          'Bar height cannot exceed the object height',
+        );
       }
       break;
     case 'qrCode':
       if (Math.abs(object.width - object.height) > GEOMETRY_EPSILON_PT) {
-        issues.warning('NON_SQUARE_QR_CODE', path, 'QR codes are square symbols; the frame should be square');
+        issues.warning(
+          'NON_SQUARE_QR_CODE',
+          path,
+          'QR codes are square symbols; the frame should be square',
+        );
       }
       break;
     case 'ellipse':

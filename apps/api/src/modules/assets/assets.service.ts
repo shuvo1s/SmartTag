@@ -11,8 +11,18 @@ import type { ActorContext } from '../../common/http/request-context';
 import { PrismaService } from '../../database/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { inspectContent, isMimeAllowedForAssetType, sanitizeFilename } from './asset-content-inspector';
-import { OBJECT_STORAGE, ObjectNotFoundError, assetStorageKey, type ObjectStorage, type StoredObject } from './storage/object-storage';
+import {
+  inspectContent,
+  isMimeAllowedForAssetType,
+  sanitizeFilename,
+} from './asset-content-inspector';
+import {
+  OBJECT_STORAGE,
+  ObjectNotFoundError,
+  assetStorageKey,
+  type ObjectStorage,
+  type StoredObject,
+} from './storage/object-storage';
 
 export interface UploadedFile {
   readonly originalname: string;
@@ -43,23 +53,38 @@ export class AssetsService {
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {}
 
-  async create(actor: ActorContext, assetType: AssetType, file: UploadedFile | undefined): Promise<AssetDto> {
+  async create(
+    actor: ActorContext,
+    assetType: AssetType,
+    file: UploadedFile | undefined,
+  ): Promise<AssetDto> {
     if (!file || file.size === 0) {
-      throw AppError.validation('A non-empty file is required', [{ path: 'file', message: 'Choose a file to upload' }]);
+      throw AppError.validation('A non-empty file is required', [
+        { path: 'file', message: 'Choose a file to upload' },
+      ]);
     }
     const inspected = inspectContent(file.buffer);
     if (!inspected) {
-      throw new AppError('UNSUPPORTED_MEDIA_TYPE', `Unsupported file type. Allowed: ${ALLOWED_ASSET_MIME_TYPES.join(', ')}`);
+      throw new AppError(
+        'UNSUPPORTED_MEDIA_TYPE',
+        `Unsupported file type. Allowed: ${ALLOWED_ASSET_MIME_TYPES.join(', ')}`,
+      );
     }
     if (!isMimeAllowedForAssetType(assetType, inspected.mimeType)) {
-      throw new AppError('UNSUPPORTED_MEDIA_TYPE', `A ${inspected.mimeType} file cannot be stored as asset type ${assetType}`);
+      throw new AppError(
+        'UNSUPPORTED_MEDIA_TYPE',
+        `A ${inspected.mimeType} file cannot be stored as asset type ${assetType}`,
+      );
     }
 
     const checksumSha256 = createHash('sha256').update(file.buffer).digest('hex');
     const storageKey = assetStorageKey(actor.organizationId, checksumSha256);
     // Content-addressed: identical bytes are stored once per organization.
     if (!(await this.storage.objectExists(storageKey))) {
-      await this.storage.putObject(storageKey, file.buffer, { contentType: inspected.mimeType, checksumSha256 });
+      await this.storage.putObject(storageKey, file.buffer, {
+        contentType: inspected.mimeType,
+        checksumSha256,
+      });
     }
 
     const row = await this.prisma.$transaction(async (tx) => {
@@ -89,7 +114,12 @@ export class AssetsService {
     return toAssetDto(row);
   }
 
-  async list(actor: ActorContext, page: number, pageSize: number, assetType?: AssetType): Promise<PaginatedResponse<AssetDto>> {
+  async list(
+    actor: ActorContext,
+    page: number,
+    pageSize: number,
+    assetType?: AssetType,
+  ): Promise<PaginatedResponse<AssetDto>> {
     const where: Prisma.AssetWhereInput = { organizationId: actor.organizationId, assetType };
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.asset.count({ where }),
@@ -101,14 +131,23 @@ export class AssetsService {
         select: assetSelect,
       }),
     ]);
-    return { items: rows.map(toAssetDto), page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+    return {
+      items: rows.map(toAssetDto),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
   }
 
   async get(actor: ActorContext, assetId: string): Promise<AssetDto> {
     return toAssetDto(await this.findRow(actor, assetId));
   }
 
-  async openContent(actor: ActorContext, assetId: string): Promise<{ asset: AssetDto; object: StoredObject }> {
+  async openContent(
+    actor: ActorContext,
+    assetId: string,
+  ): Promise<{ asset: AssetDto; object: StoredObject }> {
     const row = await this.prisma.asset.findFirst({
       where: { id: assetId, organizationId: actor.organizationId },
       select: { ...assetSelect, storageKey: true },

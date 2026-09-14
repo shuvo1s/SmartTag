@@ -1,4 +1,11 @@
-import { ArgumentsHost, Catch, HttpException, HttpStatus, Logger, type ExceptionFilter } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  HttpException,
+  HttpStatus,
+  Logger,
+  type ExceptionFilter,
+} from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import type { ApiErrorBody, ErrorCode } from '@smarttag/shared-types';
 import type { Response } from 'express';
@@ -30,7 +37,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     const body: ApiErrorBody = {
-      error: { code: appError.code, message: appError.message, details: appError.details, requestId },
+      error: {
+        code: appError.code,
+        message: appError.message,
+        details: appError.details,
+        requestId,
+      },
     };
     if (!response.headersSent) {
       response.status(appError.httpStatus).json(body);
@@ -55,7 +67,9 @@ export function toAppError(exception: unknown): AppError {
       case 'P2025':
         return AppError.notFound('Resource');
       case 'P2003':
-        return AppError.validation('A referenced record does not exist or belongs to another organization');
+        return AppError.validation(
+          'A referenced record does not exist or belongs to another organization',
+        );
     }
   }
   if (isBodyParserError(exception)) {

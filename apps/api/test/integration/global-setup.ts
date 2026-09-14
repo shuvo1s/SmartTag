@@ -20,7 +20,9 @@ export default async function globalSetup(): Promise<void> {
   }
   const databaseName = new URL(url).pathname.replace(/^\//, '');
   if (!databaseName.endsWith('_test')) {
-    throw new Error(`Refusing to reset "${databaseName}": integration tests require a database whose name ends with "_test"`);
+    throw new Error(
+      `Refusing to reset "${databaseName}": integration tests require a database whose name ends with "_test"`,
+    );
   }
 
   const client = new Client({ connectionString: url });

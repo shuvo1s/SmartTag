@@ -1,4 +1,7 @@
-import { validateDesignDocument, type DocumentValidationResult } from '../validation/validate-design-document';
+import {
+  validateDesignDocument,
+  type DocumentValidationResult,
+} from '../validation/validate-design-document';
 import { CURRENT_SCHEMA_VERSION, MINIMUM_SUPPORTED_SCHEMA_VERSION } from '../version';
 import { createDocumentMigrator, type DocumentMigration } from './migrator';
 

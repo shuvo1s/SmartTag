@@ -33,10 +33,14 @@ export function planStatusTransition(
 ): StatusTransitionPlan {
   const transition = findTransition(from, to);
   if (!transition) {
-    throw new AppError('INVALID_STATUS_TRANSITION', `A ${from} version cannot be changed to ${to}`, {
-      from,
-      to,
-    });
+    throw new AppError(
+      'INVALID_STATUS_TRANSITION',
+      `A ${from} version cannot be changed to ${to}`,
+      {
+        from,
+        to,
+      },
+    );
   }
   if (!actor.permissions.has(transition.permission)) {
     throw AppError.forbidden(`You do not have permission to ${transition.label.toLowerCase()}`);

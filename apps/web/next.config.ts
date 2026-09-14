@@ -13,7 +13,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   transpilePackages: ['@smarttag/ui'],
   rewrites() {
-    return Promise.resolve([{ source: '/api/v1/:path*', destination: `${apiInternalUrl}/api/v1/:path*` }]);
+    return Promise.resolve([
+      { source: '/api/v1/:path*', destination: `${apiInternalUrl}/api/v1/:path*` },
+    ]);
   },
   headers() {
     return Promise.resolve([

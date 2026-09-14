@@ -33,9 +33,15 @@ describe('validateDesignDocument — envelope & schema version', () => {
   });
 
   it('rejects documents from a newer schema version', () => {
-    const result = validateDesignDocument({ ...minimalDocument(), schemaVersion: CURRENT_SCHEMA_VERSION + 1 });
+    const result = validateDesignDocument({
+      ...minimalDocument(),
+      schemaVersion: CURRENT_SCHEMA_VERSION + 1,
+    });
     expect(result.valid).toBe(false);
-    expect(result.errors[0]).toMatchObject({ code: 'UNSUPPORTED_SCHEMA_VERSION', path: ['schemaVersion'] });
+    expect(result.errors[0]).toMatchObject({
+      code: 'UNSUPPORTED_SCHEMA_VERSION',
+      path: ['schemaVersion'],
+    });
   });
 });
 
@@ -52,7 +58,10 @@ describe('validateDesignDocument — structure', () => {
     objectsOf(doc).push({ ...textObject({ id: 'weird', zIndex: 9 }), type: 'hologram' });
     const result = validateDesignDocument(doc);
     expect(result.errors).toEqual([
-      expect.objectContaining({ code: 'UNSUPPORTED_OBJECT_TYPE', path: ['pages', 0, 'objects', 2, 'type'] }),
+      expect.objectContaining({
+        code: 'UNSUPPORTED_OBJECT_TYPE',
+        path: ['pages', 0, 'objects', 2, 'type'],
+      }),
     ]);
   });
 
@@ -99,7 +108,9 @@ describe('validateDesignDocument — structure', () => {
 
   it('rejects placeholder-string bindings that are not formal binding objects', () => {
     const doc = minimalDocument();
-    objectsOf(doc)[0] = textObject({ bindings: { content: '{{product_name}}', visible: { mode: 'STATIC' } } });
+    objectsOf(doc)[0] = textObject({
+      bindings: { content: '{{product_name}}', visible: { mode: 'STATIC' } },
+    });
     expect(errorCodes(doc)).toContain('INVALID_STRUCTURE');
   });
 
@@ -167,7 +178,10 @@ describe('validateDesignDocument — referential integrity', () => {
   it('rejects bindings whose field type is incompatible with the property', () => {
     const doc = minimalDocument();
     objectsOf(doc)[0] = textObject({
-      bindings: { content: { mode: 'FIELD', field: 'logo' }, visible: { mode: 'FIELD', field: 'product_name' } },
+      bindings: {
+        content: { mode: 'FIELD', field: 'logo' },
+        visible: { mode: 'FIELD', field: 'product_name' },
+      },
     });
     expect(errorCodes(doc)).toEqual(['INCOMPATIBLE_BINDING', 'INCOMPATIBLE_BINDING']);
   });
@@ -177,7 +191,10 @@ describe('validateDesignDocument — referential integrity', () => {
     objectsOf(doc).push(
       imageObject({
         assetId: null,
-        bindings: { assetId: { mode: 'FIELD', field: 'logo' }, visible: { mode: 'FIELD', field: 'show_badge' } },
+        bindings: {
+          assetId: { mode: 'FIELD', field: 'logo' },
+          visible: { mode: 'FIELD', field: 'show_badge' },
+        },
       }),
     );
     const result = validateDesignDocument(doc);
@@ -204,7 +221,10 @@ describe('validateDesignDocument — geometry & semantics', () => {
   it('rejects a safe area that leaves no usable space', () => {
     const doc = minimalDocument();
     const big = 100;
-    doc.dimensions = { ...(doc.dimensions as object), safeArea: { top: 10, right: big, bottom: 10, left: big } };
+    doc.dimensions = {
+      ...(doc.dimensions as object),
+      safeArea: { top: 10, right: big, bottom: 10, left: big },
+    };
     expect(errorCodes(doc)).toEqual(['INVALID_GEOMETRY']);
   });
 
@@ -246,7 +266,9 @@ describe('validateDesignDocument — geometry & semantics', () => {
     const bar = { x: -30, y: 283.6, width: 200, height: 20, barHeight: 10 };
     const unrotated = minimalDocument();
     objectsOf(unrotated)[1] = barcodeObject({ ...bar, rotation: 0 });
-    expect(validateDesignDocument(unrotated).warnings.map((w) => w.code)).toEqual(['OBJECT_OUTSIDE_BLEED']);
+    expect(validateDesignDocument(unrotated).warnings.map((w) => w.code)).toEqual([
+      'OBJECT_OUTSIDE_BLEED',
+    ]);
 
     // …but rotated 90° about its centre it extends 100 pt upward, back onto the tag.
     const rotated = minimalDocument();
@@ -257,7 +279,9 @@ describe('validateDesignDocument — geometry & semantics', () => {
   it('warns about images with neither an asset nor a binding', () => {
     const doc = minimalDocument();
     objectsOf(doc).push(imageObject({ assetId: null }));
-    expect(validateDesignDocument(doc).warnings.map((w) => w.code)).toEqual(['IMAGE_SOURCE_MISSING']);
+    expect(validateDesignDocument(doc).warnings.map((w) => w.code)).toEqual([
+      'IMAGE_SOURCE_MISSING',
+    ]);
   });
 });
 
@@ -267,6 +291,8 @@ describe('assertValidDesignDocument', () => {
   });
 
   it('throws a descriptive error when invalid', () => {
-    expect(() => assertValidDesignDocument({ schemaVersion: 1 })).toThrow(DesignDocumentValidationError);
+    expect(() => assertValidDesignDocument({ schemaVersion: 1 })).toThrow(
+      DesignDocumentValidationError,
+    );
   });
 });

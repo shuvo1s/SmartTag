@@ -48,7 +48,10 @@ describe('validateBarcodeValue', () => {
     ['CODE39', 'ABC-123 $', 'ABC-123 $'],
     ['GS1_128', '(01)04006381333931(10)LOT42', '(01)04006381333931(10)LOT42'],
   ] as const)('accepts %s %s', (symbology, value, normalized) => {
-    expect(validateBarcodeValue(symbology, value)).toEqual({ valid: true, normalizedValue: normalized });
+    expect(validateBarcodeValue(symbology, value)).toEqual({
+      valid: true,
+      normalizedValue: normalized,
+    });
   });
 
   it.each([

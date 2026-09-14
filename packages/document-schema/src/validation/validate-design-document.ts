@@ -47,7 +47,11 @@ export function validateDesignDocument(input: unknown): DocumentValidationResult
 
   const { schemaVersion } = input;
   if (typeof schemaVersion !== 'number' || !Number.isInteger(schemaVersion) || schemaVersion < 1) {
-    issues.error('INVALID_STRUCTURE', ['schemaVersion'], 'schemaVersion must be a positive integer');
+    issues.error(
+      'INVALID_STRUCTURE',
+      ['schemaVersion'],
+      'schemaVersion must be a positive integer',
+    );
     return invalid(issues);
   }
   if (schemaVersion > CURRENT_SCHEMA_VERSION || schemaVersion < MINIMUM_SUPPORTED_SCHEMA_VERSION) {
@@ -96,7 +100,10 @@ export class DesignDocumentValidationError extends Error {
     super(
       `Invalid design document: ${errors
         .slice(0, 5)
-        .map((issue) => `${issue.code} at ${formatIssuePath(issue.path) || '<root>'}: ${issue.message}`)
+        .map(
+          (issue) =>
+            `${issue.code} at ${formatIssuePath(issue.path) || '<root>'}: ${issue.message}`,
+        )
         .join('; ')}${errors.length > 5 ? ` (+${errors.length - 5} more)` : ''}`,
     );
     this.name = 'DesignDocumentValidationError';
@@ -131,7 +138,11 @@ function reportUnsupportedObjectTypes(
       if (!isArtworkObjectType(object.type)) {
         const path = ['pages', pageIndex, 'objects', objectIndex];
         paths.push(path);
-        issues.error('UNSUPPORTED_OBJECT_TYPE', [...path, 'type'], `Artwork object type "${object.type}" is not supported`);
+        issues.error(
+          'UNSUPPORTED_OBJECT_TYPE',
+          [...path, 'type'],
+          `Artwork object type "${object.type}" is not supported`,
+        );
       }
     });
   });

@@ -16,13 +16,18 @@ export function LoginForm({ onSubmit, error }: LoginFormProps) {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginRequest>({ resolver: zodResolver(LoginRequestSchema), defaultValues: { email: '', password: '' } });
+  } = useForm<LoginRequest>({
+    resolver: zodResolver(LoginRequestSchema),
+    defaultValues: { email: '', password: '' },
+  });
 
   return (
     <form
       className="space-y-4"
       noValidate
-      onSubmit={(event) => void handleSubmit((values) => onSubmit(values).catch(() => undefined))(event)}
+      onSubmit={(event) =>
+        void handleSubmit((values) => onSubmit(values).catch(() => undefined))(event)
+      }
     >
       {error ? <Alert tone="danger">{describeError(error)}</Alert> : null}
       <Field label="Email" error={errors.email?.message} required>

@@ -1,5 +1,10 @@
 import { mmToPt } from '@smarttag/document-utils';
-import type { CustomerDto, DocumentSummaryDto, TemplateDto, TemplateVersionSummaryDto } from '@smarttag/shared-types';
+import type {
+  CustomerDto,
+  DocumentSummaryDto,
+  TemplateDto,
+  TemplateVersionSummaryDto,
+} from '@smarttag/shared-types';
 
 export const summary: DocumentSummaryDto = {
   documentType: 'HANG_TAG',
@@ -30,7 +35,13 @@ export function templateDto(overrides: Partial<TemplateDto> = {}): TemplateDto {
     customer: { id: 'c-1', code: 'DEMO-APPAREL', name: 'Demo Apparel Co.' },
     brand: { id: 'b-1', code: 'DEMO-ACTIVE', name: 'Demo Active' },
     latestVersionNumber: 2,
-    currentVersion: { id: 'v-2', versionNumber: 2, status: 'DRAFT', documentHash: 'a'.repeat(64), summary },
+    currentVersion: {
+      id: 'v-2',
+      versionNumber: 2,
+      status: 'DRAFT',
+      documentHash: 'a'.repeat(64),
+      summary,
+    },
     createdBy: user,
     createdAt: '2026-09-10T08:00:00.000Z',
     updatedAt: '2026-09-12T08:00:00.000Z',
@@ -38,7 +49,9 @@ export function templateDto(overrides: Partial<TemplateDto> = {}): TemplateDto {
   };
 }
 
-export function versionDto(overrides: Partial<TemplateVersionSummaryDto> = {}): TemplateVersionSummaryDto {
+export function versionDto(
+  overrides: Partial<TemplateVersionSummaryDto> = {},
+): TemplateVersionSummaryDto {
   return {
     id: 'v-1',
     templateId: '0192f0a0-5b1e-7c3d-8e4f-1a2b3c4d5e6f',
@@ -68,7 +81,13 @@ export const customers: CustomerDto[] = [
     name: 'Demo Apparel Co.',
     status: 'ACTIVE',
     brands: [
-      { id: '0192f0a0-5b1e-7c3d-8e4f-00000000b001', customerId: '0192f0a0-5b1e-7c3d-8e4f-00000000c001', code: 'DEMO-ACTIVE', name: 'Demo Active', status: 'ACTIVE' },
+      {
+        id: '0192f0a0-5b1e-7c3d-8e4f-00000000b001',
+        customerId: '0192f0a0-5b1e-7c3d-8e4f-00000000c001',
+        code: 'DEMO-ACTIVE',
+        name: 'Demo Active',
+        status: 'ACTIVE',
+      },
     ],
     createdAt: '2026-09-10T08:00:00.000Z',
     updatedAt: '2026-09-10T08:00:00.000Z',

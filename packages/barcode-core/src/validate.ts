@@ -36,7 +36,10 @@ function invalid(code: BarcodeValueIssueCode, message: string): BarcodeValueVali
  * Validates data for a linear symbology independent of any rendering library. Rendering adapters
  * receive only values that passed this check.
  */
-export function validateBarcodeValue(symbology: BarcodeSymbology, value: string): BarcodeValueValidation {
+export function validateBarcodeValue(
+  symbology: BarcodeSymbology,
+  value: string,
+): BarcodeValueValidation {
   const spec = SYMBOLOGY_SPECS[symbology];
   if (value.length === 0) {
     return invalid('EMPTY_VALUE', `${spec.displayName} requires a value`);
@@ -44,10 +47,12 @@ export function validateBarcodeValue(symbology: BarcodeSymbology, value: string)
 
   switch (spec.charset) {
     case 'DIGITS':
-      if (!/^\d+$/.test(value)) return invalid('INVALID_CHARACTERS', `${spec.displayName} accepts digits only`);
+      if (!/^\d+$/.test(value))
+        return invalid('INVALID_CHARACTERS', `${spec.displayName} accepts digits only`);
       break;
     case 'ASCII':
-      if (!ASCII_PATTERN.test(value)) return invalid('INVALID_CHARACTERS', `${spec.displayName} accepts ASCII characters only`);
+      if (!ASCII_PATTERN.test(value))
+        return invalid('INVALID_CHARACTERS', `${spec.displayName} accepts ASCII characters only`);
       break;
     case 'CODE39':
       if (!CODE39_PATTERN.test(value)) {
@@ -64,7 +69,8 @@ export function validateBarcodeValue(symbology: BarcodeSymbology, value: string)
       ? lengths.values.includes(value.length)
       : value.length >= lengths.min && value.length <= lengths.max;
   if (!lengthOk) {
-    const expected = lengths.kind === 'FIXED' ? lengths.values.join(' or ') : `${lengths.min}–${lengths.max}`;
+    const expected =
+      lengths.kind === 'FIXED' ? lengths.values.join(' or ') : `${lengths.min}–${lengths.max}`;
     return invalid('INVALID_LENGTH', `${spec.displayName} requires ${expected} characters`);
   }
 
@@ -79,7 +85,10 @@ export function validateBarcodeValue(symbology: BarcodeSymbology, value: string)
   if (value.length === fullLength) {
     return hasValidGs1CheckDigit(value)
       ? { valid: true, normalizedValue: value }
-      : invalid('INVALID_CHECK_DIGIT', `Check digit should be ${computeGs1CheckDigit(value.slice(0, -1))}`);
+      : invalid(
+          'INVALID_CHECK_DIGIT',
+          `Check digit should be ${computeGs1CheckDigit(value.slice(0, -1))}`,
+        );
   }
   return { valid: true, normalizedValue: `${value}${computeGs1CheckDigit(value)}` };
 }
@@ -92,13 +101,19 @@ function validateUpce(value: string, fullLength: number): BarcodeValueValidation
     const upca = expandUpceToUpca(value);
     return hasValidGs1CheckDigit(upca)
       ? { valid: true, normalizedValue: value }
-      : invalid('INVALID_CHECK_DIGIT', `Check digit should be ${computeGs1CheckDigit(upca.slice(0, -1))}`);
+      : invalid(
+          'INVALID_CHECK_DIGIT',
+          `Check digit should be ${computeGs1CheckDigit(upca.slice(0, -1))}`,
+        );
   }
   const upcaBody = expandUpceToUpca(`${value}0`).slice(0, -1);
   return { valid: true, normalizedValue: `${value}${computeGs1CheckDigit(upcaBody)}` };
 }
 
-function validateGs1ElementString(value: string, lengths: SymbologyLengths): BarcodeValueValidation {
+function validateGs1ElementString(
+  value: string,
+  lengths: SymbologyLengths,
+): BarcodeValueValidation {
   GS1_AI_SEGMENT.lastIndex = 0;
   let consumed = 0;
   let dataLength = 0;
@@ -108,11 +123,17 @@ function validateGs1ElementString(value: string, lengths: SymbologyLengths): Bar
     consumed += segment.length;
     dataLength += ai.length + data.length;
     if ((ai === '01' || ai === '02') && !(/^\d{14}$/.test(data) && hasValidGs1CheckDigit(data))) {
-      issues.push({ code: 'INVALID_CHECK_DIGIT', message: `AI (${ai}) requires a 14-digit GTIN with a valid check digit` });
+      issues.push({
+        code: 'INVALID_CHECK_DIGIT',
+        message: `AI (${ai}) requires a 14-digit GTIN with a valid check digit`,
+      });
     }
   }
   if (consumed !== value.length || consumed === 0) {
-    return invalid('INVALID_GS1_SYNTAX', 'GS1-128 data must use bracketed AI syntax, e.g. (01)04006381333931(10)LOT42');
+    return invalid(
+      'INVALID_GS1_SYNTAX',
+      'GS1-128 data must use bracketed AI syntax, e.g. (01)04006381333931(10)LOT42',
+    );
   }
   const max = lengths.kind === 'FIXED' ? Math.max(...lengths.values) : lengths.max;
   if (dataLength > max) {
@@ -129,7 +150,10 @@ export const QR_BYTE_CAPACITY: Readonly<Record<QrCodeObject['errorCorrection'], 
   H: 1273,
 };
 
-export function validateQrValue(value: string, errorCorrection: QrCodeObject['errorCorrection']): BarcodeValueValidation {
+export function validateQrValue(
+  value: string,
+  errorCorrection: QrCodeObject['errorCorrection'],
+): BarcodeValueValidation {
   if (value.length === 0) {
     return invalid('EMPTY_VALUE', 'QR code requires a value');
   }

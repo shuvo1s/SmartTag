@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { EnvironmentValidationError, envBoolean, envInteger, parseEnvironment, postgresUrl } from '../src';
+import {
+  EnvironmentValidationError,
+  envBoolean,
+  envInteger,
+  parseEnvironment,
+  postgresUrl,
+} from '../src';
 
 const schema = z.object({
   DATABASE_URL: postgresUrl,
@@ -36,12 +42,20 @@ describe('parseEnvironment', () => {
   it('reports every problem without leaking secret values', () => {
     const secret = 'super-secret-but-too-short';
     try {
-      parseEnvironment(schema, { DATABASE_URL: 'mysql://nope', API_PORT: '70000', SECRET_TOKEN: secret });
+      parseEnvironment(schema, {
+        DATABASE_URL: 'mysql://nope',
+        API_PORT: '70000',
+        SECRET_TOKEN: secret,
+      });
       expect.unreachable();
     } catch (error) {
       expect(error).toBeInstanceOf(EnvironmentValidationError);
       const { problems, message } = error as EnvironmentValidationError;
-      expect(problems.map((problem) => problem.split(':')[0])).toEqual(['DATABASE_URL', 'API_PORT', 'SECRET_TOKEN']);
+      expect(problems.map((problem) => problem.split(':')[0])).toEqual([
+        'DATABASE_URL',
+        'API_PORT',
+        'SECRET_TOKEN',
+      ]);
       expect(message).not.toContain(secret);
       expect(message).not.toContain('mysql://nope');
     }

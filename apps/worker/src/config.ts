@@ -1,4 +1,11 @@
-import { envInteger, logLevel, nodeEnvironment, parseEnvironment, redisUrl, type EnvironmentSource } from '@smarttag/config';
+import {
+  envInteger,
+  logLevel,
+  nodeEnvironment,
+  parseEnvironment,
+  redisUrl,
+  type EnvironmentSource,
+} from '@smarttag/config';
 import { z } from 'zod';
 
 const WorkerEnvSchema = z.object({

@@ -25,7 +25,9 @@ export function minimalDocument(): Record<string, unknown> {
       margins: { top: 4 * MM, right: 4 * MM, bottom: 4 * MM, left: 4 * MM },
       dieline: {
         trimShape: { type: 'RECTANGLE', cornerRadius: 0 },
-        features: [{ id: 'hole', type: 'PUNCH_HOLE', center: { x: 25 * MM, y: 6 * MM }, diameter: 4 * MM }],
+        features: [
+          { id: 'hole', type: 'PUNCH_HOLE', center: { x: 25 * MM, y: 6 * MM }, diameter: 4 * MM },
+        ],
       },
     },
     printSettings: { colorSpace: 'RGB', backSideFlip: 'HORIZONTAL', cropMarks: false },
@@ -49,10 +51,38 @@ export function minimalDocument(): Record<string, unknown> {
     ],
     dataSchema: {
       fields: [
-        { key: 'product_name', displayName: 'Product name', type: 'string', required: true, defaultValue: null, description: '' },
-        { key: 'gtin', displayName: 'GTIN', type: 'string', required: true, defaultValue: null, description: '' },
-        { key: 'logo', displayName: 'Logo', type: 'image', required: false, defaultValue: null, description: '' },
-        { key: 'show_badge', displayName: 'Show badge', type: 'boolean', required: false, defaultValue: true, description: '' },
+        {
+          key: 'product_name',
+          displayName: 'Product name',
+          type: 'string',
+          required: true,
+          defaultValue: null,
+          description: '',
+        },
+        {
+          key: 'gtin',
+          displayName: 'GTIN',
+          type: 'string',
+          required: true,
+          defaultValue: null,
+          description: '',
+        },
+        {
+          key: 'logo',
+          displayName: 'Logo',
+          type: 'image',
+          required: false,
+          defaultValue: null,
+          description: '',
+        },
+        {
+          key: 'show_badge',
+          displayName: 'Show badge',
+          type: 'boolean',
+          required: false,
+          defaultValue: true,
+          description: '',
+        },
       ],
     },
     settings: { missingDataPolicy: 'FAIL' },
@@ -150,5 +180,5 @@ type Mutable = Record<string, unknown>;
 
 /** Returns the objects array of a page for in-place mutation in tests. */
 export function objectsOf(document: Mutable, pageIndex = 0): Mutable[] {
-  return ((document.pages as Mutable[])[pageIndex]!.objects as Mutable[]);
+  return (document.pages as Mutable[])[pageIndex]!.objects as Mutable[];
 }

@@ -12,7 +12,15 @@ describe('TemplatesTable', () => {
       <TemplatesTable
         templates={[
           templateDto(),
-          templateDto({ id: 't-2', code: 'HT-ARCHIVED', name: 'Old tag', status: 'ARCHIVED', customer: null, brand: null, currentVersion: null }),
+          templateDto({
+            id: 't-2',
+            code: 'HT-ARCHIVED',
+            name: 'Old tag',
+            status: 'ARCHIVED',
+            customer: null,
+            brand: null,
+            currentVersion: null,
+          }),
         ]}
       />,
     );
@@ -21,7 +29,10 @@ describe('TemplatesTable', () => {
 
     const first = within(rows[0]!);
     expect(first.getByText('HT-DEMO-50X90')).toBeInTheDocument();
-    expect(first.getByRole('link', { name: 'Demo Active hang tag' })).toHaveAttribute('href', '/templates/0192f0a0-5b1e-7c3d-8e4f-1a2b3c4d5e6f');
+    expect(first.getByRole('link', { name: 'Demo Active hang tag' })).toHaveAttribute(
+      'href',
+      '/templates/0192f0a0-5b1e-7c3d-8e4f-1a2b3c4d5e6f',
+    );
     expect(first.getByText('Hang tag')).toBeInTheDocument();
     expect(first.getByText('Demo Apparel Co. / Demo Active')).toBeInTheDocument();
     expect(first.getByText('50 × 90 mm')).toBeInTheDocument();
@@ -53,8 +64,20 @@ describe('VersionsTable', () => {
   ];
 
   it('lists versions with status, short hash and approval', () => {
-    render(<VersionsTable versions={versions} currentVersionId="v-3" permissions={permissionsForRoles(['VIEWER'])} onTransition={vi.fn()} />);
-    expect(screen.getAllByRole('row').slice(1).map((row) => within(row).getAllByRole('cell')[0]!.textContent)).toEqual(['v3(current)', 'v2', 'v1']);
+    render(
+      <VersionsTable
+        versions={versions}
+        currentVersionId="v-3"
+        permissions={permissionsForRoles(['VIEWER'])}
+        onTransition={vi.fn()}
+      />,
+    );
+    expect(
+      screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => within(row).getAllByRole('cell')[0]!.textContent),
+    ).toEqual(['v3(current)', 'v2', 'v1']);
     const v1 = within(screen.getByTestId('version-row-1'));
     expect(v1.getByText('Approved')).toBeInTheDocument();
     expect(v1.getByText('0123456789ab')).toHaveAttribute('title', '0123456789abcdef'.repeat(4));
@@ -63,16 +86,33 @@ describe('VersionsTable', () => {
   });
 
   it('offers no lifecycle actions to read-only users', () => {
-    render(<VersionsTable versions={versions} currentVersionId="v-3" permissions={permissionsForRoles(['VIEWER'])} onTransition={vi.fn()} />);
+    render(
+      <VersionsTable
+        versions={versions}
+        currentVersionId="v-3"
+        permissions={permissionsForRoles(['VIEWER'])}
+        onTransition={vi.fn()}
+      />,
+    );
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
   it('offers only the transitions the role permits', async () => {
     const onTransition = vi.fn();
-    render(<VersionsTable versions={versions} currentVersionId="v-3" permissions={permissionsForRoles(['APPROVER'])} onTransition={onTransition} />);
+    render(
+      <VersionsTable
+        versions={versions}
+        currentVersionId="v-3"
+        permissions={permissionsForRoles(['APPROVER'])}
+        onTransition={onTransition}
+      />,
+    );
 
     const inReview = within(screen.getByTestId('version-row-3'));
-    expect(inReview.getAllByRole('button').map((b) => b.textContent)).toEqual(['Return to draft', 'Approve']);
+    expect(inReview.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Return to draft',
+      'Approve',
+    ]);
     expect(within(screen.getByTestId('version-row-2')).queryAllByRole('button')).toHaveLength(0);
     expect(within(screen.getByTestId('version-row-1')).queryAllByRole('button')).toHaveLength(0);
 
@@ -81,7 +121,18 @@ describe('VersionsTable', () => {
   });
 
   it('never offers to reopen approved versions, even to administrators', () => {
-    render(<VersionsTable versions={versions} currentVersionId="v-3" permissions={[...PERMISSIONS]} onTransition={vi.fn()} />);
-    expect(within(screen.getByTestId('version-row-1')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Retire']);
+    render(
+      <VersionsTable
+        versions={versions}
+        currentVersionId="v-3"
+        permissions={[...PERMISSIONS]}
+        onTransition={vi.fn()}
+      />,
+    );
+    expect(
+      within(screen.getByTestId('version-row-1'))
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['Retire']);
   });
 });

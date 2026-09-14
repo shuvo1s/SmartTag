@@ -17,7 +17,9 @@ export class ApiError extends Error {
 
   /** Field errors keyed by dotted path, for mapping onto form fields. */
   fieldErrors(): Record<string, string> {
-    return Object.fromEntries((this.details?.fieldErrors ?? []).map((error) => [error.path, error.message]));
+    return Object.fromEntries(
+      (this.details?.fieldErrors ?? []).map((error) => [error.path, error.message]),
+    );
   }
 }
 
@@ -60,7 +62,13 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       const { code, message, details, requestId } = body.error;
       throw new ApiError(response.status, code, message, details, requestId);
     }
-    throw new ApiError(response.status, 'INTERNAL_ERROR', 'The server returned an unexpected response', null, null);
+    throw new ApiError(
+      response.status,
+      'INTERNAL_ERROR',
+      'The server returned an unexpected response',
+      null,
+      null,
+    );
   }
   return body as T;
 }

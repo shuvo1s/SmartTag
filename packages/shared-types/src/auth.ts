@@ -42,7 +42,12 @@ export const PERMISSIONS = [
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
-const READ_ONLY: readonly Permission[] = ['organization:read', 'customer:read', 'template:read', 'asset:read'];
+const READ_ONLY: readonly Permission[] = [
+  'organization:read',
+  'customer:read',
+  'template:read',
+  'asset:read',
+];
 
 /** Single source of truth for role → permission mapping, enforced server-side. */
 export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
@@ -89,7 +94,11 @@ export function permissionsForRoles(roles: readonly Role[]): Permission[] {
 }
 
 export const LoginRequestSchema = z.object({
-  email: z.string().trim().toLowerCase().pipe(z.email({ error: 'Enter a valid email address' })),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .pipe(z.email({ error: 'Enter a valid email address' })),
   password: z.string().min(1, { error: 'Password is required' }).max(1024),
 });
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;

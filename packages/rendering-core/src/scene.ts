@@ -34,7 +34,13 @@ export interface SceneBoxes {
 }
 
 export type SceneDielineFeature =
-  | { readonly id: string; readonly kind: 'PUNCH_HOLE'; readonly cx: number; readonly cy: number; readonly radius: number }
+  | {
+      readonly id: string;
+      readonly kind: 'PUNCH_HOLE';
+      readonly cx: number;
+      readonly cy: number;
+      readonly radius: number;
+    }
   | {
       readonly id: string;
       readonly kind: 'SLOT_HOLE';

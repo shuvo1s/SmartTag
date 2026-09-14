@@ -8,17 +8,28 @@ import { customers } from './test-data';
 
 function setup(onSubmit = vi.fn().mockResolvedValue(undefined)) {
   const user = userEvent.setup();
-  render(<CreateTemplateForm customers={customers} documentTypes={listDocumentTypes('AVAILABLE')} onSubmit={onSubmit} />);
+  render(
+    <CreateTemplateForm
+      customers={customers}
+      documentTypes={listDocumentTypes('AVAILABLE')}
+      onSubmit={onSubmit}
+    />,
+  );
   return { user, onSubmit };
 }
 
-const submit = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Create template' }));
+const submit = (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole('button', { name: 'Create template' }));
 
 describe('CreateTemplateForm', () => {
   it('offers only available document types and sensible physical defaults', () => {
     setup();
     expect(screen.getByLabelText(/Document type/)).toHaveDisplayValue('Hang tag');
-    expect(screen.getAllByRole('option', { name: /tag|label|ticket|sticker|artwork/i }).map((o) => o.textContent)).toEqual(['Hang tag']);
+    expect(
+      screen
+        .getAllByRole('option', { name: /tag|label|ticket|sticker|artwork/i })
+        .map((o) => o.textContent),
+    ).toEqual(['Hang tag']);
     expect(screen.getByLabelText(/Unit/)).toHaveDisplayValue('Millimetres (mm)');
     expect(screen.getByLabelText(/Trim width \(mm\)/)).toHaveValue(50);
     expect(screen.getByLabelText(/Trim height \(mm\)/)).toHaveValue(90);
@@ -99,22 +110,40 @@ describe('CreateTemplateForm', () => {
   });
 
   it('maps server field errors back onto the form', async () => {
-    const onSubmit = vi.fn().mockRejectedValue(
-      new ApiError(409, 'VALIDATION_ERROR', 'Invalid', { fieldErrors: [{ path: 'code', message: 'A template with code "HT-1" already exists' }] }, 'req-1'),
-    );
+    const onSubmit = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiError(
+          409,
+          'VALIDATION_ERROR',
+          'Invalid',
+          {
+            fieldErrors: [{ path: 'code', message: 'A template with code "HT-1" already exists' }],
+          },
+          'req-1',
+        ),
+      );
     const { user } = setup(onSubmit);
     await user.type(screen.getByLabelText(/Template name/), 'Tag');
     await user.type(screen.getByLabelText(/Template code/), 'HT-1');
     await submit(user);
-    expect(await screen.findByText('A template with code "HT-1" already exists')).toBeInTheDocument();
+    expect(
+      await screen.findByText('A template with code "HT-1" already exists'),
+    ).toBeInTheDocument();
   });
 
   it('shows non-field server errors with the request reference', async () => {
-    const onSubmit = vi.fn().mockRejectedValue(new ApiError(409, 'CONFLICT', 'A template with code "HT-1" already exists', null, 'req-42'));
+    const onSubmit = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiError(409, 'CONFLICT', 'A template with code "HT-1" already exists', null, 'req-42'),
+      );
     const { user } = setup(onSubmit);
     await user.type(screen.getByLabelText(/Template name/), 'Tag');
     await user.type(screen.getByLabelText(/Template code/), 'HT-1');
     await submit(user);
-    expect(await screen.findByText('A template with code "HT-1" already exists (reference req-42)')).toBeInTheDocument();
+    expect(
+      await screen.findByText('A template with code "HT-1" already exists (reference req-42)'),
+    ).toBeInTheDocument();
   });
 });

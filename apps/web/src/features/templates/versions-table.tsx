@@ -17,7 +17,13 @@ export interface VersionsTableProps {
   onTransition: (versionId: string, targetStatus: TemplateVersionStatus) => void;
 }
 
-export function VersionsTable({ versions, currentVersionId, permissions, pendingVersionId, onTransition }: VersionsTableProps) {
+export function VersionsTable({
+  versions,
+  currentVersionId,
+  permissions,
+  pendingVersionId,
+  onTransition,
+}: VersionsTableProps) {
   if (versions.length === 0) {
     return <EmptyState title="No versions yet" />;
   }
@@ -40,15 +46,22 @@ export function VersionsTable({ versions, currentVersionId, permissions, pending
           return (
             <tr key={version.id} data-testid={`version-row-${version.versionNumber}`}>
               <Td className="font-medium text-slate-900">
-                <Link href={`/templates/${version.templateId}/versions/${version.id}`} className="text-brand-700 hover:underline">
+                <Link
+                  href={`/templates/${version.templateId}/versions/${version.id}`}
+                  className="text-brand-700 hover:underline"
+                >
                   v{version.versionNumber}
                 </Link>
-                {version.id === currentVersionId ? <span className="ml-2 text-xs text-slate-500">(current)</span> : null}
+                {version.id === currentVersionId ? (
+                  <span className="ml-2 text-xs text-slate-500">(current)</span>
+                ) : null}
               </Td>
               <Td>
                 <VersionStatusBadge status={version.status} />
               </Td>
-              <Td className="max-w-xs truncate whitespace-normal">{version.changeSummary || '—'}</Td>
+              <Td className="max-w-xs truncate whitespace-normal">
+                {version.changeSummary || '—'}
+              </Td>
               <Td>
                 <code title={version.documentHash} className="font-mono text-xs text-slate-500">
                   {shortHash(version.documentHash)}
@@ -74,7 +87,13 @@ export function VersionsTable({ versions, currentVersionId, permissions, pending
                     <Button
                       key={transition.action}
                       size="sm"
-                      variant={transition.to === 'APPROVED' ? 'primary' : transition.to === 'RETIRED' ? 'danger' : 'secondary'}
+                      variant={
+                        transition.to === 'APPROVED'
+                          ? 'primary'
+                          : transition.to === 'RETIRED'
+                            ? 'danger'
+                            : 'secondary'
+                      }
                       disabled={pendingVersionId === version.id}
                       onClick={() => onTransition(version.id, transition.to)}
                     >

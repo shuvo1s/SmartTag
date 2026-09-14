@@ -21,7 +21,12 @@ const EnvSchema = z
     API_ALLOWED_ORIGINS: z
       .string()
       .default('http://localhost:3000')
-      .transform((value) => value.split(',').map((origin) => origin.trim()).filter(Boolean))
+      .transform((value) =>
+        value
+          .split(',')
+          .map((origin) => origin.trim())
+          .filter(Boolean),
+      )
       .pipe(z.array(httpUrl).min(1)),
     API_TRUST_PROXY: envBoolean(false),
 
@@ -45,10 +50,21 @@ const EnvSchema = z
   })
   .superRefine((env, ctx) => {
     if (env.OBJECT_STORAGE_DRIVER === 's3' && !env.OBJECT_STORAGE_BUCKET) {
-      ctx.addIssue({ code: 'custom', path: ['OBJECT_STORAGE_BUCKET'], message: 'is required when OBJECT_STORAGE_DRIVER=s3' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OBJECT_STORAGE_BUCKET'],
+        message: 'is required when OBJECT_STORAGE_DRIVER=s3',
+      });
     }
-    if (env.NODE_ENV === 'production' && (env.AUTH_COOKIE_SECURE === 'false' || env.AUTH_COOKIE_SECURE === '0')) {
-      ctx.addIssue({ code: 'custom', path: ['AUTH_COOKIE_SECURE'], message: 'must not be disabled in production' });
+    if (
+      env.NODE_ENV === 'production' &&
+      (env.AUTH_COOKIE_SECURE === 'false' || env.AUTH_COOKIE_SECURE === '0')
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AUTH_COOKIE_SECURE'],
+        message: 'must not be disabled in production',
+      });
     }
   });
 

@@ -11,7 +11,11 @@ import { ApiError } from './api-client';
  * the Next.js router is not available.
  */
 function redirectToLogin(error: unknown): void {
-  if (error instanceof ApiError && error.code === 'UNAUTHENTICATED' && typeof window !== 'undefined') {
+  if (
+    error instanceof ApiError &&
+    error.code === 'UNAUTHENTICATED' &&
+    typeof window !== 'undefined'
+  ) {
     const next = `${window.location.pathname}${window.location.search}`;
     if (!window.location.pathname.startsWith('/login')) {
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- intentional hard reload, see above

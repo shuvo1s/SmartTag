@@ -10,9 +10,11 @@ export interface InspectedContent {
 const BYTE_ORDER_MARK = 0xfeff;
 
 const startsWith = (buffer: Buffer, bytes: readonly number[], offset = 0) =>
-  buffer.length >= offset + bytes.length && bytes.every((byte, index) => buffer[offset + index] === byte);
+  buffer.length >= offset + bytes.length &&
+  bytes.every((byte, index) => buffer[offset + index] === byte);
 const ascii = (buffer: Buffer, text: string, offset = 0) =>
-  buffer.length >= offset + text.length && buffer.toString('latin1', offset, offset + text.length) === text;
+  buffer.length >= offset + text.length &&
+  buffer.toString('latin1', offset, offset + text.length) === text;
 
 /**
  * Detects the real content type from file signatures. The client-supplied MIME type and file
@@ -23,7 +25,8 @@ export function detectMimeType(buffer: Buffer): AssetMimeType | null {
   if (startsWith(buffer, [0xff, 0xd8, 0xff])) return 'image/jpeg';
   if (ascii(buffer, 'GIF87a') || ascii(buffer, 'GIF89a')) return 'image/gif';
   if (ascii(buffer, 'RIFF') && ascii(buffer, 'WEBP', 8)) return 'image/webp';
-  if (startsWith(buffer, [0x49, 0x49, 0x2a, 0x00]) || startsWith(buffer, [0x4d, 0x4d, 0x00, 0x2a])) return 'image/tiff';
+  if (startsWith(buffer, [0x49, 0x49, 0x2a, 0x00]) || startsWith(buffer, [0x4d, 0x4d, 0x00, 0x2a]))
+    return 'image/tiff';
   if (ascii(buffer, '%PDF-')) return 'application/pdf';
   if (ascii(buffer, 'wOF2')) return 'font/woff2';
   if (ascii(buffer, 'wOFF')) return 'font/woff';

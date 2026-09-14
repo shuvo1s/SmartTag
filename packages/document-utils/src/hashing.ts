@@ -5,7 +5,8 @@ import { encodeUtf8, getWebCrypto } from './platform';
 export const DOCUMENT_HASH_ALGORITHM = 'SHA-256' as const;
 
 /** Describes exactly how a document hash was produced; recorded alongside production outputs. */
-export const DOCUMENT_HASH_METHOD = `${DOCUMENT_HASH_ALGORITHM}/${CANONICALIZATION_SCHEME}/UTF-8` as const;
+export const DOCUMENT_HASH_METHOD =
+  `${DOCUMENT_HASH_ALGORITHM}/${CANONICALIZATION_SCHEME}/UTF-8` as const;
 
 export const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/;
 

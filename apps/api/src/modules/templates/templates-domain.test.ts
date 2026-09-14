@@ -1,5 +1,8 @@
 import { parseDesignDocument } from '@smarttag/document-schema';
-import { SAMPLE_BRAND_LOGO_ASSET_ID, createSampleHangTagDocument } from '@smarttag/document-utils/fixtures';
+import {
+  SAMPLE_BRAND_LOGO_ASSET_ID,
+  createSampleHangTagDocument,
+} from '@smarttag/document-utils/fixtures';
 import { computeDocumentHash, hashCanonicalJson } from '@smarttag/document-utils';
 import { permissionsForRoles, type Role } from '@smarttag/shared-types';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,7 +14,10 @@ import { planStatusTransition } from './version-status-policy';
 
 const TEMPLATE_ID = '0192f0a0-5b1e-7c3d-8e4f-1a2b3c4d5e6f';
 const now = new Date('2026-09-14T10:00:00Z');
-const actor = (...roles: Role[]) => ({ userId: 'user-1', permissions: new Set(permissionsForRoles(roles)) });
+const actor = (...roles: Role[]) => ({
+  userId: 'user-1',
+  permissions: new Set(permissionsForRoles(roles)),
+});
 
 describe('planStatusTransition', () => {
   it('records who submitted, approved and retired', () => {
@@ -25,7 +31,9 @@ describe('planStatusTransition', () => {
       approvedAt: now,
       approvedById: 'user-1',
     });
-    expect(planStatusTransition('APPROVED', 'RETIRED', actor('TEMPLATE_ADMIN'), now).changes).toMatchObject({
+    expect(
+      planStatusTransition('APPROVED', 'RETIRED', actor('TEMPLATE_ADMIN'), now).changes,
+    ).toMatchObject({
       status: 'RETIRED',
       retiredById: 'user-1',
     });
@@ -54,10 +62,12 @@ describe('planStatusTransition', () => {
   });
 
   it('enforces the permission of the specific transition', () => {
-    expect(() => planStatusTransition('IN_REVIEW', 'APPROVED', actor('DESIGNER', 'QA'), now)).toThrow(
+    expect(() =>
+      planStatusTransition('IN_REVIEW', 'APPROVED', actor('DESIGNER', 'QA'), now),
+    ).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
+    expect(() => planStatusTransition('DRAFT', 'IN_REVIEW', actor('VIEWER'), now)).toThrow(
       expect.objectContaining({ code: 'FORBIDDEN' }),
     );
-    expect(() => planStatusTransition('DRAFT', 'IN_REVIEW', actor('VIEWER'), now)).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
   });
 });
 
@@ -70,7 +80,11 @@ describe('prepareDocumentForStorage', () => {
     // What is stored re-hashes to the recorded hash.
     expect(await hashCanonicalJson(prepared.documentJson)).toBe(prepared.documentHash);
     expect(parseDesignDocument(prepared.documentJson).valid).toBe(true);
-    expect(prepared.summaryJson).toMatchObject({ pageCount: 2, documentType: 'HANG_TAG', assetIds: [SAMPLE_BRAND_LOGO_ASSET_ID] });
+    expect(prepared.summaryJson).toMatchObject({
+      pageCount: 2,
+      documentType: 'HANG_TAG',
+      assetIds: [SAMPLE_BRAND_LOGO_ASSET_ID],
+    });
   });
 });
 
@@ -93,7 +107,11 @@ describe('TemplateDocumentService', () => {
 
   it('accepts a valid document whose assets exist in the organization', async () => {
     const { db, findMany } = dbWithAssets([SAMPLE_BRAND_LOGO_ASSET_ID]);
-    const document = await service.validateForTemplate(db, template, createSampleHangTagDocument({ documentId: TEMPLATE_ID }));
+    const document = await service.validateForTemplate(
+      db,
+      template,
+      createSampleHangTagDocument({ documentId: TEMPLATE_ID }),
+    );
     expect(document.documentId).toBe(TEMPLATE_ID);
     expect(findMany).toHaveBeenCalledWith({
       where: { organizationId: 'org-a', id: { in: [SAMPLE_BRAND_LOGO_ASSET_ID] } },
@@ -103,31 +121,52 @@ describe('TemplateDocumentService', () => {
 
   it('rejects structurally invalid documents with issue details', async () => {
     const { db } = dbWithAssets([]);
-    const error = await rejection(service.validateForTemplate(db, template, { schemaVersion: 1, pages: [] }));
+    const error = await rejection(
+      service.validateForTemplate(db, template, { schemaVersion: 1, pages: [] }),
+    );
     expect(error.code).toBe('INVALID_DOCUMENT');
     expect(error.details?.documentIssues?.length).toBeGreaterThan(0);
   });
 
   it('rejects unsupported schema versions', async () => {
     const { db } = dbWithAssets([]);
-    const error = await rejection(service.validateForTemplate(db, template, { ...createSampleHangTagDocument(), schemaVersion: 7 }));
+    const error = await rejection(
+      service.validateForTemplate(db, template, {
+        ...createSampleHangTagDocument(),
+        schemaVersion: 7,
+      }),
+    );
     expect(error.code).toBe('UNSUPPORTED_SCHEMA_VERSION');
   });
 
   it('rejects documents that belong to a different template or type', async () => {
     const { db } = dbWithAssets([SAMPLE_BRAND_LOGO_ASSET_ID]);
-    const foreign = createSampleHangTagDocument({ documentId: '0192f0a0-5b1e-7c3d-8e4f-000000000000' });
+    const foreign = createSampleHangTagDocument({
+      documentId: '0192f0a0-5b1e-7c3d-8e4f-000000000000',
+    });
     foreign.metadata.documentType = 'CARE_LABEL';
     const error = await rejection(service.validateForTemplate(db, template, foreign));
-    expect(error.details?.documentIssues?.map((issue) => issue.code)).toEqual(['DOCUMENT_ID_MISMATCH', 'DOCUMENT_TYPE_MISMATCH']);
+    expect(error.details?.documentIssues?.map((issue) => issue.code)).toEqual([
+      'DOCUMENT_ID_MISMATCH',
+      'DOCUMENT_TYPE_MISMATCH',
+    ]);
   });
 
   it('rejects references to assets outside the organization, pointing at the offending object', async () => {
     const { db } = dbWithAssets([]);
-    const error = await rejection(service.validateForTemplate(db, template, createSampleHangTagDocument({ documentId: TEMPLATE_ID })));
+    const error = await rejection(
+      service.validateForTemplate(
+        db,
+        template,
+        createSampleHangTagDocument({ documentId: TEMPLATE_ID }),
+      ),
+    );
     expect(error.code).toBe('INVALID_DOCUMENT');
     expect(error.details?.documentIssues).toEqual([
-      expect.objectContaining({ code: 'UNKNOWN_ASSET_REFERENCE', path: ['pages', 0, 'objects', 1, 'assetId'] }),
+      expect.objectContaining({
+        code: 'UNKNOWN_ASSET_REFERENCE',
+        path: ['pages', 0, 'objects', 1, 'assetId'],
+      }),
     ]);
   });
 });

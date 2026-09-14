@@ -7,7 +7,10 @@ import { AppError } from '../errors/app-error';
  * so the web client and the API apply identical rules.
  */
 @Injectable()
-export class ZodValidationPipe<TSchema extends z.ZodType> implements PipeTransform<unknown, z.output<TSchema>> {
+export class ZodValidationPipe<TSchema extends z.ZodType> implements PipeTransform<
+  unknown,
+  z.output<TSchema>
+> {
   constructor(private readonly schema: TSchema) {}
 
   transform(value: unknown): z.output<TSchema> {

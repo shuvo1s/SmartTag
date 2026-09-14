@@ -18,18 +18,22 @@ const CONTROL =
   'placeholder:text-slate-400 focus:border-brand-600 focus:outline-2 focus:outline-brand-600/30 ' +
   'disabled:cursor-not-allowed disabled:bg-slate-100 aria-[invalid=true]:border-red-600';
 
-export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...props }, ref) {
-  return <input ref={ref} className={cn(CONTROL, 'h-10', className)} {...props} />;
-});
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  function Input({ className, ...props }, ref) {
+    return <input ref={ref} className={cn(CONTROL, 'h-10', className)} {...props} />;
+  },
+);
 
-export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className, ...props }, ref) {
-  return <select ref={ref} className={cn(CONTROL, 'h-10 pr-8', className)} {...props} />;
-});
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
+  function Select({ className, ...props }, ref) {
+    return <select ref={ref} className={cn(CONTROL, 'h-10 pr-8', className)} {...props} />;
+  },
+);
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea(
-  { className, ...props },
-  ref,
-) {
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(function Textarea({ className, ...props }, ref) {
   return <textarea ref={ref} className={cn(CONTROL, 'py-2', className)} {...props} />;
 });
 
@@ -60,7 +64,11 @@ export function Field({ label, children, hint, error, required, className }: Fie
     <div className={cn('space-y-1.5', className)}>
       <label htmlFor={id} className="block text-sm font-medium text-slate-800">
         {label}
-        {required ? <span className="ml-0.5 text-red-700" aria-hidden="true">*</span> : null}
+        {required ? (
+          <span className="ml-0.5 text-red-700" aria-hidden="true">
+            *
+          </span>
+        ) : null}
       </label>
       {control}
       {hint ? (

@@ -21,7 +21,8 @@ export function forEachBinding(
   object: ArtworkObject,
   visit: (property: string, kind: BindablePropertyKind, binding: PropertyBinding) => void,
 ): void {
-  const properties: Readonly<Record<string, BindablePropertyKind>> = OBJECT_BINDABLE_PROPERTIES[object.type];
+  const properties: Readonly<Record<string, BindablePropertyKind>> =
+    OBJECT_BINDABLE_PROPERTIES[object.type];
   const bindings = object.bindings as Readonly<Record<string, PropertyBinding | undefined>>;
   for (const [property, kind] of Object.entries(properties)) {
     const binding = bindings[property];
