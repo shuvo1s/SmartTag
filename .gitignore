@@ -1,0 +1,39 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# generated
+apps/api/src/generated/
+
+# turbo
+.turbo/
+
+# environment — never commit real secrets
+.env
+.env.*
+!.env.example
+!.env.test.example
+
+# local infrastructure data (project-local Postgres cluster, local object storage)
+.local/
+storage/
+
+# test / coverage
+coverage/
+
+# logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

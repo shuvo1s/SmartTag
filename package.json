@@ -1,0 +1,43 @@
+{
+  "name": "smarttag-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SmartTag Platform — document-centric artwork, variable data and print production platform.",
+  "packageManager": "npm@10.8.2",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel --filter=@smarttag/api --filter=@smarttag/web",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:integration": "turbo run test:integration --concurrency=1",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run test:integration && npm run build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:migrate": "npm run db:migrate -w @smarttag/api",
+    "db:migrate:deploy": "npm run db:migrate:deploy -w @smarttag/api",
+    "db:seed": "npm run db:seed -w @smarttag/api",
+    "db:generate": "npm run db:generate -w @smarttag/api",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "pg:local": "node scripts/local-postgres.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^20.19.43",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.12",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^4.1.11"
+  }
+}
