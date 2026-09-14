@@ -181,6 +181,7 @@ describe('renderSceneToSvg', () => {
       height: 20,
       zIndex: 77,
       content: '</text><script>alert(1)</script><text onload="x">&',
+      wrap: 'NONE',
       fontFamily: `Evil" onload="alert(1)`,
     });
     document.pages[0]!.objects.push(hostile);

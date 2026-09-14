@@ -1,6 +1,12 @@
 import type {
+  BarcodeValueIssue,
+  LinearSymbolGeometry,
+  MatrixSymbolGeometry,
+} from '@smarttag/barcode-core';
+import type {
   ArtworkObjectType,
   BarcodeSymbology,
+  ImageCrop,
   PageSide,
   QrCodeObject,
   Rect,
@@ -93,19 +99,28 @@ export interface TextSceneNode extends SceneNodeBase {
   readonly anchor: 'start' | 'middle' | 'end';
   readonly direction: 'ltr' | 'rtl';
   readonly language: string | null;
+  /** Controlled font file; renderers resolve it to the exact loaded font. */
+  readonly fontAssetId: string | null;
   readonly fontFamily: string;
+  /** Size actually used (after SHRINK_TO_FIT). */
   readonly fontSize: number;
+  readonly requestedFontSize: number;
   readonly fontWeight: number;
   readonly fontStyle: 'normal' | 'italic';
   readonly letterSpacing: number;
   readonly fill: string;
   readonly clip: boolean;
+  /** Text does not fit its frame (reported, never silently truncated). */
+  readonly overflow: boolean;
+  readonly missingGlyphs: readonly string[];
+  readonly metricsSource: 'FONT' | 'APPROXIMATE';
 }
 
 export interface ImageSceneNode extends SceneNodeBase {
   readonly kind: 'image';
   readonly assetId: string | null;
   readonly fit: 'contain' | 'cover' | 'stretch';
+  readonly crop: ImageCrop | null;
 }
 
 export interface RectangleSceneNode extends SceneNodeBase {
@@ -126,21 +141,40 @@ export interface LineSceneNode extends SceneNodeBase {
   readonly stroke: SceneStroke;
 }
 
-/** Phase 1 renders symbols as clearly-labelled placeholders — never as fake, scannable-looking bars. */
-export interface BarcodeSceneNode extends SceneNodeBase {
+/**
+ * How a symbol was produced. Anything but ENCODED renders as a clearly labelled placeholder —
+ * never as fake, scannable-looking bars.
+ * - NO_ENCODER: the renderer was built without a BarcodeEncoder
+ * - NOT_ENABLED: the symbology is valid but its preview is not enabled yet
+ * - INVALID_VALUE: central validation (barcode-core) rejected the value
+ */
+export type SymbolStatus =
+  'ENCODED' | 'NO_ENCODER' | 'NOT_ENABLED' | 'INVALID_VALUE' | 'ENCODER_ERROR';
+
+interface SymbolNodeState<G> {
+  readonly symbolStatus: SymbolStatus;
+  /** Geometry relative to the frame's top-left corner; null unless ENCODED. */
+  readonly symbol: G | null;
+  readonly symbolIssues: readonly BarcodeValueIssue[];
+  readonly symbolMessage: string | null;
+}
+
+export interface BarcodeSceneNode extends SceneNodeBase, SymbolNodeState<LinearSymbolGeometry> {
   readonly kind: 'barcode';
   readonly symbology: BarcodeSymbology;
   readonly value: string;
   readonly showHumanReadableText: boolean;
   readonly barHeight: number;
+  readonly quietZone: number;
   readonly foreground: string;
   readonly background: string | null;
 }
 
-export interface QrCodeSceneNode extends SceneNodeBase {
+export interface QrCodeSceneNode extends SceneNodeBase, SymbolNodeState<MatrixSymbolGeometry> {
   readonly kind: 'qrCode';
   readonly value: string;
   readonly errorCorrection: QrCodeObject['errorCorrection'];
+  readonly quietZone: number;
   readonly foreground: string;
   readonly background: string | null;
 }

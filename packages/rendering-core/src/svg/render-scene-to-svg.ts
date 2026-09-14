@@ -1,4 +1,6 @@
+import type { SymbolRect, SymbolText } from '@smarttag/barcode-core';
 import type { Rect } from '@smarttag/document-schema';
+import { computeImagePlacement } from '../image-placement';
 import type {
   BarcodeSceneNode,
   ImageSceneNode,
@@ -31,8 +33,17 @@ export interface SvgRenderOptions {
   readonly sizeUnit?: 'mm' | 'pt' | 'none';
   /** Maps asset ids to fetchable URLs. Unresolvable or unsafe URLs render a placeholder. */
   readonly resolveAssetUrl?: (assetId: string) => string | null;
+  /** Intrinsic pixel size of an image asset; needed to apply crops exactly. */
+  readonly resolveAssetSize?: (assetId: string) => { width: number; height: number } | null;
+  /**
+   * Maps a text node to the CSS family name of its exact loaded font file (browser previews).
+   * When it returns null the document's family name is used.
+   */
+  readonly resolveFontFamily?: (node: TextSceneNode) => string | null;
   /** Outline data-bound objects (preview aid). */
   readonly highlightDataBound?: boolean;
+  /** Outline overflowing text, missing glyphs and unencodable symbols (non-printing). */
+  readonly showIssues?: boolean;
   /** Prefix for generated element ids; must be unique when several SVGs share a DOM. */
   readonly idPrefix?: string;
 }
@@ -45,9 +56,12 @@ const GUIDE_COLORS = {
   dieline: '#C21DA8',
   placeholder: '#7B8794',
   dataBound: '#F0B429',
+  issue: '#D64545',
 } as const;
 
 const PT_PER_MM = 72 / 25.4;
+/** Human-readable barcode text is not yet a controlled font (see docs/typography.md). */
+const SYMBOL_TEXT_FONT = "'OCR-B', 'Noto Sans Mono', monospace";
 
 /**
  * Serializes a PageScene to a standalone SVG document string.
@@ -128,9 +142,11 @@ function renderNode(
   });
 
   let body: string;
+  let issue = false;
   switch (node.kind) {
     case 'text':
-      body = renderText(node, nodeId, defs);
+      body = renderText(node, nodeId, defs, options);
+      issue = node.overflow || node.missingGlyphs.length > 0;
       break;
     case 'image':
       body = renderImage(node, nodeId, defs, prefix, options);
@@ -150,29 +166,51 @@ function renderNode(
       body = `<line${attrs({ x1: frame.x, y1: cy, x2: frame.x + frame.width, y2: cy, ...strokeAttrs(node.stroke) })}/>`;
       break;
     case 'barcode':
-      body = renderSymbolPlaceholder(node, prefix);
+      body = renderBarcode(node, prefix);
+      issue = node.symbolStatus !== 'ENCODED' && node.symbolStatus !== 'NO_ENCODER';
       break;
     case 'qrCode':
-      body = renderSymbolPlaceholder(node, prefix);
+      body = renderQrCode(node, prefix);
+      issue = node.symbolStatus !== 'ENCODED' && node.symbolStatus !== 'NO_ENCODER';
       break;
   }
 
-  const highlight =
-    options.highlightDataBound && node.dataBound
-      ? `<rect${attrs({
-          ...rectAttrs(frame),
-          fill: 'none',
-          stroke: GUIDE_COLORS.dataBound,
-          'stroke-width': 1,
-          'stroke-dasharray': '3 2',
-          'vector-effect': 'non-scaling-stroke',
-          'data-highlight': 'bound',
-        })}/>`
-      : '';
-  return `<g${group}>${body}${highlight}</g>`;
+  const highlights: string[] = [];
+  if (options.highlightDataBound && node.dataBound) {
+    highlights.push(
+      `<rect${attrs({
+        ...rectAttrs(frame),
+        fill: 'none',
+        stroke: GUIDE_COLORS.dataBound,
+        'stroke-width': 1,
+        'stroke-dasharray': '3 2',
+        'vector-effect': 'non-scaling-stroke',
+        'data-highlight': 'bound',
+      })}/>`,
+    );
+  }
+  if (options.showIssues && issue) {
+    highlights.push(
+      `<rect${attrs({
+        ...rectAttrs(frame),
+        fill: 'none',
+        stroke: GUIDE_COLORS.issue,
+        'stroke-width': 1.5,
+        'stroke-dasharray': '4 2',
+        'vector-effect': 'non-scaling-stroke',
+        'data-highlight': 'issue',
+      })}/>`,
+    );
+  }
+  return `<g${group}>${body}${highlights.join('')}</g>`;
 }
 
-function renderText(node: TextSceneNode, nodeId: string, defs: string[]): string {
+function renderText(
+  node: TextSceneNode,
+  nodeId: string,
+  defs: string[],
+  options: SvgRenderOptions,
+): string {
   let clip: string | null = null;
   if (node.clip) {
     clip = `${nodeId}-clip`;
@@ -181,8 +219,11 @@ function renderText(node: TextSceneNode, nodeId: string, defs: string[]): string
   const spans = node.lines
     .map((line) => `<tspan${attrs({ x: line.x, y: line.y })}>${escapeXml(line.text)}</tspan>`)
     .join('');
+  const controlledFamily = options.resolveFontFamily?.(node) ?? null;
   return `<text${attrs({
-    'font-family': cssFontFamily(node.fontFamily),
+    'font-family': controlledFamily
+      ? `'${controlledFamily.replace(/["'\\;{}<>]/g, '')}'`
+      : cssFontFamily(node.fontFamily),
     'font-size': node.fontSize,
     'font-weight': node.fontWeight,
     'font-style': node.fontStyle === 'italic' ? 'italic' : null,
@@ -193,6 +234,7 @@ function renderText(node: TextSceneNode, nodeId: string, defs: string[]): string
     'xml:space': 'preserve',
     'xml:lang': node.language,
     'clip-path': clip ? `url(#${clip})` : null,
+    'data-overflow': node.overflow ? 'true' : null,
   })}>${spans}</text>`;
 }
 
@@ -208,26 +250,119 @@ function renderImage(
   if (!url || !isSafeImageUrl(url)) {
     return placeholderBox(node.frame, prefix, [node.assetId ? 'IMAGE' : 'NO IMAGE']);
   }
-  let clip: string | null = null;
+  const size = node.assetId ? (options.resolveAssetSize?.(node.assetId) ?? null) : null;
+  const clipId = `${nodeId}-clip`;
+  const clipDef = `<clipPath${attrs({ id: clipId })}><rect${attrs(rectAttrs(node.frame))}/></clipPath>`;
+
+  if (size && size.width > 0 && size.height > 0) {
+    // Exact placement (fit + crop) shared with the canvas editor.
+    const fit = node.fit === 'contain' ? 'CONTAIN' : node.fit === 'cover' ? 'COVER' : 'STRETCH';
+    const placement = computeImagePlacement(node.frame, size, fit, node.crop);
+    const { source, destination } = placement;
+    const needsClip = placement.clip || node.crop !== null;
+    if (needsClip) defs.push(clipDef);
+    return `<g${attrs({ 'clip-path': needsClip ? `url(#${clipId})` : null })}><svg${attrs({
+      x: node.frame.x + destination.x,
+      y: node.frame.y + destination.y,
+      width: destination.width,
+      height: destination.height,
+      viewBox: `${fmt(source.x)} ${fmt(source.y)} ${fmt(source.width)} ${fmt(source.height)}`,
+      preserveAspectRatio: 'none',
+      overflow: 'hidden',
+    })}><image${attrs({ href: url, x: 0, y: 0, width: size.width, height: size.height, preserveAspectRatio: 'none' })}/></svg></g>`;
+  }
+
   if (node.fit === 'cover') {
-    clip = `${nodeId}-clip`;
-    defs.push(`<clipPath${attrs({ id: clip })}><rect${attrs(rectAttrs(node.frame))}/></clipPath>`);
+    defs.push(clipDef);
   }
   return `<image${attrs({
     href: url,
     ...rectAttrs(node.frame),
     preserveAspectRatio:
       node.fit === 'contain' ? 'xMidYMid meet' : node.fit === 'cover' ? 'xMidYMid slice' : 'none',
-    'clip-path': clip ? `url(#${clip})` : null,
+    'clip-path': node.fit === 'cover' ? `url(#${clipId})` : null,
   })}/>`;
 }
 
-function renderSymbolPlaceholder(node: BarcodeSceneNode | QrCodeSceneNode, prefix: string): string {
-  const title = node.kind === 'barcode' ? node.symbology : `QR · ${node.errorCorrection}`;
+/** Axis-aligned rectangles as one compact path (bars and QR module runs). */
+function rectsToPath(rects: readonly SymbolRect[], originX: number, originY: number): string {
+  return rects
+    .map(
+      (r) =>
+        `M${fmt(originX + r.x)} ${fmt(originY + r.y)}h${fmt(r.width)}v${fmt(r.height)}h${fmt(-r.width)}Z`,
+    )
+    .join('');
+}
+
+function renderSymbolTexts(texts: readonly SymbolText[], frame: Rect, fill: string): string {
+  return texts
+    .map(
+      (text) =>
+        `<text${attrs({
+          x: frame.x + text.x,
+          y: frame.y + text.y,
+          'font-family': SYMBOL_TEXT_FONT,
+          'font-size': text.fontSize,
+          'text-anchor': text.anchor,
+          fill,
+        })}>${escapeXml(text.text)}</text>`,
+    )
+    .join('');
+}
+
+function renderBarcode(node: BarcodeSceneNode, prefix: string): string {
   const background = node.background
     ? `<rect${attrs({ ...rectAttrs(node.frame), fill: node.background })}/>`
     : '';
-  return `${background}${placeholderBox(node.frame, prefix, [title, node.value || '(no value)', 'placeholder'])}`;
+  if (node.symbol) {
+    return `${background}<path${attrs({
+      d: rectsToPath(node.symbol.bars, node.frame.x, node.frame.y),
+      fill: node.foreground,
+      'shape-rendering': 'crispEdges',
+      'data-symbol': 'bars',
+    })}/>${renderSymbolTexts(node.symbol.texts, node.frame, node.foreground)}`;
+  }
+  return `${background}${placeholderBox(node.frame, prefix, symbolLabels(node, node.symbology))}`;
+}
+
+function renderQrCode(node: QrCodeSceneNode, prefix: string): string {
+  if (node.symbol) {
+    const { bounds } = node.symbol;
+    const background = node.background
+      ? `<rect${attrs({
+          x: node.frame.x + bounds.x,
+          y: node.frame.y + bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+          fill: node.background,
+        })}/>`
+      : '';
+    return `${background}<path${attrs({
+      d: rectsToPath(node.symbol.runs, node.frame.x, node.frame.y),
+      fill: node.foreground,
+      'shape-rendering': 'crispEdges',
+      'data-symbol': 'modules',
+    })}/>`;
+  }
+  const background = node.background
+    ? `<rect${attrs({ ...rectAttrs(node.frame), fill: node.background })}/>`
+    : '';
+  return `${background}${placeholderBox(node.frame, prefix, symbolLabels(node, `QR · ${node.errorCorrection}`))}`;
+}
+
+function symbolLabels(node: BarcodeSceneNode | QrCodeSceneNode, title: string): string[] {
+  const value = node.value || '(no value)';
+  switch (node.symbolStatus) {
+    case 'INVALID_VALUE':
+      return [title, value, `invalid: ${node.symbolMessage ?? ''}`];
+    case 'NOT_ENABLED':
+      return [title, value, 'preview not enabled'];
+    case 'ENCODER_ERROR':
+      return [title, value, 'encoding failed'];
+    case 'NO_ENCODER':
+    case 'ENCODED':
+      return [title, value, 'placeholder'];
+  }
 }
 
 /** A hatched, labelled box that cannot be mistaken for real, scannable artwork. */

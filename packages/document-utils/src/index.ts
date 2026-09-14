@@ -14,4 +14,5 @@ export * from './geometry-precision';
 export * from './hashing';
 export * from './ids';
 export * from './summary';
+export * from './unicode-coverage';
 export * from './units';

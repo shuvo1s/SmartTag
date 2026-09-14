@@ -1,22 +1,44 @@
 import {
+  encodeBarcodeObject,
+  encodeQrCodeObject,
+  layoutLinearSymbol,
+  layoutMatrixSymbol,
+  type BarcodeEncoder,
+} from '@smarttag/barcode-core';
+import {
   getBleedBox,
   getMarginBox,
   getSafeBox,
   getTrimBox,
   type ArtworkObject,
+  type BarcodeObject,
   type DesignDocument,
   type DielineFeature,
   type Page,
   type PrintSettings,
+  type QrCodeObject,
 } from '@smarttag/document-schema';
 import { collectBoundProperties } from '@smarttag/document-utils';
 import { colorToCss, strokeToScene } from './color';
-import type { PageScene, SceneDielineFeature, SceneNode } from './scene';
-import { layoutTextLines, resolveTextDirection } from './text-layout';
+import type {
+  BarcodeSceneNode,
+  PageScene,
+  QrCodeSceneNode,
+  SceneDielineFeature,
+  SceneNode,
+} from './scene';
+import { layoutTextApproximately, type TextLayoutEngine } from './text-layout';
 
 export interface BuildSceneOptions {
   /** Include objects whose `visible` flag (or group) is false. Useful for editor-like previews. */
   readonly includeHidden?: boolean;
+  /**
+   * Text layout engine. Browsers pass an engine that measures with the exact loaded font files;
+   * without one, a deterministic approximation is used (tests, server previews).
+   */
+  readonly textLayout?: TextLayoutEngine;
+  /** Barcode/QR encoder. Without one, symbols render as labelled placeholders. */
+  readonly barcodeEncoder?: BarcodeEncoder;
 }
 
 export class PageNotFoundError extends Error {
@@ -63,27 +85,37 @@ export function buildPageScene(
       toSceneFeature(feature, page, dimensions, document.printSettings),
     ),
     nodes: visibleObjectsInPaintOrder(page, options.includeHidden ?? false).map((object) =>
-      toSceneNode(object, boundObjectIds.has(object.id)),
+      toSceneNode(object, boundObjectIds.has(object.id), options),
     ),
   };
 }
 
-function visibleObjectsInPaintOrder(page: Page, includeHidden: boolean): ArtworkObject[] {
-  const hiddenGroups = new Set(
-    page.groups.filter((group) => !group.visible).map((group) => group.id),
-  );
+/** Paint order: ascending zIndex, then document array order. */
+export function objectsInPaintOrder(page: Page): ArtworkObject[] {
   return page.objects
     .map((object, index) => ({ object, index }))
-    .filter(
-      ({ object }) =>
-        includeHidden ||
-        (object.visible && (object.groupId === null || !hiddenGroups.has(object.groupId))),
-    )
     .sort((a, b) => a.object.zIndex - b.object.zIndex || a.index - b.index)
     .map(({ object }) => object);
 }
 
-function toSceneNode(object: ArtworkObject, dataBound: boolean): SceneNode {
+/** Effective visibility: the object and its group (if any) must both be visible. */
+export function isObjectEffectivelyVisible(page: Page, object: ArtworkObject): boolean {
+  if (!object.visible) return false;
+  if (object.groupId === null) return true;
+  return page.groups.find((group) => group.id === object.groupId)?.visible ?? true;
+}
+
+function visibleObjectsInPaintOrder(page: Page, includeHidden: boolean): ArtworkObject[] {
+  return objectsInPaintOrder(page).filter(
+    (object) => includeHidden || isObjectEffectivelyVisible(page, object),
+  );
+}
+
+function toSceneNode(
+  object: ArtworkObject,
+  dataBound: boolean,
+  options: BuildSceneOptions,
+): SceneNode {
   const base = {
     id: object.id,
     name: object.name,
@@ -96,20 +128,26 @@ function toSceneNode(object: ArtworkObject, dataBound: boolean): SceneNode {
 
   switch (object.type) {
     case 'text': {
-      const direction = resolveTextDirection(object);
+      const layout = options.textLayout?.layout(object) ?? layoutTextApproximately(object);
       return {
         ...base,
         kind: 'text',
-        ...layoutTextLines(object, direction),
-        direction,
+        lines: layout.lines.map(({ text, x, y }) => ({ text, x, y })),
+        anchor: layout.anchor,
+        direction: layout.direction,
         language: object.language,
+        fontAssetId: object.fontAssetId,
         fontFamily: object.fontFamily,
-        fontSize: object.fontSize,
+        fontSize: layout.fontSize,
+        requestedFontSize: object.fontSize,
         fontWeight: object.fontWeight,
         fontStyle: object.fontStyle === 'ITALIC' ? 'italic' : 'normal',
         letterSpacing: object.letterSpacing,
         fill: colorToCss(object.textColor),
         clip: object.overflow.mode !== 'VISIBLE',
+        overflow: layout.overflow,
+        missingGlyphs: layout.missingGlyphs,
+        metricsSource: layout.metricsSource,
       };
     }
     case 'image':
@@ -123,6 +161,7 @@ function toSceneNode(object: ArtworkObject, dataBound: boolean): SceneNode {
             : object.fitMode === 'COVER'
               ? 'cover'
               : 'stretch',
+        crop: object.crop,
       };
     case 'rectangle':
       return {
@@ -149,8 +188,10 @@ function toSceneNode(object: ArtworkObject, dataBound: boolean): SceneNode {
         value: object.value,
         showHumanReadableText: object.showHumanReadableText,
         barHeight: object.barHeight,
+        quietZone: object.quietZone,
         foreground: colorToCss(object.foregroundColor),
         background: object.backgroundColor ? colorToCss(object.backgroundColor) : null,
+        ...barcodeSymbol(object, options.barcodeEncoder),
       };
     case 'qrCode':
       return {
@@ -158,8 +199,98 @@ function toSceneNode(object: ArtworkObject, dataBound: boolean): SceneNode {
         kind: 'qrCode',
         value: object.value,
         errorCorrection: object.errorCorrection,
+        quietZone: object.quietZone,
         foreground: colorToCss(object.foregroundColor),
         background: object.backgroundColor ? colorToCss(object.backgroundColor) : null,
+        ...qrSymbol(object, options.barcodeEncoder),
+      };
+  }
+}
+
+type SymbolState<N extends BarcodeSceneNode | QrCodeSceneNode> = Pick<
+  N,
+  'symbolStatus' | 'symbol' | 'symbolIssues' | 'symbolMessage'
+>;
+
+const NO_ENCODER = {
+  symbolStatus: 'NO_ENCODER',
+  symbol: null,
+  symbolIssues: [],
+  symbolMessage: null,
+} as const;
+
+/** Symbol geometry for a barcode object; shared by the SVG preview and the editor canvas. */
+export function barcodeSymbol(
+  object: BarcodeObject,
+  encoder: BarcodeEncoder | undefined,
+): SymbolState<BarcodeSceneNode> {
+  if (!encoder) return NO_ENCODER;
+  const result = encodeBarcodeObject(encoder, object);
+  switch (result.status) {
+    case 'ENCODED':
+      return {
+        symbolStatus: 'ENCODED',
+        symbol: layoutLinearSymbol(result.pattern, {
+          width: object.width,
+          height: object.height,
+          quietZone: object.quietZone,
+          barHeight: object.barHeight,
+          showHumanReadableText: object.showHumanReadableText,
+        }),
+        symbolIssues: [],
+        symbolMessage: null,
+      };
+    case 'INVALID_VALUE':
+      return {
+        symbolStatus: 'INVALID_VALUE',
+        symbol: null,
+        symbolIssues: result.issues,
+        symbolMessage: result.issues[0]?.message ?? 'Invalid value',
+      };
+    case 'NOT_ENABLED':
+    case 'ENCODER_ERROR':
+      return {
+        symbolStatus: result.status,
+        symbol: null,
+        symbolIssues: [],
+        symbolMessage: result.message,
+      };
+  }
+}
+
+/** Symbol geometry for a QR code object; shared by the SVG preview and the editor canvas. */
+export function qrSymbol(
+  object: QrCodeObject,
+  encoder: BarcodeEncoder | undefined,
+): SymbolState<QrCodeSceneNode> {
+  if (!encoder) return NO_ENCODER;
+  const result = encodeQrCodeObject(encoder, object);
+  switch (result.status) {
+    case 'ENCODED':
+      return {
+        symbolStatus: 'ENCODED',
+        symbol: layoutMatrixSymbol(result.pattern, {
+          width: object.width,
+          height: object.height,
+          quietZone: object.quietZone,
+        }),
+        symbolIssues: [],
+        symbolMessage: null,
+      };
+    case 'INVALID_VALUE':
+      return {
+        symbolStatus: 'INVALID_VALUE',
+        symbol: null,
+        symbolIssues: result.issues,
+        symbolMessage: result.issues[0]?.message ?? 'Invalid value',
+      };
+    case 'NOT_ENABLED':
+    case 'ENCODER_ERROR':
+      return {
+        symbolStatus: result.status,
+        symbol: null,
+        symbolIssues: [],
+        symbolMessage: result.message,
       };
   }
 }

@@ -1,8 +1,8 @@
 {
-  "name": "@smarttag/rendering-core",
+  "name": "@smarttag/barcode-bwip",
   "version": "0.1.0",
   "private": true,
-  "description": "Renderer-agnostic scene construction and SVG serialization from canonical documents. No React, no DOM.",
+  "description": "BarcodeEncoder adapter backed by bwip-js. The only package that depends on a barcode library.",
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -26,9 +26,9 @@
   "dependencies": {
     "@smarttag/barcode-core": "0.1.0",
     "@smarttag/document-schema": "0.1.0",
-    "@smarttag/document-utils": "0.1.0"
+    "bwip-js": "4.11.4"
   },
   "devDependencies": {
-    "@smarttag/barcode-bwip": "0.1.0"
+    "jsqr": "^1.4.0"
   }
 }
