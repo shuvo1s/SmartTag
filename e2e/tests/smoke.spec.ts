@@ -10,6 +10,8 @@ test.describe('platform smoke', () => {
     await page.getByLabel('Password').fill(E2E_PASSWORD);
     await page.getByRole('button', { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/templates$/);
+    // Other suites create templates, so search instead of relying on the first page.
+    await page.getByRole('searchbox', { name: 'Search templates' }).fill('HT-DEMO-50X90');
     await expect(page.getByRole('cell', { name: 'HT-DEMO-50X90' })).toBeVisible();
   });
 
@@ -18,6 +20,7 @@ test.describe('platform smoke', () => {
 
     test('renders a version preview from the canonical document', async ({ page }) => {
       await page.goto('/templates');
+      await page.getByRole('searchbox', { name: 'Search templates' }).fill('HT-DEMO-50X90');
       await page
         .getByRole('link', { name: /Demo Active hang tag/i })
         .first()
