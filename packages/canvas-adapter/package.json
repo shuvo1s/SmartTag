@@ -1,0 +1,38 @@
+{
+  "name": "@smarttag/canvas-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fabric.js adapter for the design editor: canonical DesignDocument ⇄ interactive canvas. The only package that depends on Fabric.js.",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "node ../../scripts/clean.mjs dist && tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@smarttag/barcode-core": "0.1.0",
+    "@smarttag/document-schema": "0.1.0",
+    "@smarttag/document-utils": "0.1.0",
+    "@smarttag/editor-core": "0.1.0",
+    "@smarttag/rendering-core": "0.1.0",
+    "fabric": "7.4.0"
+  },
+  "devDependencies": {
+    "@smarttag/barcode-bwip": "0.1.0",
+    "jsdom": "^30.0.1"
+  }
+}

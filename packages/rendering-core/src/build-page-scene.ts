@@ -90,6 +90,38 @@ export function buildPageScene(
   };
 }
 
+export type PageGuides = Pick<
+  PageScene,
+  'pageId' | 'side' | 'boxes' | 'background' | 'trimCornerRadius' | 'dieline'
+>;
+
+/**
+ * Non-printing production geometry of a page (boxes and mirrored dieline features) without
+ * building artwork nodes. Editor overlays use it so guides match the canonical renderer exactly.
+ */
+export function buildPageGuides(document: DesignDocument, pageId: string): PageGuides {
+  const page = document.pages.find((candidate) => candidate.id === pageId);
+  if (!page) {
+    throw new PageNotFoundError(pageId);
+  }
+  const { dimensions } = document;
+  return {
+    pageId: page.id,
+    side: page.side,
+    boxes: {
+      trim: getTrimBox(dimensions),
+      bleed: getBleedBox(dimensions),
+      safe: getSafeBox(dimensions),
+      margin: getMarginBox(dimensions),
+    },
+    background: page.background ? colorToCss(page.background) : null,
+    trimCornerRadius: dimensions.dieline.trimShape.cornerRadius,
+    dieline: dimensions.dieline.features.map((feature) =>
+      toSceneFeature(feature, page, dimensions, document.printSettings),
+    ),
+  };
+}
+
 /** Paint order: ascending zIndex, then document array order. */
 export function objectsInPaintOrder(page: Page): ArtworkObject[] {
   return page.objects

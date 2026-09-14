@@ -10,6 +10,7 @@ import {
 import { createSampleHangTagDocument } from '@smarttag/document-utils/fixtures';
 import { describe, expect, it } from 'vitest';
 import {
+  buildPageGuides,
   buildPageScene,
   computeImagePlacement,
   createTextLayoutEngine,
@@ -277,5 +278,16 @@ describe('text and image rendering details', () => {
       resolveAssetSize: (id) => (id === assetId ? { width: 800, height: 400 } : null),
     });
     expect(svg).toContain('viewBox="200 0 400 400"');
+  });
+});
+
+describe('page guides', () => {
+  it('match the scene boxes and mirrored dieline without building nodes', () => {
+    const document = createSampleHangTagDocument();
+    const guides = buildPageGuides(document, 'page-back');
+    const scene = buildPageScene(document, 'page-back');
+    expect(guides.boxes).toEqual(scene.boxes);
+    expect(guides.dieline).toEqual(scene.dieline);
+    expect(guides).not.toHaveProperty('nodes');
   });
 });

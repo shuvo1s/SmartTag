@@ -92,6 +92,37 @@ function applyFrameConstraints(before: ArtworkObject, after: ArtworkObject): Art
   }
 }
 
+/**
+ * Applies a measured or requested frame to one object with the canonical precision rules:
+ * unchanged values (within half the rounding unit) keep their exact stored number, changed
+ * values are normalized and dependent properties are kept valid. Returns the same object when
+ * nothing changed. Lock state is NOT checked here — see setObjectFrames.
+ */
+export function applyFrameChange(
+  object: ArtworkObject,
+  change: Omit<FrameChange, 'id'>,
+): ArtworkObject {
+  const minHeight = object.type === 'line' ? 0 : MIN_FRAME_SIZE_PT;
+  const next = {
+    ...object,
+    x: nextCoordinate(object.x, change.x),
+    y: nextCoordinate(object.y, change.y),
+    width: nextLength(object.width, change.width, MIN_FRAME_SIZE_PT),
+    height: nextLength(object.height, change.height, minHeight),
+    rotation:
+      change.rotation === undefined || rotationsEqual(object.rotation, change.rotation)
+        ? object.rotation
+        : normalizeRotation(change.rotation),
+  };
+  const unchanged =
+    next.x === object.x &&
+    next.y === object.y &&
+    next.width === object.width &&
+    next.height === object.height &&
+    next.rotation === object.rotation;
+  return unchanged ? object : applyFrameConstraints(object, next);
+}
+
 export function setObjectFrames(
   document: DesignDocument,
   pageId: string,
@@ -99,29 +130,9 @@ export function setObjectFrames(
 ): DesignDocument {
   const page = findPage(document, pageId);
   const byId = new Map(changes.map((change) => [change.id, change]));
-  return withObjects(document, pageId, byId.keys(), (object) => {
-    const change = byId.get(object.id)!;
-    if (isEffectivelyLocked(page, object)) return object;
-    const minHeight = object.type === 'line' ? 0 : MIN_FRAME_SIZE_PT;
-    const next = {
-      ...object,
-      x: nextCoordinate(object.x, change.x),
-      y: nextCoordinate(object.y, change.y),
-      width: nextLength(object.width, change.width, MIN_FRAME_SIZE_PT),
-      height: nextLength(object.height, change.height, minHeight),
-      rotation:
-        change.rotation === undefined || rotationsEqual(object.rotation, change.rotation)
-          ? object.rotation
-          : normalizeRotation(change.rotation),
-    };
-    const unchanged =
-      next.x === object.x &&
-      next.y === object.y &&
-      next.width === object.width &&
-      next.height === object.height &&
-      next.rotation === object.rotation;
-    return unchanged ? object : applyFrameConstraints(object, next);
-  });
+  return withObjects(document, pageId, byId.keys(), (object) =>
+    isEffectivelyLocked(page, object) ? object : applyFrameChange(object, byId.get(object.id)!),
+  );
 }
 
 export function moveObjects(
