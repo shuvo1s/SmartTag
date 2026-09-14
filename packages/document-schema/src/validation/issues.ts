@@ -14,6 +14,10 @@ export const DOCUMENT_ISSUE_CODES = [
   // geometry / property semantics
   'INVALID_GEOMETRY',
   'INVALID_PROPERTY',
+  // contextual — reported by services that know about the owning template and asset library
+  'DOCUMENT_ID_MISMATCH',
+  'DOCUMENT_TYPE_MISMATCH',
+  'UNKNOWN_ASSET_REFERENCE',
   // warnings
   'OBJECT_OUTSIDE_BLEED',
   'IMAGE_SOURCE_MISSING',
