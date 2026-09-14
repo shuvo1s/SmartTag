@@ -1,0 +1,25 @@
+{
+  "name": "@smarttag/rendering-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Renderer-agnostic scene construction and SVG serialization from canonical documents. No React, no DOM.",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "node ../../scripts/clean.mjs dist && tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": { "@smarttag/document-schema": "0.1.0", "@smarttag/document-utils": "0.1.0" }
+}

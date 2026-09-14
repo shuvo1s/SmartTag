@@ -1,0 +1,25 @@
+{
+  "name": "@smarttag/barcode-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Barcode/QR symbology definitions and value validation, independent of any barcode rendering library.",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "node ../../scripts/clean.mjs dist && tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": { "@smarttag/document-schema": "0.1.0" }
+}
