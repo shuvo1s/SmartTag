@@ -19,7 +19,7 @@ export const NAVIGATION: readonly NavigationSection[] = [
     label: null,
     items: [
       { label: 'Dashboard', href: '/dashboard', availability: 'AVAILABLE' },
-      { label: 'Designs', href: '/designs', availability: 'PLANNED', plannedFor: 'Phase 2' },
+      { label: 'Designs', href: '/designs', availability: 'PLANNED', plannedFor: 'Planned' },
       {
         label: 'Templates',
         href: '/templates',

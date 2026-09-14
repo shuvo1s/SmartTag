@@ -9,9 +9,10 @@ const PLATFORM_STATUS = [
   { area: 'Canonical document model, validation, hashing', status: 'Available' },
   { area: 'Templates & immutable versions', status: 'Available' },
   { area: 'Customers & brands', status: 'Available' },
-  { area: 'Asset storage (API)', status: 'Available' },
-  { area: 'Professional canvas designer', status: 'Phase 2' },
-  { area: 'CSV/Excel batch VDP, barcode generation, print-ready PDF', status: 'Planned' },
+  { area: 'Asset storage (API), SVG sanitization', status: 'Available' },
+  { area: 'Professional canvas designer (draft versions)', status: 'Available' },
+  { area: 'Controlled fonts, CODE128/EAN-13/QR preview rendering', status: 'Available' },
+  { area: 'CSV/Excel batch VDP, field mapping, print-ready PDF', status: 'Planned' },
   { area: 'Approval workflow, jobs, ERP/PLM integrations', status: 'Planned' },
 ] as const;
 
