@@ -1,22 +1,15 @@
 import type { NextConfig } from 'next';
 
 /**
- * The browser talks only to this origin. `/api/v1/*` is proxied to the NestJS API so session
- * cookies stay first-party and no CORS is required. Business logic never runs in Next.js.
- *
- * API_INTERNAL_URL is read when the Next.js server builds its routing table (build/start).
+ * The browser talks only to this origin. `/api/v1/*` is forwarded to the NestJS API by the
+ * streaming route handler in src/app/api/v1/[...path]/route.ts, which reads API_INTERNAL_URL at
+ * runtime. Session cookies stay first-party and no CORS is required. Business logic never runs
+ * in Next.js.
  */
-const apiInternalUrl = (process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:4000').replace(/\/$/, '');
-
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ['@smarttag/ui'],
-  rewrites() {
-    return Promise.resolve([
-      { source: '/api/v1/:path*', destination: `${apiInternalUrl}/api/v1/:path*` },
-    ]);
-  },
   headers() {
     return Promise.resolve([
       {
