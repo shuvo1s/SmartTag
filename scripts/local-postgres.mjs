@@ -6,7 +6,7 @@
  * listening only on 127.0.0.1 on a non-default port. It never touches any existing PostgreSQL
  * server, service or database on the machine.
  *
- *   npm run pg:local -- init     # initdb + start + create smarttag_dev and smarttag_test
+ *   npm run pg:local -- init     # initdb + start + create smarttag_dev, smarttag_test and smarttag_e2e
  *   npm run pg:local -- start
  *   npm run pg:local -- stop
  *   npm run pg:local -- status
@@ -26,7 +26,7 @@ const LOG_FILE = join(BASE_DIR, 'postgres.log');
 const PORT = process.env.LOCAL_PG_PORT ?? '55432';
 const USER = 'smarttag';
 const PASSWORD = 'smarttag';
-const DATABASES = ['smarttag_dev', 'smarttag_test'];
+const DATABASES = ['smarttag_dev', 'smarttag_test', 'smarttag_e2e'];
 const EXE = process.platform === 'win32' ? '.exe' : '';
 
 function findBinDir() {

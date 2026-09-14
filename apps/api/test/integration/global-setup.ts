@@ -34,11 +34,12 @@ export default async function globalSetup(): Promise<void> {
     await client.end();
   }
 
-  const result = spawnSync('npx', ['prisma', 'migrate', 'deploy'], {
+  // A fixed command string (no user input) through the shell so npx resolves on every platform.
+  const result = spawnSync('npx prisma migrate deploy', {
     cwd: API_ROOT,
     env: { ...process.env, DATABASE_URL: url },
     encoding: 'utf8',
-    shell: process.platform === 'win32',
+    shell: true,
   });
   if (result.status !== 0) {
     throw new Error(`prisma migrate deploy failed:\n${result.stdout}\n${result.stderr}`);

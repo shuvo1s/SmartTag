@@ -82,6 +82,7 @@ Useful pages: **Templates**, a template's detail page (versions, lifecycle actio
 | `npm run typecheck`        | TypeScript across all workspaces                                                                                                                          |
 | `npm run test`             | Unit and component tests                                                                                                                                  |
 | `npm run test:integration` | API integration tests against `TEST_DATABASE_URL` (a database whose name ends in `_test`; the schema is dropped and rebuilt from migrations on every run) |
+| `npm run test:e2e`         | Playwright browser tests against production builds on isolated ports (API :4310, web :3310) and the disposable `smarttag_e2e` database                    |
 | `npm run build`            | Production builds                                                                                                                                         |
 | `npm run verify`           | All of the above, in order                                                                                                                                |
 | `npm run db:migrate`       | Create a new migration in development (`prisma migrate dev`)                                                                                              |

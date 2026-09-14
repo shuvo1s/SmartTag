@@ -1,0 +1,21 @@
+{
+  "name": "@smarttag/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser end-to-end tests (Playwright) against an isolated API + web stack and a disposable database.",
+  "type": "module",
+  "scripts": {
+    "test:e2e": "node scripts/prepare-e2e.mjs && playwright test",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@smarttag/api": "0.1.0",
+    "@smarttag/document-schema": "0.1.0",
+    "@smarttag/document-utils": "0.1.0",
+    "@smarttag/shared-types": "0.1.0",
+    "@smarttag/web": "0.1.0",
+    "pg": "^8.23.0"
+  }
+}
