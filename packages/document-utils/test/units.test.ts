@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CSS_PIXELS_PER_POINT,
   cmToPt,
+  formatDimensions,
   formatLength,
   fromPoints,
   inToPt,
@@ -74,5 +75,7 @@ describe('physical unit conversion (canonical unit: PDF point = 1/72 in)', () =>
     expect(formatLength(mmToPt(3), 'mm')).toBe('3 mm');
     expect(formatLength(mmToPt(50), 'in')).toBe('1.969 in');
     expect(formatLength(36, 'pt')).toBe('36 pt');
+    expect(formatDimensions(mmToPt(50), mmToPt(90), 'mm')).toBe('50 × 90 mm');
+    expect(formatDimensions(144, 252, 'in')).toBe('2 × 3.5 in');
   });
 });

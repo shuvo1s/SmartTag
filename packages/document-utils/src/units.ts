@@ -102,8 +102,17 @@ export const UNIT_LABELS: Readonly<Record<MeasurementUnit, string>> = {
   pt: 'pt',
 };
 
+function formatNumber(pt: number, unit: MeasurementUnit, decimals: number): string {
+  return Number(roundTo(fromPoints(pt, unit), decimals).toFixed(decimals)).toString();
+}
+
 /** Formats a canonical point length for display, e.g. `formatLength(141.73, 'mm')` → "50 mm". */
 export function formatLength(pt: number, unit: MeasurementUnit, decimals = DISPLAY_PRECISION[unit]): string {
-  const value = roundTo(fromPoints(pt, unit), decimals);
-  return `${Number(value.toFixed(decimals)).toString()} ${UNIT_LABELS[unit]}`;
+  return `${formatNumber(pt, unit, decimals)} ${UNIT_LABELS[unit]}`;
+}
+
+/** Formats a width × height pair, e.g. "50 × 90 mm". */
+export function formatDimensions(widthPt: number, heightPt: number, unit: MeasurementUnit): string {
+  const decimals = DISPLAY_PRECISION[unit];
+  return `${formatNumber(widthPt, unit, decimals)} × ${formatNumber(heightPt, unit, decimals)} ${UNIT_LABELS[unit]}`;
 }

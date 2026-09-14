@@ -91,7 +91,7 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="24
   <rect width="600" height="240" rx="24" fill="#FFFFFF"/>
   <circle cx="120" cy="120" r="72" fill="#0B6E4F"/>
   <path d="M84 132l28 28 52-64" stroke="#FFFFFF" stroke-width="18" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="222" y="142" font-family="Arial, sans-serif" font-size="64" font-weight="700" fill="#1F2933">DEMO ACTIVE</text>
+  <text x="220" y="138" font-family="Arial, sans-serif" font-size="46" font-weight="700" fill="#1F2933" textLength="350" lengthAdjust="spacingAndGlyphs">DEMO ACTIVE</text>
 </svg>
 `;
 
@@ -189,10 +189,11 @@ async function main() {
         id: 'front-care-hint',
         name: 'Care hint',
         zIndex: 20,
+        // Inside the 3 mm safe area, below the barcode (safe bottom edge = 246.6 pt).
         x: 11.34,
-        y: 245.2,
+        y: 239,
         width: 119.06,
-        height: 8,
+        height: 7,
         content: 'Machine wash 30 °C',
         fontSize: 6,
         textAlign: 'CENTER',
