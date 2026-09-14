@@ -1,0 +1,440 @@
+// SmartTag Platform — relational model (Phase 1)
+//
+// Conventions
+// - UUIDv7 primary keys (time-ordered, index-friendly), snake_case tables/columns.
+// - Every tenant-owned table carries organization_id. Relations between tenant-owned rows use
+//   COMPOSITE foreign keys that include organization_id, so the database itself makes it
+//   impossible to link, e.g., a template to another tenant's customer.
+// - CHECK constraints and triggers that Prisma cannot express live in hand-written migrations
+//   (see prisma/migrations/*_integrity_constraints).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ------------------------------------------------------------------------------------------------
+// Identity & tenancy
+// ------------------------------------------------------------------------------------------------
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+
+  @@map("organization_status")
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("user_status")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+
+  @@map("membership_status")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ORG_ADMIN
+  TEMPLATE_ADMIN
+  DESIGNER
+  DATA_OPERATOR
+  QA
+  APPROVER
+  PRODUCTION_OPERATOR
+  VIEWER
+
+  @@map("role")
+}
+
+enum IdentityProviderType {
+  OIDC
+
+  @@map("identity_provider_type")
+}
+
+model Organization {
+  id        String             @id @default(uuid(7)) @db.Uuid
+  slug      String             @unique @db.VarChar(64)
+  name      String             @db.VarChar(200)
+  status    OrganizationStatus @default(ACTIVE)
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  memberships      Membership[]
+  sessions         Session[]
+  customers        Customer[]
+  brands           Brand[]
+  templates        Template[]
+  templateVersions TemplateVersion[]
+  assets           Asset[]
+  auditEvents      AuditEvent[]
+
+  @@map("organizations")
+}
+
+/// A person. Users are global; access to tenants is granted through memberships.
+model User {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  /// Always stored lower-case (enforced by CHECK constraint).
+  email       String     @unique @db.VarChar(320)
+  displayName String     @map("display_name") @db.VarChar(200)
+  status      UserStatus @default(ACTIVE)
+  lastLoginAt DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  passwordCredential PasswordCredential?
+  externalIdentities ExternalIdentity[]
+  memberships        Membership[]
+  sessions           Session[]
+
+  createdCustomers        Customer[]        @relation("CustomerCreatedBy")
+  createdBrands           Brand[]           @relation("BrandCreatedBy")
+  createdTemplates        Template[]        @relation("TemplateCreatedBy")
+  updatedTemplates        Template[]        @relation("TemplateUpdatedBy")
+  createdTemplateVersions TemplateVersion[] @relation("TemplateVersionCreatedBy")
+  submittedVersions       TemplateVersion[] @relation("TemplateVersionSubmittedBy")
+  approvedVersions        TemplateVersion[] @relation("TemplateVersionApprovedBy")
+  retiredVersions         TemplateVersion[] @relation("TemplateVersionRetiredBy")
+  createdAssets           Asset[]           @relation("AssetCreatedBy")
+  auditEvents             AuditEvent[]
+
+  @@map("users")
+}
+
+/// Local username/password credential. Hash is an encoded Argon2id string (includes salt and parameters).
+model PasswordCredential {
+  userId            String   @id @map("user_id") @db.Uuid
+  passwordHash      String   @map("password_hash") @db.VarChar(255)
+  passwordChangedAt DateTime @default(now()) @map("password_changed_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_credentials")
+}
+
+/// Link to an external identity provider account (e.g. Microsoft Entra ID via OIDC).
+/// (issuer, subject) uniquely identifies the external account. Not used for login in Phase 1.
+model ExternalIdentity {
+  id           String               @id @default(uuid(7)) @db.Uuid
+  userId       String               @map("user_id") @db.Uuid
+  providerType IdentityProviderType @map("provider_type")
+  issuer       String               @db.VarChar(500)
+  subject      String               @db.VarChar(255)
+  email        String?              @db.VarChar(320)
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt   DateTime?            @map("last_used_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issuer, subject])
+  @@index([userId])
+  @@map("external_identities")
+}
+
+model Membership {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  roles        MembershipRole[]
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+model MembershipRole {
+  membershipId String   @map("membership_id") @db.Uuid
+  role         Role
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@id([membershipId, role])
+  @@map("membership_roles")
+}
+
+/// Server-side session. Only the SHA-256 hash of the opaque session token is stored.
+model Session {
+  id                   String    @id @default(uuid(7)) @db.Uuid
+  tokenHash            String    @unique @map("token_hash") @db.Char(64)
+  userId               String    @map("user_id") @db.Uuid
+  activeOrganizationId String    @map("active_organization_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt            DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt           DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  revokedAt            DateTime? @map("revoked_at") @db.Timestamptz(3)
+  ipAddress            String?   @map("ip_address") @db.VarChar(64)
+  userAgent            String?   @map("user_agent") @db.VarChar(500)
+
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrganization Organization @relation(fields: [activeOrganizationId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ------------------------------------------------------------------------------------------------
+// Customers & brands
+// ------------------------------------------------------------------------------------------------
+
+enum RecordStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("record_status")
+}
+
+model Customer {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  code           String       @db.VarChar(32)
+  name           String       @db.VarChar(200)
+  status         RecordStatus @default(ACTIVE)
+  createdById    String       @map("created_by_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy    User         @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  brands       Brand[]
+  templates    Template[]
+
+  @@unique([organizationId, code])
+  @@unique([id, organizationId])
+  @@map("customers")
+}
+
+model Brand {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  customerId     String       @map("customer_id") @db.Uuid
+  code           String       @db.VarChar(32)
+  name           String       @db.VarChar(200)
+  status         RecordStatus @default(ACTIVE)
+  createdById    String       @map("created_by_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  /// Composite FK: a brand can only belong to a customer of the same organization.
+  customer     Customer     @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy    User         @relation("BrandCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  templates    Template[]
+
+  @@unique([customerId, code])
+  @@unique([id, customerId, organizationId])
+  @@index([organizationId])
+  @@map("brands")
+}
+
+// ------------------------------------------------------------------------------------------------
+// Templates & immutable versions
+// ------------------------------------------------------------------------------------------------
+
+enum DocumentType {
+  HANG_TAG
+  CARE_LABEL
+  PRICE_TICKET
+  BARCODE_LABEL
+  SIZE_STICKER
+  RFID_LABEL
+  PACKAGING_LABEL
+  CARTON_LABEL
+  SHIPPING_LABEL
+  HEAT_TRANSFER
+  POLYBAG_LABEL
+
+  @@map("document_type")
+}
+
+enum TemplateStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("template_status")
+}
+
+enum TemplateVersionStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  RETIRED
+
+  @@map("template_version_status")
+}
+
+/// The long-lived logical design (e.g. "Brand X basic hang tag").
+model Template {
+  id                  String         @id @default(uuid(7)) @db.Uuid
+  organizationId      String         @map("organization_id") @db.Uuid
+  customerId          String?        @map("customer_id") @db.Uuid
+  brandId             String?        @map("brand_id") @db.Uuid
+  /// Stable integration identifier. Unique per organization, immutable after creation.
+  code                String         @db.VarChar(64)
+  name                String         @db.VarChar(200)
+  description         String         @default("") @db.VarChar(2000)
+  documentType        DocumentType   @map("document_type")
+  status              TemplateStatus @default(ACTIVE)
+  /// Head version: the most recently created version. Production jobs never use this pointer —
+  /// they reference an explicit TemplateVersion id.
+  currentVersionId    String?        @unique @map("current_version_id") @db.Uuid
+  /// Monotonic counter used to allocate version numbers under a row lock.
+  latestVersionNumber Int            @default(0) @map("latest_version_number")
+  createdById         String         @map("created_by_id") @db.Uuid
+  updatedById         String         @map("updated_by_id") @db.Uuid
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  customer       Customer?         @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  brand          Brand?            @relation(fields: [brandId, customerId, organizationId], references: [id, customerId, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  /// Composite FK: the current version must belong to this template.
+  currentVersion TemplateVersion?  @relation("TemplateCurrentVersion", fields: [currentVersionId, id], references: [id, templateId], onDelete: Restrict, onUpdate: Restrict)
+  versions       TemplateVersion[] @relation("TemplateVersions")
+  createdBy      User              @relation("TemplateCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      User              @relation("TemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, code])
+  @@unique([id, organizationId])
+  @@unique([currentVersionId, id])
+  @@index([organizationId, status, updatedAt])
+  @@index([organizationId, customerId])
+  @@map("templates")
+}
+
+/// Immutable artwork at a specific revision. Only DRAFT versions may change content;
+/// a database trigger enforces this independently of application code.
+model TemplateVersion {
+  id               String                @id @default(uuid(7)) @db.Uuid
+  organizationId   String                @map("organization_id") @db.Uuid
+  templateId       String                @map("template_id") @db.Uuid
+  versionNumber    Int                   @map("version_number")
+  schemaVersion    Int                   @map("schema_version")
+  /// Canonical DesignDocument JSON exactly as validated.
+  documentJson     Json                  @map("document_json")
+  /// SHA-256 (hex) of the RFC 8785 canonical JSON of documentJson.
+  documentHash     String                @map("document_hash") @db.Char(64)
+  /// Derived, render-free summary for listings (recomputed whenever documentJson changes).
+  summaryJson      Json                  @map("summary_json")
+  status           TemplateVersionStatus @default(DRAFT)
+  changeSummary    String                @default("") @map("change_summary") @db.VarChar(1000)
+  basedOnVersionId String?               @map("based_on_version_id") @db.Uuid
+  /// Optimistic-concurrency counter for draft edits.
+  revision         Int                   @default(1)
+  createdById      String                @map("created_by_id") @db.Uuid
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  submittedById    String?               @map("submitted_by_id") @db.Uuid
+  submittedAt      DateTime?             @map("submitted_at") @db.Timestamptz(3)
+  approvedById     String?               @map("approved_by_id") @db.Uuid
+  approvedAt       DateTime?             @map("approved_at") @db.Timestamptz(3)
+  retiredById      String?               @map("retired_by_id") @db.Uuid
+  retiredAt        DateTime?             @map("retired_at") @db.Timestamptz(3)
+
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  template           Template          @relation("TemplateVersions", fields: [templateId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  currentForTemplate Template?         @relation("TemplateCurrentVersion")
+  /// Lineage stays within the same template.
+  basedOn            TemplateVersion?  @relation("VersionLineage", fields: [basedOnVersionId, templateId], references: [id, templateId], onDelete: Restrict, onUpdate: Restrict)
+  derivedVersions    TemplateVersion[] @relation("VersionLineage")
+  createdBy          User              @relation("TemplateVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  submittedBy        User?             @relation("TemplateVersionSubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict)
+  approvedBy         User?             @relation("TemplateVersionApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  retiredBy          User?             @relation("TemplateVersionRetiredBy", fields: [retiredById], references: [id], onDelete: Restrict)
+
+  @@unique([templateId, versionNumber])
+  @@unique([id, templateId])
+  @@index([organizationId, status])
+  @@index([documentHash])
+  @@map("template_versions")
+}
+
+// ------------------------------------------------------------------------------------------------
+// Assets
+// ------------------------------------------------------------------------------------------------
+
+enum AssetType {
+  LOGO
+  IMAGE
+  SVG
+  FONT
+  ICON
+  CARE_SYMBOL
+  CERTIFICATION_SYMBOL
+
+  @@map("asset_type")
+}
+
+/// Metadata for a stored binary. The bytes live in object storage under `storageKey`;
+/// records never reference a storage vendor, bucket or URL directly.
+model Asset {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  assetType      AssetType @map("asset_type")
+  filename       String    @db.VarChar(255)
+  mimeType       String    @map("mime_type") @db.VarChar(127)
+  sizeBytes      Int       @map("size_bytes")
+  storageKey     String    @map("storage_key") @db.VarChar(512)
+  checksumSha256 String    @map("checksum_sha256") @db.Char(64)
+  widthPx        Int?      @map("width_px")
+  heightPx       Int?      @map("height_px")
+  metadata       Json      @default("{}")
+  createdById    String    @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy    User         @relation("AssetCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  @@index([organizationId, assetType, createdAt])
+  @@index([organizationId, checksumSha256])
+  @@map("assets")
+}
+
+// ------------------------------------------------------------------------------------------------
+// Audit
+// ------------------------------------------------------------------------------------------------
+
+/// Append-only audit trail (UPDATE/DELETE blocked by trigger).
+model AuditEvent {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  action         String   @db.VarChar(64)
+  resourceType   String   @map("resource_type") @db.VarChar(64)
+  resourceId     String?  @map("resource_id") @db.VarChar(64)
+  requestId      String?  @map("request_id") @db.VarChar(100)
+  ipAddress      String?  @map("ip_address") @db.VarChar(64)
+  userAgent      String?  @map("user_agent") @db.VarChar(500)
+  metadata       Json     @default("{}")
+  occurredAt     DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor        User?         @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, occurredAt])
+  @@index([resourceType, resourceId])
+  @@index([actorUserId, occurredAt])
+  @@map("audit_events")
+}
