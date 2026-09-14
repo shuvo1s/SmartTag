@@ -2,6 +2,7 @@ import { ELEMENT_ID_PATTERN, validateDesignDocument } from '@smarttag/document-s
 import { describe, expect, it } from 'vitest';
 import {
   SAMPLE_BRAND_LOGO_ASSET_ID,
+  SAMPLE_FONT_ASSET_IDS,
   SAMPLE_HANG_TAG_DOCUMENT_ID,
   createSampleHangTagDocument,
 } from '../src/fixtures';
@@ -17,6 +18,14 @@ import {
   rgb,
   summarizeDesignDocument,
 } from '../src';
+
+// The sample uses Noto Sans 500/600/700 and Noto Sans Bengali 400 (Noto Sans Regular is seeded but unused).
+const SAMPLE_USED_FONT_ASSET_IDS = [
+  SAMPLE_FONT_ASSET_IDS.notoSansMedium,
+  SAMPLE_FONT_ASSET_IDS.notoSansSemiBold,
+  SAMPLE_FONT_ASSET_IDS.notoSansBold,
+  SAMPLE_FONT_ASSET_IDS.notoSansBengaliRegular,
+];
 
 describe('createBlankDesignDocument', () => {
   it('creates a valid front-only document with geometry converted to points', () => {
@@ -127,7 +136,10 @@ describe('sample hang tag fixture (50 × 90 mm, 3 mm bleed, 3 mm safe, front + b
     expect(summary.boundFieldKeys).toEqual(
       expect.arrayContaining(['product_name', 'size', 'price', 'gtin']),
     );
-    expect(summary.assetIds).toEqual([SAMPLE_BRAND_LOGO_ASSET_ID]);
+    expect(summary.assetIds).toEqual(
+      [SAMPLE_BRAND_LOGO_ASSET_ID, ...SAMPLE_USED_FONT_ASSET_IDS].sort(),
+    );
+    expect(summary.fontAssetIds).toEqual([...SAMPLE_USED_FONT_ASSET_IDS].sort());
   });
 });
 
@@ -147,14 +159,14 @@ describe('ids and colors', () => {
 });
 
 describe('asset references and effective resolution', () => {
-  it('collects image asset references including image-field defaults', () => {
+  it('collects image and font asset references including image-field defaults', () => {
     const document = createSampleHangTagDocument();
     const defaultImage = '0192f0a0-5b1e-7c3d-8a4f-000000000001';
     document.dataSchema.fields = document.dataSchema.fields.map((field) =>
       field.type === 'image' ? { ...field, defaultValue: defaultImage } : field,
     );
     expect(collectAssetReferences(document)).toEqual(
-      [SAMPLE_BRAND_LOGO_ASSET_ID, defaultImage].sort(),
+      [SAMPLE_BRAND_LOGO_ASSET_ID, defaultImage, ...SAMPLE_USED_FONT_ASSET_IDS].sort(),
     );
   });
 

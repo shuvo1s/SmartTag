@@ -1,9 +1,6 @@
 import type { DesignDocument } from '@smarttag/document-schema';
 import { computeDocumentHash, createTextObject } from '@smarttag/document-utils';
-import {
-  SAMPLE_BRAND_LOGO_ASSET_ID,
-  createSampleHangTagDocument,
-} from '@smarttag/document-utils/fixtures';
+import { createSampleHangTagDocument } from '@smarttag/document-utils/fixtures';
 import type { TemplateDto, TemplateVersionDetailDto } from '@smarttag/shared-types';
 import type TestAgent from 'supertest/lib/agent';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -13,6 +10,7 @@ import {
   hangTagRequest,
   loginAs,
   resetDatabase,
+  seedSampleAssets,
   seedTenants,
   type TestApp,
 } from './helpers';
@@ -38,19 +36,7 @@ describe('template versions: creation, drafts, lifecycle and immutability', () =
     approver = await loginAs(t, 'approver.a@test.local');
     admin = await loginAs(t, 'admin.a@test.local');
     template = (await designer.post(`${API}/templates`).send(hangTagRequest())).body as TemplateDto;
-    await t.prisma.asset.create({
-      data: {
-        id: SAMPLE_BRAND_LOGO_ASSET_ID,
-        organizationId: tenants.orgA.id,
-        assetType: 'LOGO',
-        filename: 'logo.svg',
-        mimeType: 'image/svg+xml',
-        sizeBytes: 10,
-        storageKey: 'organizations/a/assets/sha256/aa/logo',
-        checksumSha256: 'a'.repeat(64),
-        createdById: tenants.users.adminA.id,
-      },
-    });
+    await seedSampleAssets(t.prisma, tenants.orgA.id, tenants.users.adminA.id);
   });
 
   const sampleFor = (templateId: string): DesignDocument =>
@@ -75,7 +61,7 @@ describe('template versions: creation, drafts, lifecycle and immutability', () =
       versionNumber: 2,
       status: 'DRAFT',
       revision: 1,
-      schemaVersion: 1,
+      schemaVersion: 2,
       basedOnVersionId: template.currentVersion!.id,
       changeSummary: 'Artwork',
       documentHash: await computeDocumentHash(document),
@@ -140,6 +126,7 @@ describe('template versions: creation, drafts, lifecycle and immutability', () =
       foreign.body.error.details.documentIssues.map((i: { code: string }) => i.code),
     ).toContain('DOCUMENT_ID_MISMATCH');
 
+    await t.prisma.fontFace.deleteMany();
     await t.prisma.asset.deleteMany();
     const missingAsset = await createVersion();
     expect(missingAsset.status).toBe(422);

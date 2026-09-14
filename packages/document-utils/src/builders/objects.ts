@@ -60,6 +60,7 @@ export function createTextObject(init: FrameInit & Overrides<TextObject, BaseKey
     ...base(init, 'txt'),
     type: 'text',
     content: init.content ?? '',
+    fontAssetId: init.fontAssetId ?? null,
     fontFamily: init.fontFamily ?? DEFAULT_FONT_FAMILY,
     fontSize: init.fontSize ?? 10,
     fontWeight: init.fontWeight ?? 400,
@@ -71,6 +72,7 @@ export function createTextObject(init: FrameInit & Overrides<TextObject, BaseKey
     textColor: init.textColor ?? BLACK,
     direction: init.direction ?? 'AUTO',
     language: init.language ?? null,
+    wrap: init.wrap ?? 'WORD',
     overflow: init.overflow ?? { mode: 'VISIBLE' },
     metadata: init.metadata ?? {},
     bindings: {

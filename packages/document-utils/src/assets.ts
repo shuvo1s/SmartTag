@@ -1,25 +1,41 @@
 import type { DesignDocument, ImageCrop, ImageObject } from '@smarttag/document-schema';
 import { POINTS_PER_INCH } from '@smarttag/document-schema';
 
-/**
- * Every asset id a document depends on (static image sources and image-field defaults).
- * Used to verify, at save time, that referenced assets exist and belong to the same organization.
- */
-export function collectAssetReferences(document: DesignDocument): string[] {
-  const ids = new Set<string>();
+export interface AssetReferencesByKind {
+  /** Static image sources and image-field default values. */
+  readonly imageAssetIds: readonly string[];
+  /** Controlled font files of text objects. */
+  readonly fontAssetIds: readonly string[];
+}
+
+/** Asset ids a document depends on, grouped by the kind of asset each reference requires. */
+export function collectAssetReferencesByKind(document: DesignDocument): AssetReferencesByKind {
+  const images = new Set<string>();
+  const fonts = new Set<string>();
   for (const page of document.pages) {
     for (const object of page.objects) {
       if (object.type === 'image' && object.assetId !== null) {
-        ids.add(object.assetId);
+        images.add(object.assetId);
+      } else if (object.type === 'text' && object.fontAssetId !== null) {
+        fonts.add(object.fontAssetId);
       }
     }
   }
   for (const field of document.dataSchema.fields) {
     if (field.type === 'image' && field.defaultValue !== null) {
-      ids.add(field.defaultValue);
+      images.add(field.defaultValue);
     }
   }
-  return [...ids].sort();
+  return { imageAssetIds: [...images].sort(), fontAssetIds: [...fonts].sort() };
+}
+
+/**
+ * Every asset id a document depends on (images, image-field defaults and fonts), sorted.
+ * Used to verify, at save time, that referenced assets exist and belong to the same organization.
+ */
+export function collectAssetReferences(document: DesignDocument): string[] {
+  const { imageAssetIds, fontAssetIds } = collectAssetReferencesByKind(document);
+  return [...new Set([...imageAssetIds, ...fontAssetIds])].sort();
 }
 
 export interface SourcePixelSize {

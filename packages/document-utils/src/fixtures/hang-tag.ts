@@ -16,6 +16,19 @@ import { mmToPt as mm } from '../units';
 export const SAMPLE_HANG_TAG_DOCUMENT_ID = '0192f0a0-5b1e-7c3d-8e4f-1a2b3c4d5e6f';
 export const SAMPLE_BRAND_LOGO_ASSET_ID = '0192f0a0-5b1e-7c3d-9a4f-6b7c8d9e0f10';
 
+/**
+ * Controlled font assets used by the sample (seeded from apps/api/prisma/seed-assets/fonts). Each id
+ * pins one exact font file: family + weight + style.
+ */
+export const SAMPLE_FONT_ASSET_IDS = {
+  notoSansRegular: '0192f0a0-5b1e-7c3d-9b01-00000000f400',
+  notoSansMedium: '0192f0a0-5b1e-7c3d-9b01-00000000f500',
+  notoSansSemiBold: '0192f0a0-5b1e-7c3d-9b01-00000000f600',
+  notoSansBold: '0192f0a0-5b1e-7c3d-9b01-00000000f700',
+  notoSansBengaliRegular: '0192f0a0-5b1e-7c3d-9b02-00000000f400',
+} as const;
+export type SampleFontAssetIds = { readonly [K in keyof typeof SAMPLE_FONT_ASSET_IDS]: string };
+
 const INK = rgb('#1F2933');
 const MUTED = rgb('#52606D');
 const BRAND = rgb('#0B6E4F');
@@ -116,8 +129,25 @@ export const SAMPLE_HANG_TAG_RECORD: DataRecord = {
   product_image: null,
 };
 
-function buildFront(logoAssetId: string): Page {
-  const label = { fontSize: 6, fontWeight: 600, textColor: MUTED, letterSpacing: 0.4 } as const;
+type NotoSansWeight = 400 | 500 | 600 | 700;
+
+function notoSans(fonts: SampleFontAssetIds, fontWeight: NotoSansWeight) {
+  const fontAssetId = {
+    400: fonts.notoSansRegular,
+    500: fonts.notoSansMedium,
+    600: fonts.notoSansSemiBold,
+    700: fonts.notoSansBold,
+  }[fontWeight];
+  return { fontFamily: 'Noto Sans', fontWeight, fontAssetId } as const;
+}
+
+function buildFront(logoAssetId: string, fonts: SampleFontAssetIds): Page {
+  const label = {
+    fontSize: 6,
+    ...notoSans(fonts, 600),
+    textColor: MUTED,
+    letterSpacing: 0.4,
+  } as const;
   return {
     id: FRONT_PAGE_ID,
     name: 'Front',
@@ -157,7 +187,7 @@ function buildFront(logoAssetId: string): Page {
         height: mm(10),
         content: 'Organic Cotton Tee',
         fontSize: 11,
-        fontWeight: 700,
+        ...notoSans(fonts, 700),
         textAlign: 'CENTER',
         verticalAlign: 'MIDDLE',
         textColor: INK,
@@ -187,7 +217,7 @@ function buildFront(logoAssetId: string): Page {
         height: mm(8),
         content: 'M',
         fontSize: 16,
-        fontWeight: 700,
+        ...notoSans(fonts, 700),
         textColor: INK,
         bindings: { content: fieldBinding('size') },
       }),
@@ -216,7 +246,7 @@ function buildFront(logoAssetId: string): Page {
         height: mm(8),
         content: '19.99',
         fontSize: 16,
-        fontWeight: 700,
+        ...notoSans(fonts, 700),
         textAlign: 'END',
         textColor: INK,
         bindings: { content: fieldBinding('price') },
@@ -250,9 +280,14 @@ function buildFront(logoAssetId: string): Page {
   };
 }
 
-function buildBack(): Page {
-  const label = { fontSize: 6, fontWeight: 600, textColor: MUTED, letterSpacing: 0.4 } as const;
-  const value = { fontSize: 10, fontWeight: 500, textColor: INK } as const;
+function buildBack(fonts: SampleFontAssetIds): Page {
+  const label = {
+    fontSize: 6,
+    ...notoSans(fonts, 600),
+    textColor: MUTED,
+    letterSpacing: 0.4,
+  } as const;
+  const value = { fontSize: 10, ...notoSans(fonts, 500), textColor: INK } as const;
   return {
     id: BACK_PAGE_ID,
     name: 'Back',
@@ -340,6 +375,8 @@ function buildBack(): Page {
         content: 'বাংলাদেশে তৈরি',
         language: 'bn',
         fontFamily: 'Noto Sans Bengali',
+        fontWeight: 400,
+        fontAssetId: fonts.notoSansBengaliRegular,
         fontSize: 8,
         textColor: MUTED,
       }),
@@ -362,15 +399,17 @@ function buildBack(): Page {
 export interface SampleHangTagOptions {
   readonly documentId?: string;
   readonly logoAssetId?: string;
+  readonly fontAssetIds?: SampleFontAssetIds;
 }
 
 /**
  * Development fixture: 50 mm × 90 mm hang tag, 3 mm bleed, 3 mm safe margin, front + back,
  * a Ø4 mm punch hole and 4 mm rounded corners. Demonstrates static objects, field bindings
- * (product_name, size, price, currency, gtin, style, color, country_of_origin, product_url)
- * and non-Latin text.
+ * (product_name, size, price, currency, gtin, style, color, country_of_origin, product_url),
+ * controlled font assets for every text object and non-Latin (Bengali) text.
  */
 export function createSampleHangTagDocument(options: SampleHangTagOptions = {}): DesignDocument {
+  const fonts = options.fontAssetIds ?? SAMPLE_FONT_ASSET_IDS;
   const blank = createBlankDesignDocument({
     documentId: options.documentId ?? SAMPLE_HANG_TAG_DOCUMENT_ID,
     name: 'Sample hang tag 50 × 90 mm',
@@ -399,6 +438,6 @@ export function createSampleHangTagDocument(options: SampleHangTagOptions = {}):
         ],
       },
     },
-    pages: [buildFront(options.logoAssetId ?? SAMPLE_BRAND_LOGO_ASSET_ID), buildBack()],
+    pages: [buildFront(options.logoAssetId ?? SAMPLE_BRAND_LOGO_ASSET_ID, fonts), buildBack(fonts)],
   };
 }

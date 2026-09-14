@@ -4,19 +4,20 @@ import {
 } from '../validation/validate-design-document';
 import { CURRENT_SCHEMA_VERSION, MINIMUM_SUPPORTED_SCHEMA_VERSION } from '../version';
 import { createDocumentMigrator, type DocumentMigration } from './migrator';
+import { migrateV1ToV2 } from './v1-to-v2';
 
 export * from './migrator';
+export { migrateV1ToV2 } from './v1-to-v2';
 
 /**
  * Registry of production migrations, ordered by `fromVersion`.
- * Schema version 1 is the first published version, so the registry is empty.
  *
- * When introducing schema version 2:
- *   1. bump CURRENT_SCHEMA_VERSION and change `z.literal(...)` in DesignDocumentSchema
- *   2. add `v1-to-v2.ts` exporting a DocumentMigration and register it here
- *   3. add fixture tests: a real v1 document migrates and validates as v2
+ * When introducing schema version N+1:
+ *   1. bump CURRENT_SCHEMA_VERSION (DesignDocumentSchema uses it as a literal)
+ *   2. add `vN-to-vN+1.ts` exporting a DocumentMigration and register it here
+ *   3. add fixture tests: a real vN document migrates and validates as vN+1
  */
-export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [];
+export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [migrateV1ToV2];
 
 const migrator = createDocumentMigrator({
   currentVersion: CURRENT_SCHEMA_VERSION,

@@ -5,7 +5,7 @@ import type {
   MeasurementUnit,
   PageSide,
 } from '@smarttag/document-schema';
-import { collectAssetReferences } from './assets';
+import { collectAssetReferences, collectAssetReferencesByKind } from './assets';
 import { listBoundFieldKeys } from './bindings/collect';
 
 /** Compact, render-free description of a document for listings and detail screens. */
@@ -22,7 +22,9 @@ export interface DocumentSummary {
   readonly objectCount: number;
   readonly dataFieldCount: number;
   readonly boundFieldKeys: readonly string[];
+  /** All referenced assets (images and fonts). */
   readonly assetIds: readonly string[];
+  readonly fontAssetIds: readonly string[];
 }
 
 export function summarizeDesignDocument(document: DesignDocument): DocumentSummary {
@@ -41,5 +43,6 @@ export function summarizeDesignDocument(document: DesignDocument): DocumentSumma
     dataFieldCount: document.dataSchema.fields.length,
     boundFieldKeys: listBoundFieldKeys(document),
     assetIds: collectAssetReferences(document),
+    fontAssetIds: collectAssetReferencesByKind(document).fontAssetIds,
   };
 }

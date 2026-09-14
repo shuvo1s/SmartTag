@@ -9,18 +9,30 @@
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { assertValidDesignDocument } from '@smarttag/document-schema';
-import { createBlankDesignDocument, createTextObject, rgb } from '@smarttag/document-utils';
+import { assertValidDesignDocument, parseDesignDocument } from '@smarttag/document-schema';
+import {
+  createBlankDesignDocument,
+  createTextObject,
+  hashCanonicalJson,
+  rgb,
+  summarizeDesignDocument,
+} from '@smarttag/document-utils';
 import {
   SAMPLE_BRAND_LOGO_ASSET_ID,
+  SAMPLE_FONT_ASSET_IDS,
+  SAMPLE_HANG_TAG_V1_JSON,
   createSampleHangTagDocument,
 } from '@smarttag/document-utils/fixtures';
 import type { Role } from '@smarttag/shared-types';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { loadAppConfig } from '../src/config/env.schema';
-import { PrismaClient } from '../src/generated/prisma/client';
+import { PrismaClient, type Prisma } from '../src/generated/prisma/client';
 import { PasswordHasher } from '../src/modules/auth/password-hasher';
 import { prepareDocumentForStorage } from '../src/modules/templates/document-storage';
+import { inspectContent } from '../src/modules/assets/asset-content-inspector';
+import { inspectFont } from '../src/modules/assets/font-inspector';
 import { assetStorageKey } from '../src/modules/assets/storage/object-storage';
 import { createObjectStorage } from '../src/modules/assets/storage/storage.module';
 import { sanitizeSvg } from '../src/modules/assets/svg-sanitizer';
@@ -152,6 +164,82 @@ async function seedLogoAsset(organizationId: string, createdById: string) {
   });
 }
 
+/**
+ * OFL-licensed Noto fonts (seed-assets/fonts/OFL.txt). Checksums are pinned so a corrupted or
+ * substituted file can never enter the registry silently.
+ */
+const SEED_FONTS = [
+  {
+    id: SAMPLE_FONT_ASSET_IDS.notoSansRegular,
+    file: 'NotoSans-Regular.ttf',
+    sha256: 'f3961a9cde016d41a4879aecda1474d3a36d6bf54fa0e4643de029cc2248b0e8',
+  },
+  {
+    id: SAMPLE_FONT_ASSET_IDS.notoSansMedium,
+    file: 'NotoSans-Medium.ttf',
+    sha256: '220e74546aee1b9a17cd50025dd917a064d0224e653f562287446c2328e4160b',
+  },
+  {
+    id: SAMPLE_FONT_ASSET_IDS.notoSansSemiBold,
+    file: 'NotoSans-SemiBold.ttf',
+    sha256: 'a7af8d4a11e8e49fea9a19786a6469210b512cd4061413e8036bdd2425722795',
+  },
+  {
+    id: SAMPLE_FONT_ASSET_IDS.notoSansBold,
+    file: 'NotoSans-Bold.ttf',
+    sha256: '87cb2d84472a7d66da659ee47b6cdb9552326e8c128245231f191b6ac72529d9',
+  },
+  {
+    id: SAMPLE_FONT_ASSET_IDS.notoSansBengaliRegular,
+    file: 'NotoSansBengali-Regular.ttf',
+    sha256: '5dceda02816fece18ea6796f474f5d3170f1d862f21b1e809cdc94b1caa4b6ec',
+  },
+] as const;
+
+/** Registers the seed fonts through the same inspection used for uploads. */
+async function seedFontAssets(organizationId: string, createdById: string) {
+  for (const entry of SEED_FONTS) {
+    if (await prisma.asset.findUnique({ where: { id: entry.id } })) continue;
+    const body = readFileSync(resolve(__dirname, 'seed-assets', 'fonts', entry.file));
+    const checksumSha256 = createHash('sha256').update(body).digest('hex');
+    if (checksumSha256 !== entry.sha256) {
+      throw new Error(`Seed font ${entry.file} does not match its pinned checksum`);
+    }
+    const mimeType = inspectContent(body)?.mimeType;
+    const inspection = mimeType ? inspectFont(body, mimeType) : null;
+    if (!mimeType || !inspection?.ok) {
+      throw new Error(`Seed font ${entry.file} could not be inspected`);
+    }
+    const storageKey = assetStorageKey(organizationId, checksumSha256);
+    if (!(await storage.objectExists(storageKey))) {
+      await storage.putObject(storageKey, body, { contentType: mimeType, checksumSha256 });
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.asset.create({
+        data: {
+          id: entry.id,
+          organizationId,
+          assetType: 'FONT',
+          filename: entry.file,
+          mimeType,
+          sizeBytes: body.length,
+          storageKey,
+          checksumSha256,
+          createdById,
+        },
+      });
+      await tx.fontFace.create({
+        data: {
+          organizationId,
+          assetId: entry.id,
+          ...inspection.font,
+          unicodeRanges: inspection.font.unicodeRanges.map(([first, last]) => [first, last]),
+        },
+      });
+    });
+  }
+}
+
 async function main() {
   const yunusco = await upsertOrganization('yunusco-dev', 'Yunusco (Development)');
   const acme = await upsertOrganization('acme-demo', 'Acme Labels (Isolation Demo)');
@@ -188,6 +276,7 @@ async function main() {
   ]);
 
   await seedLogoAsset(yunusco.id, admin.id);
+  await seedFontAssets(yunusco.id, admin.id);
 
   // --- Yunusco: sample hang tag with an approved v1 and a draft v2 --------------------------
   const code = 'HT-DEMO-50X90';
@@ -211,15 +300,25 @@ async function main() {
       },
     });
 
-    const v1Document = assertValidDesignDocument(
-      createSampleHangTagDocument({ documentId: template.id }),
-    );
+    // Version 1 was approved with schema version 1 (Phase 1). It is stored exactly as Phase 1
+    // stored it, so the database always contains a real older-schema document: readers migrate
+    // it in memory, its JSON and hash are never rewritten.
+    const v1Json = { ...SAMPLE_HANG_TAG_V1_JSON, documentId: template.id };
+    const v1Parsed = parseDesignDocument(v1Json);
+    if (!v1Parsed.valid || v1Parsed.originalSchemaVersion !== 1) {
+      throw new Error('Seed v1 document is not a valid schema v1 document');
+    }
     const v1 = await prisma.templateVersion.create({
       data: {
         organizationId: yunusco.id,
         templateId: template.id,
         versionNumber: 1,
-        ...(await prepareDocumentForStorage(v1Document)),
+        schemaVersion: 1,
+        documentJson: v1Json,
+        documentHash: await hashCanonicalJson(v1Json),
+        summaryJson: JSON.parse(
+          JSON.stringify(summarizeDesignDocument(v1Parsed.document)),
+        ) as Prisma.InputJsonObject,
         changeSummary: 'Initial artwork',
         createdById: designer.id,
       },
@@ -239,7 +338,8 @@ async function main() {
       },
     });
 
-    const v2Document = structuredClone(v1Document);
+    // Version 2 (DRAFT) is the current schema: same artwork with controlled fonts assigned.
+    const v2Document = createSampleHangTagDocument({ documentId: template.id });
     const front = v2Document.pages[0]!;
     front.objects = front.objects.map((object) =>
       object.id === 'front-product-name' && object.type === 'text'
@@ -258,6 +358,9 @@ async function main() {
         height: 7,
         content: 'Machine wash 30 °C',
         fontSize: 6,
+        fontFamily: 'Noto Sans',
+        fontWeight: 400,
+        fontAssetId: SAMPLE_FONT_ASSET_IDS.notoSansRegular,
         textAlign: 'CENTER',
         textColor: rgb('#52606D'),
       }),
@@ -268,7 +371,7 @@ async function main() {
         templateId: template.id,
         versionNumber: 2,
         ...(await prepareDocumentForStorage(assertValidDesignDocument(v2Document))),
-        changeSummary: 'Larger brand-colored product name; add care hint',
+        changeSummary: 'Controlled fonts; larger brand-colored product name; care hint',
         basedOnVersionId: v1.id,
         createdById: designer.id,
       },

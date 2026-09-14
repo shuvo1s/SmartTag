@@ -1,4 +1,4 @@
-# Canonical document schema (`DesignDocument`, schema version 1)
+# Canonical document schema (`DesignDocument`, schema version 2)
 
 The canonical document is the **authoritative representation of a design**. It lives in
 `packages/document-schema` and is independent of any editor, canvas library, renderer or
@@ -6,7 +6,7 @@ database. Browser canvases, previews, VDP and future PDF renderers are all _adap
 
 ```text
 DesignDocument
-├── schemaVersion      1
+├── schemaVersion      2
 ├── documentId         UUID of the logical design (= template id; stable across versions)
 ├── metadata           name, description, documentType, language, tags
 ├── dimensions         width, height, orientation, displayUnit, bleed, safeArea, margins, dieline
@@ -83,15 +83,15 @@ id, type, name, x, y, width, height, rotation, opacity, visible, locked, zIndex,
 - `zIndex`: authoritative stacking order, unique per page (array order is irrelevant).
 - `metadata`: namespaced extension data (`"erp.itemCode": "A-100"`). It must never hold properties that affect rendering.
 
-| `type`      | Specific properties                                                                                                                                                                                                                                                                                                                                                              | Bindable properties  |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| `text`      | `content` (Unicode, `\n` line breaks), `fontFamily`, `fontSize` (pt), `fontWeight` (100–900), `fontStyle`, `textAlign` (`START`/`CENTER`/`END`/`JUSTIFY`, logical so RTL works), `verticalAlign`, `lineHeight` (× font size), `letterSpacing` (pt), `textColor`, `direction` (`AUTO`/`LTR`/`RTL`), `language`, `overflow` (`VISIBLE` / `CLIP` / `SHRINK_TO_FIT` + `minFontSize`) | `content`, `visible` |
-| `image`     | `assetId` (nullable), `fitMode` (`CONTAIN`/`COVER`/`STRETCH`), `crop` (fractions 0–1 of the source, or `null`), `preserveAspectRatio`                                                                                                                                                                                                                                            | `assetId`, `visible` |
-| `rectangle` | `fill`, `stroke`, `cornerRadius`                                                                                                                                                                                                                                                                                                                                                 | `visible`            |
-| `ellipse`   | `fill`, `stroke`                                                                                                                                                                                                                                                                                                                                                                 | `visible`            |
-| `line`      | `stroke`; drawn along the frame's horizontal centre line (height may be 0; angle via `rotation`)                                                                                                                                                                                                                                                                                 | `visible`            |
-| `barcode`   | `symbology` (`CODE128`, `EAN13`, `EAN8`, `UPCA`, `UPCE`, `CODE39`, `ITF14`, `GS1_128`), `value`, `showHumanReadableText`, `quietZone` (modules), `barHeight` (pt), `foregroundColor`, `backgroundColor`                                                                                                                                                                          | `value`, `visible`   |
-| `qrCode`    | `value`, `errorCorrection` (`L`/`M`/`Q`/`H`), `foregroundColor`, `backgroundColor`, `quietZone` (modules)                                                                                                                                                                                                                                                                        | `value`, `visible`   |
+| `type`      | Specific properties                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Bindable properties  |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `text`      | `content` (Unicode, `\n` line breaks), `fontAssetId` (exact controlled font file, or `null`), `fontFamily`, `fontSize` (pt), `fontWeight` (100–900), `fontStyle`, `textAlign` (`START`/`CENTER`/`END`/`JUSTIFY`, logical so RTL works), `verticalAlign`, `lineHeight` (× font size), `letterSpacing` (pt), `textColor`, `direction` (`AUTO`/`LTR`/`RTL`), `language`, `wrap` (`NONE` = explicit line breaks only, `WORD` = also wrap at word boundaries), `overflow` (`VISIBLE` / `CLIP` / `SHRINK_TO_FIT` + `minFontSize`) | `content`, `visible` |
+| `image`     | `assetId` (nullable), `fitMode` (`CONTAIN`/`COVER`/`STRETCH`), `crop` (fractions 0–1 of the source, or `null`), `preserveAspectRatio`                                                                                                                                                                                                                                                                                                                                                                                       | `assetId`, `visible` |
+| `rectangle` | `fill`, `stroke`, `cornerRadius`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `visible`            |
+| `ellipse`   | `fill`, `stroke`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `visible`            |
+| `line`      | `stroke`; drawn along the frame's horizontal centre line (height may be 0; angle via `rotation`)                                                                                                                                                                                                                                                                                                                                                                                                                            | `visible`            |
+| `barcode`   | `symbology` (`CODE128`, `EAN13`, `EAN8`, `UPCA`, `UPCE`, `CODE39`, `ITF14`, `GS1_128`), `value`, `showHumanReadableText`, `quietZone` (modules), `barHeight` (pt), `foregroundColor`, `backgroundColor`                                                                                                                                                                                                                                                                                                                     | `value`, `visible`   |
+| `qrCode`    | `value`, `errorCorrection` (`L`/`M`/`Q`/`H`), `foregroundColor`, `backgroundColor`, `quietZone` (modules)                                                                                                                                                                                                                                                                                                                                                                                                                   | `value`, `visible`   |
 
 ### Adding an object type (svg, polygon, path, DataMatrix, PDF417, table, care symbol, …)
 
@@ -148,7 +148,12 @@ Each issue has `code`, `severity`, a JSON `path` (e.g. `["pages",0,"objects",3,"
 
 The API adds **contextual** checks that require knowledge outside the document:
 `DOCUMENT_ID_MISMATCH` (the document must describe its template), `DOCUMENT_TYPE_MISMATCH`, and
-`UNKNOWN_ASSET_REFERENCE` (every referenced asset must exist in the same organization).
+`UNKNOWN_ASSET_REFERENCE` (every referenced asset must exist in the same organization),
+`INVALID_ASSET_REFERENCE` (images must reference PNG, JPEG or sanitized SVG assets),
+`UNKNOWN_FONT_ASSET` (a `fontAssetId` must be a registered font of the organization) and
+`FONT_FACE_MISMATCH` (`fontFamily`, `fontWeight` and `fontStyle` must equal the registry entry of
+the font file). Text without a controlled font validates with the warning
+`TEXT_FONT_NOT_CONTROLLED`.
 
 ## Schema migrations
 
@@ -167,9 +172,28 @@ stored JSON (vN) ──migrate──▶ v(N+1) ──migrate──▶ … ──
 - Immutable (approved) versions keep their original JSON and hash. Editing an old version creates
   a new version holding the migrated document, with a new hash.
 
-Introducing schema version 2:
+Introducing a schema version N+1:
 
-1. Bump `CURRENT_SCHEMA_VERSION` and change `z.literal(1)` in `DesignDocumentSchema`.
-2. Add `migrations/v1-to-v2.ts` and register it in `DOCUMENT_MIGRATIONS`.
-3. Add fixture tests: a real v1 document migrates, validates as v2 and keeps its meaning.
+1. Bump `CURRENT_SCHEMA_VERSION` (`DesignDocumentSchema` uses it as a literal).
+2. Add `migrations/vN-to-vN+1.ts` and register it in `DOCUMENT_MIGRATIONS`.
+3. Add fixture tests: a real vN document migrates, validates as vN+1 and keeps its meaning.
 4. The database `CHECK` ties `schema_version` to `document_json->>'schemaVersion'`, so both always agree.
+
+### Version history
+
+| Version | Phase | Change                                                       | Migration                                                                                  |
+| ------- | ----- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| 1       | 1     | Initial canonical model                                      | —                                                                                          |
+| 2       | 2     | Text objects gain `fontAssetId` (exact font file) and `wrap` | `v1-to-v2`: `fontAssetId: null`, `wrap: "NONE"` on every text object; nothing else changes |
+
+### v1 → v2 backwards compatibility
+
+- `fontAssetId: null` — v1 only named a family; a migration cannot choose an organization's font
+  file, so the document validates with `TEXT_FONT_NOT_CONTROLLED` warnings until a font is assigned.
+- `wrap: "NONE"` — the v1 layout used explicit line breaks only, so the meaning is unchanged.
+- Proven with real content: `SAMPLE_HANG_TAG_V1_JSON` (the frozen Phase 1 sample) still hashes to
+  `c7065757…d6f277`, migrates to a valid v2 document, and equals the v2 sample except for the two
+  new keys (`packages/document-utils/test/schema-compatibility.test.ts`).
+- The development seed stores the approved version 1 as genuine v1 JSON. The API and every UI
+  read it through `parseDesignDocument`; its JSON and hash are never rewritten. Saving a v1 draft
+  stores the migrated v2 document (with a new hash).

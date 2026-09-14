@@ -9,6 +9,7 @@ export * from './audit';
 export * from './auth';
 export * from './customers';
 export * from './errors';
+export * from './fonts';
 export * from './jobs';
 export * from './pagination';
 export * from './template-version-lifecycle';

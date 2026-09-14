@@ -1,6 +1,8 @@
 import { parseDesignDocument } from '@smarttag/document-schema';
 import {
   SAMPLE_BRAND_LOGO_ASSET_ID,
+  SAMPLE_FONT_ASSET_IDS,
+  SAMPLE_HANG_TAG_V1_JSON,
   createSampleHangTagDocument,
 } from '@smarttag/document-utils/fixtures';
 import { computeDocumentHash, hashCanonicalJson } from '@smarttag/document-utils';
@@ -75,7 +77,7 @@ describe('prepareDocumentForStorage', () => {
   it('stores a verifiable hash and a render-free summary', async () => {
     const document = createSampleHangTagDocument({ documentId: TEMPLATE_ID });
     const prepared = await prepareDocumentForStorage(document);
-    expect(prepared.schemaVersion).toBe(1);
+    expect(prepared.schemaVersion).toBe(2);
     expect(prepared.documentHash).toBe(await computeDocumentHash(document));
     // What is stored re-hashes to the recorded hash.
     expect(await hashCanonicalJson(prepared.documentJson)).toBe(prepared.documentHash);
@@ -83,7 +85,13 @@ describe('prepareDocumentForStorage', () => {
     expect(prepared.summaryJson).toMatchObject({
       pageCount: 2,
       documentType: 'HANG_TAG',
-      assetIds: [SAMPLE_BRAND_LOGO_ASSET_ID],
+      assetIds: expect.arrayContaining([SAMPLE_BRAND_LOGO_ASSET_ID]) as unknown,
+      fontAssetIds: [
+        SAMPLE_FONT_ASSET_IDS.notoSansMedium,
+        SAMPLE_FONT_ASSET_IDS.notoSansSemiBold,
+        SAMPLE_FONT_ASSET_IDS.notoSansBold,
+        SAMPLE_FONT_ASSET_IDS.notoSansBengaliRegular,
+      ].sort(),
     });
   });
 });
@@ -91,8 +99,27 @@ describe('prepareDocumentForStorage', () => {
 describe('TemplateDocumentService', () => {
   const service = new TemplateDocumentService();
   const template = { id: TEMPLATE_ID, organizationId: 'org-a', documentType: 'HANG_TAG' as const };
-  const dbWithAssets = (ids: string[]) => {
-    const findMany = vi.fn().mockResolvedValue(ids.map((id) => ({ id })));
+  const logo = {
+    id: SAMPLE_BRAND_LOGO_ASSET_ID,
+    assetType: 'LOGO',
+    mimeType: 'image/svg+xml',
+    fontFace: null,
+  };
+  const font = (id: string, familyName: string, weight: number) => ({
+    id,
+    assetType: 'FONT',
+    mimeType: 'font/ttf',
+    fontFace: { familyName, weight, style: 'NORMAL' },
+  });
+  const SAMPLE_ASSETS = [
+    logo,
+    font(SAMPLE_FONT_ASSET_IDS.notoSansMedium, 'Noto Sans', 500),
+    font(SAMPLE_FONT_ASSET_IDS.notoSansSemiBold, 'Noto Sans', 600),
+    font(SAMPLE_FONT_ASSET_IDS.notoSansBold, 'Noto Sans', 700),
+    font(SAMPLE_FONT_ASSET_IDS.notoSansBengaliRegular, 'Noto Sans Bengali', 400),
+  ];
+  const dbWithAssets = (rows: readonly object[]) => {
+    const findMany = vi.fn().mockResolvedValue(rows);
     return { db: { asset: { findMany } } as unknown as DbClient, findMany };
   };
 
@@ -106,7 +133,7 @@ describe('TemplateDocumentService', () => {
   }
 
   it('accepts a valid document whose assets exist in the organization', async () => {
-    const { db, findMany } = dbWithAssets([SAMPLE_BRAND_LOGO_ASSET_ID]);
+    const { db, findMany } = dbWithAssets(SAMPLE_ASSETS);
     const document = await service.validateForTemplate(
       db,
       template,
@@ -114,8 +141,16 @@ describe('TemplateDocumentService', () => {
     );
     expect(document.documentId).toBe(TEMPLATE_ID);
     expect(findMany).toHaveBeenCalledWith({
-      where: { organizationId: 'org-a', id: { in: [SAMPLE_BRAND_LOGO_ASSET_ID] } },
-      select: { id: true },
+      where: {
+        organizationId: 'org-a',
+        id: { in: SAMPLE_ASSETS.map((asset) => asset.id).sort() },
+      },
+      select: {
+        id: true,
+        assetType: true,
+        mimeType: true,
+        fontFace: { select: { familyName: true, weight: true, style: true } },
+      },
     });
   });
 
@@ -140,7 +175,7 @@ describe('TemplateDocumentService', () => {
   });
 
   it('rejects documents that belong to a different template or type', async () => {
-    const { db } = dbWithAssets([SAMPLE_BRAND_LOGO_ASSET_ID]);
+    const { db } = dbWithAssets(SAMPLE_ASSETS);
     const foreign = createSampleHangTagDocument({
       documentId: '0192f0a0-5b1e-7c3d-8e4f-000000000000',
     });
@@ -152,8 +187,17 @@ describe('TemplateDocumentService', () => {
     ]);
   });
 
+  it('migrates stored schema v1 documents before validating them', async () => {
+    const { db } = dbWithAssets([logo]);
+    const document = await service.validateForTemplate(db, template, {
+      ...SAMPLE_HANG_TAG_V1_JSON,
+      documentId: TEMPLATE_ID,
+    });
+    expect(document.schemaVersion).toBe(2);
+  });
+
   it('rejects references to assets outside the organization, pointing at the offending object', async () => {
-    const { db } = dbWithAssets([]);
+    const { db } = dbWithAssets(SAMPLE_ASSETS.filter((asset) => asset !== logo));
     const error = await rejection(
       service.validateForTemplate(
         db,

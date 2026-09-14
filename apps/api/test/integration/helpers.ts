@@ -1,4 +1,8 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import {
+  SAMPLE_BRAND_LOGO_ASSET_ID,
+  SAMPLE_FONT_ASSET_IDS,
+} from '@smarttag/document-utils/fixtures';
 import type { Role } from '@smarttag/shared-types';
 import request from 'supertest';
 import type TestAgent from 'supertest/lib/agent';
@@ -32,6 +36,7 @@ export async function createTestApp(envOverrides: Record<string, string> = {}): 
 const TABLES = [
   'audit_events',
   'sessions',
+  'font_faces',
   'template_versions',
   'templates',
   'assets',
@@ -118,6 +123,74 @@ export async function seedTenants(prisma: PrismaService) {
     ]),
   };
   return { orgA, orgB, users };
+}
+
+const SAMPLE_FONT_FACES = [
+  [SAMPLE_FONT_ASSET_IDS.notoSansRegular, 'Noto Sans', 400],
+  [SAMPLE_FONT_ASSET_IDS.notoSansMedium, 'Noto Sans', 500],
+  [SAMPLE_FONT_ASSET_IDS.notoSansSemiBold, 'Noto Sans', 600],
+  [SAMPLE_FONT_ASSET_IDS.notoSansBold, 'Noto Sans', 700],
+  [SAMPLE_FONT_ASSET_IDS.notoSansBengaliRegular, 'Noto Sans Bengali', 400],
+] as const;
+
+/**
+ * Registers the assets referenced by the sample hang tag (logo + controlled fonts) as database rows
+ * in one organization. Content bytes are not needed for document validation.
+ */
+export async function seedSampleAssets(
+  prisma: PrismaService,
+  organizationId: string,
+  createdById: string,
+): Promise<void> {
+  await prisma.asset.create({
+    data: {
+      id: SAMPLE_BRAND_LOGO_ASSET_ID,
+      organizationId,
+      assetType: 'LOGO',
+      filename: 'logo.svg',
+      mimeType: 'image/svg+xml',
+      sizeBytes: 10,
+      storageKey: 'organizations/a/assets/sha256/aa/logo',
+      checksumSha256: 'a'.repeat(64),
+      createdById,
+    },
+  });
+  for (const [assetId, familyName, weight] of SAMPLE_FONT_FACES) {
+    await prisma.asset.create({
+      data: {
+        id: assetId,
+        organizationId,
+        assetType: 'FONT',
+        filename: `${familyName}-${weight}.ttf`,
+        mimeType: 'font/ttf',
+        sizeBytes: 10,
+        storageKey: `organizations/a/assets/sha256/bb/${assetId}`,
+        checksumSha256: 'b'.repeat(64),
+        createdById,
+      },
+    });
+    await prisma.fontFace.create({
+      data: {
+        organizationId,
+        assetId,
+        familyName,
+        subfamilyName: String(weight),
+        fullName: `${familyName} ${weight}`,
+        postscriptName: `${familyName.replace(/ /g, '')}-${weight}`,
+        fontVersion: 'Version 1.000',
+        weight,
+        style: 'NORMAL',
+        format: 'TTF',
+        embeddingPermission: 'INSTALLABLE',
+        unitsPerEm: 1000,
+        ascender: 1069,
+        descender: -293,
+        lineGap: 0,
+        glyphCount: 100,
+        unicodeRanges: [[32, 126]],
+      },
+    });
+  }
 }
 
 export const hangTagRequest = (overrides: Record<string, unknown> = {}) => ({

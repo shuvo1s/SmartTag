@@ -1,7 +1,13 @@
 import { createSampleHangTagDocument } from '@smarttag/document-utils/fixtures';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { prepareDocumentForStorage } from '../../src/modules/templates/document-storage';
-import { createTestApp, resetDatabase, seedTenants, type TestApp } from './helpers';
+import {
+  createTestApp,
+  resetDatabase,
+  seedSampleAssets,
+  seedTenants,
+  type TestApp,
+} from './helpers';
 
 /**
  * Invariants enforced by PostgreSQL itself (CHECK constraints, composite foreign keys, triggers),
@@ -138,7 +144,7 @@ describe('database invariants', () => {
     ).rejects.toThrow(/document_hash_chk/);
     await expect(
       t.prisma.$executeRawUnsafe(
-        `UPDATE template_versions SET schema_version = 2 WHERE id = $1::uuid`,
+        `UPDATE template_versions SET schema_version = 3 WHERE id = $1::uuid`,
         version.id,
       ),
     ).rejects.toThrow(/document_json_chk/);
@@ -162,6 +168,53 @@ describe('database invariants', () => {
         tenants.users.designerA.id,
       ),
     ).rejects.toThrow(/unique|duplicate/i);
+  });
+
+  it('keeps font registry rows immutable and bound to FONT assets', async () => {
+    await seedSampleAssets(t.prisma, tenants.orgA.id, tenants.users.adminA.id);
+    const face = await t.prisma.fontFace.findFirstOrThrow({ where: { weight: 700 } });
+
+    await expect(
+      t.prisma.$executeRawUnsafe(`UPDATE font_faces SET weight = 400 WHERE id = $1::uuid`, face.id),
+    ).rejects.toThrow(/immutable/);
+    await expect(
+      t.prisma.$executeRawUnsafe(
+        `UPDATE assets SET asset_type = 'IMAGE' WHERE id = $1::uuid`,
+        face.assetId,
+      ),
+    ).rejects.toThrow(/registered as a font/);
+    await expect(
+      t.prisma.$executeRawUnsafe(
+        `INSERT INTO font_faces (id, organization_id, asset_id, family_name, subfamily_name, full_name, postscript_name, font_version, weight, style, format, embedding_permission, units_per_em, ascender, descender, line_gap, glyph_count, unicode_ranges)
+         SELECT gen_random_uuid(), organization_id, id, 'X', 'Regular', 'X', 'X', '1', 400, 'NORMAL', 'TTF', 'INSTALLABLE', 1000, 800, -200, 0, 1, '[]' FROM assets WHERE asset_type = 'LOGO' LIMIT 1`,
+      ),
+    ).rejects.toThrow(/must reference a FONT asset/);
+    const logo = await t.prisma.asset.findFirstOrThrow({ where: { assetType: 'LOGO' } });
+    await t.prisma.$executeRawUnsafe(
+      `UPDATE assets SET asset_type = 'IMAGE' WHERE id = $1::uuid`,
+      logo.id,
+    );
+    await t.prisma.$executeRawUnsafe(
+      `UPDATE assets SET asset_type = 'FONT' WHERE id = $1::uuid`,
+      logo.id,
+    );
+    await expect(
+      t.prisma.$executeRawUnsafe(
+        `INSERT INTO font_faces (id, organization_id, asset_id, family_name, subfamily_name, full_name, postscript_name, font_version, weight, style, format, embedding_permission, units_per_em, ascender, descender, line_gap, glyph_count, unicode_ranges)
+         VALUES (gen_random_uuid(), $1::uuid, $2::uuid, 'X', 'Regular', 'X', 'X', '1', 450, 'NORMAL', 'TTF', 'INSTALLABLE', 1000, 800, -200, 0, 1, '[]')`,
+        tenants.orgA.id,
+        logo.id,
+      ),
+    ).rejects.toThrow(/font_faces_weight_chk/);
+    // A font face can never be attached to another tenant's asset (composite foreign key).
+    await expect(
+      t.prisma.$executeRawUnsafe(
+        `INSERT INTO font_faces (id, organization_id, asset_id, family_name, subfamily_name, full_name, postscript_name, font_version, weight, style, format, embedding_permission, units_per_em, ascender, descender, line_gap, glyph_count, unicode_ranges)
+         VALUES (gen_random_uuid(), $1::uuid, $2::uuid, 'X', 'Regular', 'X', 'X', '1', 400, 'NORMAL', 'TTF', 'INSTALLABLE', 1000, 800, -200, 0, 1, '[]')`,
+        tenants.orgB.id,
+        logo.id,
+      ),
+    ).rejects.toThrow(/foreign key|font_faces_asset_id_organization_id_fkey/i);
   });
 
   it('keeps the current version pointer within the same template', async () => {

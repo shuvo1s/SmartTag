@@ -12,23 +12,18 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
-  ASSET_TYPES,
   CreateAssetFieldsSchema,
-  PaginationQuerySchema,
+  ListAssetsQuerySchema,
   type AssetDto,
   type CreateAssetFields,
+  type ListAssetsQuery,
   type PaginatedResponse,
 } from '@smarttag/shared-types';
 import type { Response } from 'express';
-import { z } from 'zod';
 import type { ActorContext } from '../../common/http/request-context';
 import { UuidParamPipe, ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
 import { CurrentActor, RequirePermissions } from '../authorization/authorization.decorators';
 import { AssetsService, type UploadedFile as UploadedAssetFile } from './assets.service';
-
-const ListAssetsQuerySchema = PaginationQuerySchema.extend({
-  assetType: z.enum(ASSET_TYPES).optional(),
-});
 
 @Controller('assets')
 export class AssetsController {
@@ -49,10 +44,9 @@ export class AssetsController {
   @Get()
   list(
     @CurrentActor() actor: ActorContext,
-    @Query(new ZodValidationPipe(ListAssetsQuerySchema))
-    query: z.output<typeof ListAssetsQuerySchema>,
+    @Query(new ZodValidationPipe(ListAssetsQuerySchema)) query: ListAssetsQuery,
   ): Promise<PaginatedResponse<AssetDto>> {
-    return this.assets.list(actor, query.page, query.pageSize, query.assetType);
+    return this.assets.list(actor, query);
   }
 
   @RequirePermissions('asset:read')

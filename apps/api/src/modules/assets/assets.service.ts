@@ -1,9 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ALLOWED_ASSET_MIME_TYPES,
+  PLACEABLE_IMAGE_MIME_TYPES,
   type AssetDto,
   type AssetType,
+  type FontFaceDto,
+  type ListAssetsQuery,
   type PaginatedResponse,
+  type UnicodeRange,
 } from '@smarttag/shared-types';
 import { createHash } from 'node:crypto';
 import { AppError } from '../../common/errors/app-error';
@@ -16,6 +20,7 @@ import {
   isMimeAllowedForAssetType,
   sanitizeFilename,
 } from './asset-content-inspector';
+import { inspectFont, type InspectedFont } from './font-inspector';
 import { SVG_SANITIZER_VERSION, sanitizeSvg, type SvgSanitizationReport } from './svg-sanitizer';
 import {
   OBJECT_STORAGE,
@@ -45,6 +50,31 @@ const assetSelect = {
 } as const satisfies Prisma.AssetSelect;
 
 type AssetRow = Prisma.AssetGetPayload<{ select: typeof assetSelect }>;
+
+const fontFaceSelect = {
+  assetId: true,
+  familyName: true,
+  subfamilyName: true,
+  fullName: true,
+  postscriptName: true,
+  fontVersion: true,
+  weight: true,
+  style: true,
+  format: true,
+  embeddingPermission: true,
+  unitsPerEm: true,
+  ascender: true,
+  descender: true,
+  lineGap: true,
+  capHeight: true,
+  xHeight: true,
+  glyphCount: true,
+  unicodeRanges: true,
+  createdAt: true,
+  asset: { select: { filename: true, checksumSha256: true, sizeBytes: true } },
+} as const satisfies Prisma.FontFaceSelect;
+
+type FontFaceRow = Prisma.FontFaceGetPayload<{ select: typeof fontFaceSelect }>;
 
 @Injectable()
 export class AssetsService {
@@ -79,6 +109,17 @@ export class AssetsService {
       );
     }
 
+    // Fonts are registered from metadata read out of the file itself; unreadable, variable and
+    // collection fonts are refused so that every font asset pins exactly one static face.
+    let font: InspectedFont | null = null;
+    if (assetType === 'FONT') {
+      const inspection = inspectFont(prepared.content, inspected.mimeType);
+      if (!inspection.ok) {
+        throw new AppError('UNSUPPORTED_MEDIA_TYPE', inspection.reason);
+      }
+      font = inspection.font;
+    }
+
     const content = prepared.content;
     const checksumSha256 = createHash('sha256').update(content).digest('hex');
     const storageKey = assetStorageKey(actor.organizationId, checksumSha256);
@@ -106,6 +147,16 @@ export class AssetsService {
         },
         select: assetSelect,
       });
+      if (font) {
+        await tx.fontFace.create({
+          data: {
+            organizationId: actor.organizationId,
+            assetId: asset.id,
+            ...font,
+            unicodeRanges: font.unicodeRanges.map(([first, last]) => [first, last]),
+          },
+        });
+      }
       await this.audit.recordForActor(tx, actor, {
         action: 'ASSET_CREATED',
         resourceType: 'ASSET',
@@ -121,6 +172,15 @@ export class AssetsService {
             removedSvgElements: prepared.svgReport.removedElements.slice(0, 50),
             removedSvgAttributes: prepared.svgReport.removedAttributes.slice(0, 50),
           }),
+          ...(font && {
+            font: {
+              familyName: font.familyName,
+              weight: font.weight,
+              style: font.style,
+              fontVersion: font.fontVersion,
+              embeddingPermission: font.embeddingPermission,
+            },
+          }),
         },
       });
       return asset;
@@ -128,13 +188,27 @@ export class AssetsService {
     return toAssetDto(row);
   }
 
-  async list(
-    actor: ActorContext,
-    page: number,
-    pageSize: number,
-    assetType?: AssetType,
-  ): Promise<PaginatedResponse<AssetDto>> {
-    const where: Prisma.AssetWhereInput = { organizationId: actor.organizationId, assetType };
+  async list(actor: ActorContext, query: ListAssetsQuery): Promise<PaginatedResponse<AssetDto>> {
+    const { page, pageSize } = query;
+    const conditions: Prisma.AssetWhereInput[] = [];
+    if (query.assetType) {
+      conditions.push({ assetType: query.assetType });
+    }
+    if (query.search) {
+      conditions.push({ filename: { contains: query.search, mode: 'insensitive' } });
+    }
+    if (query.usage === 'PLACEABLE_IMAGE') {
+      conditions.push({
+        assetType: { not: 'FONT' },
+        mimeType: { in: [...PLACEABLE_IMAGE_MIME_TYPES] },
+      });
+    } else if (query.usage === 'FONT') {
+      conditions.push({ assetType: 'FONT', fontFace: { isNot: null } });
+    }
+    const where: Prisma.AssetWhereInput = {
+      organizationId: actor.organizationId,
+      AND: conditions,
+    };
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.asset.count({ where }),
       this.prisma.asset.findMany({
@@ -152,6 +226,16 @@ export class AssetsService {
       total,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
     };
+  }
+
+  /** The organization's font registry, ordered for font pickers. */
+  async listFonts(actor: ActorContext): Promise<FontFaceDto[]> {
+    const rows = await this.prisma.fontFace.findMany({
+      where: { organizationId: actor.organizationId },
+      orderBy: [{ familyName: 'asc' }, { style: 'asc' }, { weight: 'asc' }, { createdAt: 'asc' }],
+      select: fontFaceSelect,
+    });
+    return rows.map(toFontFaceDto);
   }
 
   async get(actor: ActorContext, assetId: string): Promise<AssetDto> {
@@ -221,6 +305,30 @@ function prepareUploadContent(buffer: Buffer): PreparedUpload {
     content: sanitized.content,
     inspected: inspectContent(sanitized.content),
     svgReport: sanitized.report,
+  };
+}
+
+function toUnicodeRangesValue(value: Prisma.JsonValue): UnicodeRange[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) =>
+    Array.isArray(entry) &&
+    entry.length === 2 &&
+    typeof entry[0] === 'number' &&
+    typeof entry[1] === 'number'
+      ? [[entry[0], entry[1]] as const]
+      : [],
+  );
+}
+
+function toFontFaceDto(row: FontFaceRow): FontFaceDto {
+  const { asset, unicodeRanges, createdAt, ...face } = row;
+  return {
+    ...face,
+    filename: asset.filename,
+    checksumSha256: asset.checksumSha256,
+    sizeBytes: asset.sizeBytes,
+    unicodeRanges: toUnicodeRangesValue(unicodeRanges),
+    createdAt: createdAt.toISOString(),
   };
 }
 

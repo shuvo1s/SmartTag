@@ -246,6 +246,13 @@ function checkObjectProperties(
 ): void {
   switch (object.type) {
     case 'text':
+      if (object.fontAssetId === null) {
+        issues.warning(
+          'TEXT_FONT_NOT_CONTROLLED',
+          [...path, 'fontAssetId'],
+          `Text "${object.id}" has no controlled font asset; "${object.fontFamily}" cannot be reproduced exactly`,
+        );
+      }
       if (
         object.overflow.mode === 'SHRINK_TO_FIT' &&
         object.overflow.minFontSize > object.fontSize

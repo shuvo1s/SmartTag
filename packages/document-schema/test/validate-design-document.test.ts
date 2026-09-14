@@ -21,6 +21,34 @@ describe('validateDesignDocument — envelope & schema version', () => {
     expect(result.document?.pages).toHaveLength(2);
   });
 
+  it('requires migration for documents stored with an older schema version', () => {
+    expect(errorCodes({ ...minimalDocument(), schemaVersion: 1 })).toEqual([
+      'SCHEMA_MIGRATION_REQUIRED',
+    ]);
+  });
+
+  it('requires fontAssetId and wrap on text objects and warns when no controlled font is set', () => {
+    const missing = minimalDocument();
+    const text = objectsOf(missing)[0]!;
+    delete text.fontAssetId;
+    expect(errorCodes(missing)).toEqual(['INVALID_STRUCTURE']);
+
+    const badWrap = minimalDocument();
+    objectsOf(badWrap)[0]!.wrap = 'CHARACTER';
+    expect(errorCodes(badWrap)).toEqual(['INVALID_STRUCTURE']);
+
+    const uncontrolled = minimalDocument();
+    objectsOf(uncontrolled)[0]!.fontAssetId = null;
+    const result = validateDesignDocument(uncontrolled);
+    expect(result.valid).toBe(true);
+    expect(result.warnings).toEqual([
+      expect.objectContaining({
+        code: 'TEXT_FONT_NOT_CONTROLLED',
+        path: ['pages', 0, 'objects', 0, 'fontAssetId'],
+      }),
+    ]);
+  });
+
   it.each([null, 42, 'doc', [], undefined])('rejects non-object input %p', (input) => {
     expect(errorCodes(input)).toEqual(['INVALID_STRUCTURE']);
   });

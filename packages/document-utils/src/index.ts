@@ -10,6 +10,7 @@ export * from './bindings';
 export * from './builders';
 export * from './canonical-json';
 export * from './document-types';
+export * from './geometry-precision';
 export * from './hashing';
 export * from './ids';
 export * from './summary';

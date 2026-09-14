@@ -4,9 +4,13 @@
  */
 const MM = 72 / 25.4;
 
+/** A controlled font asset id used by text fixtures. */
+export const FONT_ASSET_ID = '0192f0a0-5b1e-7c3d-a1b2-00000000f001';
+
+/** Current-schema (v2) document. */
 export function minimalDocument(): Record<string, unknown> {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     documentId: '0192f0a0-5b1e-7c3d-8e4f-1a2b3c4d5e6f',
     metadata: {
       name: 'Minimal tag',
@@ -106,6 +110,7 @@ export function textObject(overrides: Record<string, unknown> = {}): Record<stri
     groupId: 'grp-1',
     metadata: {},
     content: 'Organic Cotton Tee',
+    fontAssetId: FONT_ASSET_ID,
     fontFamily: 'Noto Sans',
     fontSize: 11,
     fontWeight: 700,
@@ -117,6 +122,7 @@ export function textObject(overrides: Record<string, unknown> = {}): Record<stri
     textColor: { space: 'RGB', hex: '#1F2933' },
     direction: 'AUTO',
     language: null,
+    wrap: 'WORD',
     overflow: { mode: 'SHRINK_TO_FIT', minFontSize: 7 },
     bindings: { content: { mode: 'FIELD', field: 'product_name' }, visible: { mode: 'STATIC' } },
     ...overrides,
@@ -177,6 +183,24 @@ export function imageObject(overrides: Record<string, unknown> = {}): Record<str
 }
 
 type Mutable = Record<string, unknown>;
+
+/**
+ * The same document as persisted with schema version 1 (before text objects had fontAssetId and
+ * wrap). Used to prove that stored v1 documents still load.
+ */
+export function minimalDocumentV1(): Mutable {
+  const document = minimalDocument();
+  document.schemaVersion = 1;
+  for (const page of document.pages as Mutable[]) {
+    for (const object of page.objects as Mutable[]) {
+      if (object.type === 'text') {
+        delete object.fontAssetId;
+        delete object.wrap;
+      }
+    }
+  }
+  return document;
+}
 
 /** Returns the objects array of a page for in-place mutation in tests. */
 export function objectsOf(document: Mutable, pageIndex = 0): Mutable[] {

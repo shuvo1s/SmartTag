@@ -36,7 +36,8 @@ export const BLACK: RgbColor = { space: 'RGB', hex: '#000000' };
 export const WHITE: RgbColor = { space: 'RGB', hex: '#FFFFFF' };
 
 /**
- * Default typeface. Noto Sans has companion families covering Bengali, Arabic, CJK and more,
- * which matters for multi-language garment labelling. Font assets arrive in a later phase.
+ * Default family name. Noto Sans has companion families covering Bengali, Arabic, CJK and more,
+ * which matters for multi-language garment labelling. The exact font file is identified by a
+ * text object's `fontAssetId`; the family name alone never selects a font for production.
  */
 export const DEFAULT_FONT_FAMILY = 'Noto Sans';

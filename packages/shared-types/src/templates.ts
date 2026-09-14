@@ -183,6 +183,8 @@ export interface DocumentSummaryDto {
   readonly dataFieldCount: number;
   readonly boundFieldKeys: readonly string[];
   readonly assetIds: readonly string[];
+  /** Controlled font assets referenced by text objects (schema v2+; absent in v1 summaries). */
+  readonly fontAssetIds?: readonly string[];
 }
 
 export interface TemplateVersionSummaryDto {

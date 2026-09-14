@@ -3,6 +3,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { APP_CONFIG, type AppConfig } from '../../config/env.schema';
 import { AssetsController } from './assets.controller';
 import { AssetsService } from './assets.service';
+import { FontsController } from './fonts.controller';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { AssetsService } from './assets.service';
       }),
     }),
   ],
-  controllers: [AssetsController],
+  controllers: [AssetsController, FontsController],
   providers: [AssetsService],
 })
 export class AssetsModule {}

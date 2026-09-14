@@ -130,6 +130,7 @@ export class TemplateVersionsService {
         id: true,
         status: true,
         revision: true,
+        documentHash: true,
         template: { select: { id: true, organizationId: true, documentType: true } },
       },
     });
@@ -179,7 +180,15 @@ export class TemplateVersionsService {
         action: 'TEMPLATE_VERSION_UPDATED',
         resourceType: 'TEMPLATE_VERSION',
         resourceId: versionId,
-        metadata: { revision: input.expectedRevision + 1, documentHash: prepared.documentHash },
+        // Identifies the change without copying artwork into the audit trail.
+        metadata: {
+          revision: input.expectedRevision + 1,
+          previousDocumentHash: version.documentHash,
+          documentHash: prepared.documentHash,
+          schemaVersion: prepared.schemaVersion,
+          pageCount: document.pages.length,
+          objectCount: document.pages.reduce((count, page) => count + page.objects.length, 0),
+        },
       });
     });
     return this.get(actor, versionId);

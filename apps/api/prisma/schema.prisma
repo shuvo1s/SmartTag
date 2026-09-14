@@ -79,6 +79,7 @@ model Organization {
   templates        Template[]
   templateVersions TemplateVersion[]
   assets           Asset[]
+  fontFaces        FontFace[]
   auditEvents      AuditEvent[]
 
   @@map("organizations")
@@ -405,11 +406,72 @@ model Asset {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   createdBy    User         @relation("AssetCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  fontFace     FontFace?
 
   @@unique([id, organizationId])
   @@index([organizationId, assetType, createdAt])
   @@index([organizationId, checksumSha256])
   @@map("assets")
+}
+
+enum FontStyle {
+  NORMAL
+  ITALIC
+
+  @@map("font_style")
+}
+
+enum FontFormat {
+  TTF
+  OTF
+  WOFF
+  WOFF2
+
+  @@map("font_format")
+}
+
+enum FontEmbeddingPermission {
+  INSTALLABLE
+  EDITABLE
+  PREVIEW_AND_PRINT
+  RESTRICTED
+
+  @@map("font_embedding_permission")
+}
+
+/// Font registry. One immutable row per FONT asset; every value is read from the font file itself.
+/// Text objects reference the asset id, so the exact file (and therefore glyphs and metrics) is pinned.
+model FontFace {
+  id                  String                  @id @default(uuid(7)) @db.Uuid
+  organizationId      String                  @map("organization_id") @db.Uuid
+  assetId             String                  @unique @map("asset_id") @db.Uuid
+  familyName          String                  @map("family_name") @db.VarChar(200)
+  subfamilyName       String                  @map("subfamily_name") @db.VarChar(200)
+  fullName            String                  @map("full_name") @db.VarChar(300)
+  postscriptName      String                  @map("postscript_name") @db.VarChar(127)
+  fontVersion         String                  @map("font_version") @db.VarChar(100)
+  /// CSS weight 100–900 derived from OS/2 usWeightClass.
+  weight              Int
+  style               FontStyle
+  format              FontFormat
+  embeddingPermission FontEmbeddingPermission @map("embedding_permission")
+  unitsPerEm          Int                     @map("units_per_em")
+  ascender            Int
+  descender           Int
+  lineGap             Int                     @map("line_gap")
+  capHeight           Int?                    @map("cap_height")
+  xHeight             Int?                    @map("x_height")
+  glyphCount          Int                     @map("glyph_count")
+  /// Sorted inclusive code point ranges: [[first, last], ...]
+  unicodeRanges       Json                    @map("unicode_ranges")
+  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  asset        Asset        @relation(fields: [assetId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([assetId, organizationId])
+  @@index([organizationId, familyName, weight, style])
+  @@map("font_faces")
 }
 
 // ------------------------------------------------------------------------------------------------
