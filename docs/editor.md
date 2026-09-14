@@ -221,7 +221,7 @@ Ranges cover the Phase 2 verification runs:
 | ------------------------------------- | ------------- | ----------------- |
 | Editor open (navigation → ready)      | 2.3 – 2.6 s   | < 15 s            |
 | Canvas mount                          | 0.09 – 0.16 s | < 3 s             |
-| Frame rate while dragging             | 48 – 55 fps   | > 20 fps          |
+| Frame rate while dragging             | 46 – 55 fps   | > 20 fps          |
 | Gesture commit (pointer up → UNSAVED) | 0.10 – 0.14 s | < 2 s             |
 | Save                                  | 0.23 – 0.43 s | —                 |
 | 10 keyboard nudges                    | 0.48 – 0.66 s | —                 |
