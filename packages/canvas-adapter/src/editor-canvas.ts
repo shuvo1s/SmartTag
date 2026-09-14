@@ -521,8 +521,14 @@ export class EditorCanvas {
     this.fabric.on('object:modified', ({ target, action, transform }) => {
       this.snapGuides = [];
       this.snapTargets = null;
-      this.commitTransform(target, action ?? transform?.action);
-      this.store?.setInteracting(false);
+      const resolvedAction = action ?? (transform?.action);
+      // Fabric is still inside its mouse-up processing here. Committing synchronously would
+      // re-sync the canvas (possibly rebuilding the active selection) in the middle of that
+      // processing, leaving Fabric with a dangling transform. Commit right after it completes.
+      queueMicrotask(() => {
+        this.commitTransform(target, resolvedAction);
+        this.store?.setInteracting(false);
+      });
     });
 
     this.fabric.on('mouse:down', (event: TPointerEventInfo) => {

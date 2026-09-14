@@ -1,4 +1,4 @@
-import type { SymbolRect } from '@smarttag/barcode-core';
+import type { BarcodeEncoder, SymbolRect } from '@smarttag/barcode-core';
 import type { ArtworkObject, Stroke } from '@smarttag/document-schema';
 import {
   barcodeSymbol,
@@ -39,6 +39,32 @@ export interface DrawOptions {
 const MARKER_COLOR = '#D64545';
 const PLACEHOLDER_STROKE = '#7B8794';
 const SYMBOL_TEXT_FONT = "'OCR-B', 'Noto Sans Mono', monospace";
+
+type SymbolObject = Extract<ArtworkObject, { type: 'barcode' | 'qrCode' }>;
+const NO_ENCODER_KEY = {};
+/**
+ * Encoded symbol geometry per encoder and immutable object snapshot. Canvas redraws happen on
+ * every pointer move; without this every visible symbol would be re-encoded on each frame. A new
+ * snapshot (any property change) is a new key, so the cache can never serve stale geometry.
+ */
+const symbolCache = new WeakMap<object, WeakMap<SymbolObject, unknown>>();
+
+function memoizedSymbol<O extends SymbolObject, R>(
+  object: O,
+  encoder: BarcodeEncoder | null,
+  compute: (object: O, encoder: BarcodeEncoder | undefined) => R,
+): R {
+  const encoderKey = encoder ?? NO_ENCODER_KEY;
+  let byObject = symbolCache.get(encoderKey);
+  if (!byObject) {
+    byObject = new WeakMap();
+    symbolCache.set(encoderKey, byObject);
+  }
+  if (byObject.has(object)) return byObject.get(object) as R;
+  const result = compute(object, encoder ?? undefined);
+  byObject.set(object, result);
+  return result;
+}
 
 export function drawArtwork(
   ctx: CanvasRenderingContext2D,
@@ -257,7 +283,7 @@ function drawBarcode(
     ctx.fillStyle = colorToCss(object.backgroundColor);
     ctx.fillRect(0, 0, object.width, object.height);
   }
-  const state = barcodeSymbol(object, services.barcodeEncoder ?? undefined);
+  const state = memoizedSymbol(object, services.barcodeEncoder, barcodeSymbol);
   if (!state.symbol) {
     const reason =
       state.symbolStatus === 'INVALID_VALUE'
@@ -295,7 +321,7 @@ function drawQrCode(
   services: RenderServices,
   options: DrawOptions,
 ): ArtworkIssue[] {
-  const state = qrSymbol(object, services.barcodeEncoder ?? undefined);
+  const state = memoizedSymbol(object, services.barcodeEncoder, qrSymbol);
   if (!state.symbol) {
     if (object.backgroundColor) {
       ctx.fillStyle = colorToCss(object.backgroundColor);

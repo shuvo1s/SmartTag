@@ -1,3 +1,4 @@
+import { createBwipBarcodeEncoder } from '@smarttag/barcode-bwip';
 import {
   validateDesignDocument,
   type ArtworkObject,
@@ -15,12 +16,12 @@ import {
   normalizeLength,
 } from '@smarttag/document-utils';
 import { createSampleHangTagDocument } from '@smarttag/document-utils/fixtures';
-import { findPage, moveObjects } from '@smarttag/editor-core';
+import { findPage, moveObjects, updateObject } from '@smarttag/editor-core';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { BrowserFontRegistry, createCanvasTextMeasurer, type ArtworkFabricObject } from '../src';
-import { mountCanvas } from './helpers';
+import { mountCanvas, testServices } from './helpers';
 
 function darkPixels(
   context: CanvasRenderingContext2D,
@@ -94,6 +95,42 @@ describe('canvas rendering', () => {
     expect(issues('front-price')).toContain('FONT_UNAVAILABLE');
     expect(issues('bad-ean')).toEqual(['SYMBOL_INVALID']);
     expect(issues('front-barcode')).toEqual([]);
+    canvas.dispose();
+  });
+
+  it('encodes each symbol once per canonical snapshot, not on every redraw', () => {
+    const { store, canvas } = mountCanvas(createSampleHangTagDocument());
+    const encoder = createBwipBarcodeEncoder();
+    const calls = { linear: 0, qr: 0 };
+    canvas.setServices({
+      ...testServices(),
+      barcodeEncoder: {
+        ...encoder,
+        supportsLinear: (symbology) => encoder.supportsLinear(symbology),
+        encodeLinear: (symbology, value) => {
+          calls.linear += 1;
+          return encoder.encodeLinear(symbology, value);
+        },
+        encodeQr: (value, errorCorrection) => {
+          calls.qr += 1;
+          return encoder.encodeQr(value, errorCorrection);
+        },
+      },
+    });
+    for (let frame = 0; frame < 10; frame += 1) canvas.fabric.renderAll();
+    const symbols = findPage(store.getState().document, 'page-front').objects.filter(
+      (object) => object.type === 'barcode' || object.type === 'qrCode',
+    );
+    expect(symbols.length).toBeGreaterThan(0);
+    expect(calls.linear + calls.qr).toBe(symbols.length);
+
+    // A changed value is a new snapshot and is encoded again, exactly once.
+    store.apply('Change barcode', (document, pageId) =>
+      updateObject(document, pageId, 'front-barcode', { value: '5901234123457' }),
+    );
+    const before = calls.linear;
+    for (let frame = 0; frame < 10; frame += 1) canvas.fabric.renderAll();
+    expect(calls.linear).toBe(before + 1);
     canvas.dispose();
   });
 });
@@ -263,7 +300,7 @@ function largeDocument(): DesignDocument {
 }
 
 describe('performance with 120 objects', () => {
-  it('loads, renders and commits gestures within interactive budgets', () => {
+  it('loads, renders and commits gestures within interactive budgets', async () => {
     const document = largeDocument();
     expect(validateDesignDocument(document).errors).toEqual([]);
 
@@ -277,6 +314,7 @@ describe('performance with 120 objects', () => {
     const commitStart = performance.now();
     target.set({ left: target.left + 12 });
     canvas.fabric.fire('object:modified', { target, action: 'drag' });
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
     const commitMs = performance.now() - commitStart;
     expect(
       findPage(store.getState().document, 'page-front').objects.find((o) => o.id === 'perf-60')!.x,

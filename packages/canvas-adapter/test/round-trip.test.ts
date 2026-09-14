@@ -10,6 +10,8 @@ import { describe, expect, it } from 'vitest';
 import { createArtworkFabricObject, measureFabricFrame, type ArtworkFabricObject } from '../src';
 import { everyObjectType, mountCanvas, testServices } from './helpers';
 
+const flushMicrotasks = () => new Promise<void>((resolve) => queueMicrotask(resolve));
+
 /** Canonical document with the canvas read-back of every page substituted in. */
 function readBackDocument(document: DesignDocument): DesignDocument {
   const { store, canvas } = mountCanvas(document);
@@ -226,12 +228,13 @@ describe('transforms read back into normalized canonical geometry', () => {
 });
 
 describe('gesture commits through the editor store', () => {
-  it('commits one undoable command per finished gesture and resets Fabric scale', () => {
+  it('commits one undoable command per finished gesture and resets Fabric scale', async () => {
     const { store, canvas } = mountCanvas(createSampleHangTagDocument());
     const target = canvas.getFabricObject('front-logo')!;
     const before = target.canonical;
     target.set({ left: target.left + 20, scaleX: 1.25 });
     canvas.fabric.fire('object:modified', { target, action: 'scale' });
+    await flushMicrotasks();
     const after = findPage(store.getState().document, 'page-front').objects.find(
       (o) => o.id === 'front-logo',
     )!;
@@ -245,7 +248,7 @@ describe('gesture commits through the editor store', () => {
     canvas.dispose();
   });
 
-  it('never moves locked objects and snaps Fabric back when nothing canonical changed', () => {
+  it('never moves locked objects and snaps Fabric back when nothing canonical changed', async () => {
     const { store, canvas } = mountCanvas(createSampleHangTagDocument());
     store.apply('Lock', (document, pageId) => ({
       ...document,
@@ -265,6 +268,7 @@ describe('gesture commits through the editor store', () => {
     const lockedDocument = store.getState().document;
     band.set({ left: band.left + 50 });
     canvas.fabric.fire('object:modified', { target: band, action: 'drag' });
+    await flushMicrotasks();
     expect(store.getState().document).toBe(lockedDocument);
     expect(canvas.getFabricObject('front-band')!.left).toBe(
       band.canonical.x + band.canonical.width / 2,
