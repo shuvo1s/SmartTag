@@ -113,6 +113,87 @@ describe('assets API & storage abstraction', () => {
     expect(await t.prisma.asset.count()).toBe(0);
   });
 
+  it('stores only sanitized SVG content and reports what was removed', async () => {
+    const exported = Buffer.from(
+      '<?xml version="1.0"?><!-- exported --><svg xmlns="http://www.w3.org/2000/svg" ' +
+        'xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="120" height="40" viewBox="0 0 120 40">' +
+        '<metadata>editor data</metadata><g inkscape:label="Layer 1"><rect width="120" height="40" fill="#0B6E4F"/></g></svg>',
+      'utf8',
+    );
+    const upload = await designer
+      .post(`${API}/assets`)
+      .field('assetType', 'SVG')
+      .attach('file', exported, 'logo.svg');
+    expect(upload.status).toBe(201);
+    const expected =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40" viewBox="0 0 120 40">' +
+      '<g><rect width="120" height="40" fill="#0B6E4F"/></g></svg>';
+    expect(upload.body).toMatchObject({
+      mimeType: 'image/svg+xml',
+      sizeBytes: Buffer.byteLength(expected),
+      checksumSha256: createHash('sha256').update(expected).digest('hex'),
+      widthPx: 120,
+      heightPx: 40,
+    });
+
+    const content = await designer
+      .get(`${API}/assets/${upload.body.id}/content`)
+      .buffer(true)
+      .parse((res, done) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => done(null, Buffer.concat(chunks)));
+      });
+    expect((content.body as Buffer).toString('utf8')).toBe(expected);
+
+    const audit = await t.prisma.auditEvent.findFirstOrThrow({
+      where: { action: 'ASSET_CREATED', resourceId: upload.body.id },
+    });
+    expect(audit.metadata).toMatchObject({
+      svgSanitizerVersion: '1',
+      uploadedSizeBytes: exported.length,
+      removedSvgElements: ['metadata'],
+      removedSvgAttributes: ['inkscape:label'],
+    });
+  });
+
+  it.each([
+    [
+      'script',
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(document.cookie)</script></svg>',
+    ],
+    ['event handler', '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><rect/></svg>'],
+    [
+      'external reference',
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://tracker.example/p.png"/></svg>',
+    ],
+  ])('rejects unsafe SVG uploads (%s) without storing anything', async (_label, source) => {
+    const response = await designer
+      .post(`${API}/assets`)
+      .field('assetType', 'LOGO')
+      .attach('file', Buffer.from(source, 'utf8'), 'logo.svg');
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('UNSAFE_CONTENT');
+    expect(response.body.error.details.violations.length).toBeGreaterThan(0);
+    expect(await t.prisma.asset.count()).toBe(0);
+    expect(await t.prisma.auditEvent.count({ where: { action: 'ASSET_CREATED' } })).toBe(0);
+  });
+
+  it('rejects SVG with entity declarations before it is even recognised as SVG', async () => {
+    const response = await designer
+      .post(`${API}/assets`)
+      .field('assetType', 'SVG')
+      .attach(
+        'file',
+        Buffer.from(
+          '<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg xmlns="http://www.w3.org/2000/svg">&x;</svg>',
+        ),
+        'xxe.svg',
+      );
+    expect(response.status).toBe(415);
+    expect(await t.prisma.asset.count()).toBe(0);
+  });
+
   it('enforces asset permissions', async () => {
     const response = await viewer
       .post(`${API}/assets`)

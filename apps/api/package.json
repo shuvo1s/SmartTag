@@ -30,6 +30,7 @@
     "@smarttag/document-schema": "0.1.0",
     "@smarttag/document-utils": "0.1.0",
     "@smarttag/shared-types": "0.1.0",
+    "@xmldom/xmldom": "^0.9.12",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "helmet": "^8.3.0",

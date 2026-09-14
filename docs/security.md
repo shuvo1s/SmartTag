@@ -97,6 +97,34 @@ setting as an additional guard against application bugs.
 - Storage keys are content-addressed and tenant-prefixed: `organizations/{org}/assets/sha256/{aa}/{sha256}`.
   Bytes behind an asset id can therefore never change, which protects approved artwork.
 
+### SVG uploads
+
+SVG is active content, so every SVG upload passes `sanitizeSvg` (`apps/api/src/modules/assets/svg-sanitizer.ts`)
+before anything is stored:
+
+1. The bytes must be UTF-8 and well-formed XML with an SVG root. Entity declarations and DOCTYPEs
+   with an internal subset are refused (XXE, expansion bombs).
+2. A **new** document is built from allow-listed SVG elements and attributes and serialized by the
+   sanitizer itself; nothing from the input is copied verbatim.
+3. The upload is **rejected** (`422 UNSAFE_CONTENT`, with a list of violations) when it contains:
+   `script`/`handler`/`listener`, any `on*` event handler, animation elements (`animate`, `set`, …
+   can rewrite `href` to `javascript:`), embedded frames/objects, `javascript:`/`vbscript:`/`data:text`
+   URLs (including whitespace-obfuscated forms), external `href`/`url()` references, nested SVG data
+   URLs, or CSS with `@import`, `@font-face`, `expression()`, escapes or external `url()`.
+4. Non-rendering editor noise is **stripped** so normal design-tool exports keep working: comments,
+   processing instructions, `metadata`, `foreignObject` fallbacks, Inkscape/Sodipodi/Illustrator
+   namespaces, unknown elements and attributes. `<a>` is unwrapped (children kept).
+5. Local references (`#id`) and embedded raster images (`data:image/png|jpeg|gif|webp;base64`) are kept.
+6. The output must be a fixed point of the sanitizer (re-sanitizing yields identical bytes).
+
+Only the sanitized bytes are checksummed, stored and served; the audit event records the sanitizer
+version, the uploaded size and what was removed. The sandboxing CSP on the content endpoint and the
+editor's image-only loading remain as additional layers.
+
+`image-size` (dimension probing) has open advisories for its ICNS/JXL/HEIF parsers with no fixed
+release. It is only called after content-signature detection has classified the file as PNG, JPEG,
+GIF, WebP, TIFF or (sanitized) SVG, so those parsers are never reached.
+
 ## Logging, secrets and errors
 
 - Logs never include passwords, session tokens, cookies, authorization headers or request bodies

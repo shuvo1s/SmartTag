@@ -16,6 +16,7 @@ import {
   isMimeAllowedForAssetType,
   sanitizeFilename,
 } from './asset-content-inspector';
+import { SVG_SANITIZER_VERSION, sanitizeSvg, type SvgSanitizationReport } from './svg-sanitizer';
 import {
   OBJECT_STORAGE,
   ObjectNotFoundError,
@@ -63,7 +64,8 @@ export class AssetsService {
         { path: 'file', message: 'Choose a file to upload' },
       ]);
     }
-    const inspected = inspectContent(file.buffer);
+    const prepared = prepareUploadContent(file.buffer);
+    const inspected = prepared.inspected;
     if (!inspected) {
       throw new AppError(
         'UNSUPPORTED_MEDIA_TYPE',
@@ -77,11 +79,12 @@ export class AssetsService {
       );
     }
 
-    const checksumSha256 = createHash('sha256').update(file.buffer).digest('hex');
+    const content = prepared.content;
+    const checksumSha256 = createHash('sha256').update(content).digest('hex');
     const storageKey = assetStorageKey(actor.organizationId, checksumSha256);
     // Content-addressed: identical bytes are stored once per organization.
     if (!(await this.storage.objectExists(storageKey))) {
-      await this.storage.putObject(storageKey, file.buffer, {
+      await this.storage.putObject(storageKey, content, {
         contentType: inspected.mimeType,
         checksumSha256,
       });
@@ -94,7 +97,7 @@ export class AssetsService {
           assetType,
           filename: sanitizeFilename(file.originalname),
           mimeType: inspected.mimeType,
-          sizeBytes: file.size,
+          sizeBytes: content.length,
           storageKey,
           checksumSha256,
           widthPx: inspected.widthPx,
@@ -107,7 +110,18 @@ export class AssetsService {
         action: 'ASSET_CREATED',
         resourceType: 'ASSET',
         resourceId: asset.id,
-        metadata: { assetType, mimeType: inspected.mimeType, sizeBytes: file.size, checksumSha256 },
+        metadata: {
+          assetType,
+          mimeType: inspected.mimeType,
+          sizeBytes: content.length,
+          checksumSha256,
+          ...(prepared.svgReport && {
+            svgSanitizerVersion: SVG_SANITIZER_VERSION,
+            uploadedSizeBytes: file.size,
+            removedSvgElements: prepared.svgReport.removedElements.slice(0, 50),
+            removedSvgAttributes: prepared.svgReport.removedAttributes.slice(0, 50),
+          }),
+        },
       });
       return asset;
     });
@@ -175,6 +189,39 @@ export class AssetsService {
     }
     return row;
   }
+}
+
+interface PreparedUpload {
+  readonly content: Buffer;
+  readonly inspected: ReturnType<typeof inspectContent>;
+  readonly svgReport: SvgSanitizationReport | null;
+}
+
+/**
+ * Detects the real content type and, for SVG, replaces the upload with its sanitized form. Unsafe
+ * SVG is rejected outright; only sanitized bytes are ever checksummed, stored and served.
+ */
+function prepareUploadContent(buffer: Buffer): PreparedUpload {
+  const detected = inspectContent(buffer);
+  if (detected?.mimeType !== 'image/svg+xml') {
+    return { content: buffer, inspected: detected, svgReport: null };
+  }
+  const sanitized = sanitizeSvg(buffer);
+  if (!sanitized.ok) {
+    throw new AppError(
+      'UNSAFE_CONTENT',
+      `The SVG file contains content that is not allowed: ${sanitized.violations
+        .slice(0, 3)
+        .map((violation) => violation.message)
+        .join('; ')}`,
+      { violations: sanitized.violations },
+    );
+  }
+  return {
+    content: sanitized.content,
+    inspected: inspectContent(sanitized.content),
+    svgReport: sanitized.report,
+  };
 }
 
 function toAssetDto(row: AssetRow): AssetDto {

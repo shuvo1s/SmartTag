@@ -23,6 +23,7 @@ import { PasswordHasher } from '../src/modules/auth/password-hasher';
 import { prepareDocumentForStorage } from '../src/modules/templates/document-storage';
 import { assetStorageKey } from '../src/modules/assets/storage/object-storage';
 import { createObjectStorage } from '../src/modules/assets/storage/storage.module';
+import { sanitizeSvg } from '../src/modules/assets/svg-sanitizer';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]', 'postgres']);
 
@@ -123,7 +124,12 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="24
 async function seedLogoAsset(organizationId: string, createdById: string) {
   const existing = await prisma.asset.findUnique({ where: { id: SAMPLE_BRAND_LOGO_ASSET_ID } });
   if (existing) return existing;
-  const body = Buffer.from(LOGO_SVG, 'utf8');
+  // Seeded content goes through the same sanitizer as uploads.
+  const sanitized = sanitizeSvg(Buffer.from(LOGO_SVG, 'utf8'));
+  if (!sanitized.ok) {
+    throw new Error('Seed logo SVG failed sanitization');
+  }
+  const body = sanitized.content;
   const checksumSha256 = createHash('sha256').update(body).digest('hex');
   const storageKey = assetStorageKey(organizationId, checksumSha256);
   if (!(await storage.objectExists(storageKey))) {
