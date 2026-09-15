@@ -1,7 +1,9 @@
 import {
   getSafeBox,
   getTrimBox,
+  isFieldTypeCompatible,
   type ArtworkObject,
+  type DataField,
   type DesignDocument,
   type Rect,
 } from '@smarttag/document-schema';
@@ -15,12 +17,14 @@ import {
   createQrCodeObject,
   createRectangleObject,
   createTextObject,
+  fieldBinding,
   mmToPt,
   normalizeLength,
   rgb,
   solidStroke,
 } from '@smarttag/document-utils';
 import { newObjectId } from './commands';
+import { EditorCommandError } from './document-access';
 
 export type ToolType =
   'text' | 'image' | 'logo' | 'rectangle' | 'ellipse' | 'line' | 'barcode' | 'qrCode';
@@ -191,4 +195,66 @@ export function rateImageResolution(
         ? 'WARNING'
         : 'LOW';
   return { effectivePpi, rating };
+}
+
+/**
+ * The object created when a data field is dropped on the artboard: a text object bound to the
+ * field (its content binding), or an image frame for image fields. The drop point becomes the
+ * centre. Boolean fields drive visibility and are bound from the properties panel instead. Field
+ * names never decide the object type (a GTIN field still creates text; users choose Barcode).
+ */
+export function createFieldObject(
+  field: DataField,
+  document: DesignDocument,
+  options: {
+    readonly center?: { readonly x: number; readonly y: number } | null;
+    readonly font?: FontChoice | null;
+  } = {},
+): ArtworkObject {
+  const centerAt = (width: number, height: number): Rect => {
+    if (!options.center) return centeredFrame(document, width, height);
+    return {
+      x: normalizeLength(options.center.x - width / 2),
+      y: normalizeLength(options.center.y - height / 2),
+      width,
+      height,
+    };
+  };
+  if (field.type === 'image') {
+    const size = fitInside(getSafeBox(document.dimensions), 1, 0.4);
+    return createImageObject({
+      zIndex: 0,
+      ...centerAt(size.width, size.height),
+      id: newObjectId('image'),
+      name: field.displayName,
+      assetId: null,
+      fitMode: 'CONTAIN',
+      bindings: { assetId: fieldBinding(field.key) },
+    });
+  }
+  if (!isFieldTypeCompatible('TEXT', field.type)) {
+    throw new EditorCommandError(
+      `${field.displayName} is true/false: bind it to an object's visibility in the properties panel`,
+    );
+  }
+  const font = options.font ?? null;
+  const sample =
+    field.defaultValue !== null && typeof field.defaultValue !== 'boolean'
+      ? String(field.defaultValue)
+      : field.displayName;
+  return createTextObject({
+    zIndex: 0,
+    ...centerAt(mm(35), mm(7)),
+    id: newObjectId('text'),
+    name: field.displayName,
+    content: sample,
+    fontSize: 10,
+    fontAssetId: font?.assetId ?? null,
+    fontFamily: font?.familyName ?? 'Noto Sans',
+    fontWeight: font?.weight ?? 400,
+    fontStyle: font?.style ?? 'NORMAL',
+    textColor: rgb('#1F2933'),
+    wrap: 'WORD',
+    bindings: { content: fieldBinding(field.key) },
+  });
 }

@@ -6,6 +6,7 @@
  * unit-testable and reusable by any canvas adapter.
  */
 export * from './commands';
+export * from './data-commands';
 export * from './document-access';
 export * from './editor-store';
 export * from './history';
