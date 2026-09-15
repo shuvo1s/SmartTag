@@ -78,8 +78,9 @@ Development users (password = `SEED_USER_PASSWORD` from `apps/api/.env.example`)
 | `viewer@smarttag.local`     | Yunusco: VIEWER                                        |
 | `acme.admin@smarttag.local` | Acme Labels (isolation demo): ORG_ADMIN                |
 
-Useful pages: **Templates**, a template's detail page (versions, lifecycle actions, preview), a
-version page with **Edit in designer** (drafts; view-only for other statuses and roles) and
+Useful pages: **Templates** (**New template** creates a blank draft and opens it in the designer),
+a template's detail page (versions with **Edit in designer** for editable drafts, lifecycle actions,
+preview), a version page (designer, view-only for other statuses and roles) and
 **Developer → Document playground** (validate and preview canonical JSON, apply a data record).
 The seed registers Noto Sans (Regular, Medium, SemiBold, Bold) and Noto Sans Bengali Regular as
 controlled fonts (SIL Open Font License) and a sample hang tag with an approved schema v1 version

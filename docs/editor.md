@@ -5,8 +5,25 @@ The designer edits the **canonical DesignDocument** of a draft TemplateVersion. 
 design data and nothing it produces is ever stored.
 
 Route: `/templates/:templateId/versions/:versionId/edit` (desktop-first; below 1024 px wide the
-page explains that the designer needs a larger screen). Entry points: **Edit in designer** on a
-draft's version page, **Open designer (view only)** otherwise.
+page explains that the designer needs a larger screen).
+
+Entry points — nobody needs to type the URL:
+
+| Where                                  | Shown when                                                        | Action                                                                              |
+| -------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **New template** → **Create template** | the user may edit drafts                                          | Opens the new blank v1 draft directly in the designer (otherwise the template page) |
+| Template page, version row             | version is `DRAFT` and the user has `template-version:edit-draft` | **Edit in designer** next to **Submit for review**                                  |
+| Template page, header                  | the current version is such a draft                               | **Edit v&lt;n&gt; in designer**                                                     |
+| Version page                           | always                                                            | **Edit in designer** for editable drafts, otherwise **Open designer (view only)**   |
+| Designer top bar                       | always                                                            | **Back to template** returns to the template page                                   |
+
+All of them use one rule, `canEditVersionContent(status, permissions)` in `shared-types`, which
+mirrors the two checks the API enforces on `PATCH /template-versions/:id` (permission guard and
+DRAFT status). Showing a link grants nothing: the API still checks permission, organization,
+status and revision on every save.
+
+A new template's draft is a blank schema v2 document built by the API from the form (trim size,
+bleed, safe margin, front only or front + back) with no artwork; nothing is migrated or added.
 
 ## Canvas architecture
 
