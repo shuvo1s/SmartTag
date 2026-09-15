@@ -128,9 +128,14 @@ Only the sanitized bytes are checksummed, stored and served; the audit event rec
 version, the uploaded size and what was removed. The sandboxing CSP on the content endpoint and the
 editor's image-only loading remain as additional layers.
 
-`image-size` (dimension probing) has open advisories for its ICNS/JXL/HEIF parsers with no fixed
-release. It is only called after content-signature detection has classified the file as PNG, JPEG,
-GIF, WebP, TIFF or (sanitized) SVG, so those parsers are never reached.
+`image-size` (dimension probing) is on 2.0.4, which fixes the ICNS/JXL/HEIF parser advisories
+(GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq). It is in any case only called after content-signature
+detection has classified the file as PNG, JPEG, GIF, WebP, TIFF or (sanitized) SVG.
+
+Remaining `npm audit` findings are in the Prisma CLI toolchain (`prisma` → `@prisma/config` →
+`deepmerge-ts`, and `mysql2`); the offered fix is a breaking downgrade to Prisma 6. `mysql2` is not used
+(the API connects to PostgreSQL through `@prisma/adapter-pg`) and `deepmerge-ts` merges Prisma's own
+configuration, not request data.
 
 ## Variable data and expressions
 

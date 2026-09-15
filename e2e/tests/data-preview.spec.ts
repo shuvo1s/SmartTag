@@ -119,6 +119,14 @@ test.describe('test data and data preview', () => {
     await expect(summaryCount(page, 'valid')).toHaveText('10');
     await setTestValue(page, 'size', 'XL');
 
+    // A wrong JSON type (true for a decimal) is distinguished from an unusable value ('abc').
+    await useTestRecord(page, { ...VARIABLE_DATA_RECORD, price: true });
+    await expect(page.getByTestId('test-field-issue-price')).toHaveAttribute(
+      'data-code',
+      'INVALID_TYPE',
+    );
+    await expect(page.getByTestId('test-row-price')).toHaveAttribute('data-state', 'ERROR');
+
     await setTestValue(page, 'price', 'abc');
     await expect(page.getByTestId('test-field-issue-price')).toHaveAttribute(
       'data-code',
