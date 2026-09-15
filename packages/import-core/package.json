@@ -1,0 +1,33 @@
+{
+  "name": "@smarttag/import-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tabular data import domain: source model, deterministic parsing rules, field mapping, auto-mapping suggestions, mapping profile compatibility, the per-row pipeline onto data-core, record and dataset hashing and the import lifecycle. Isomorphic; no parsers, I/O or frameworks.",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "node ../../scripts/clean.mjs dist && tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@smarttag/data-core": "0.1.0",
+    "@smarttag/document-schema": "0.1.0",
+    "@smarttag/document-utils": "0.1.0",
+    "@smarttag/expression-core": "0.1.0",
+    "zod": "^4.6.5"
+  }
+}
