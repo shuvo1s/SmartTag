@@ -6,6 +6,7 @@ import {
   E2E_WEB_URL,
   REPO_ROOT,
   apiEnvironment,
+  workerEnvironment,
 } from './environment.mjs';
 
 const isCI = Boolean(process.env.CI);
@@ -41,13 +42,13 @@ export default defineConfig({
     // Smaller cross-browser smoke suite; the complete suite runs in Chromium.
     {
       name: 'firefox-smoke',
-      testMatch: /data-smoke.spec.ts/,
+      testMatch: /data(-import)?-smoke.spec.ts/,
       use: { ...devices['Desktop Firefox'], viewport: { width: 1600, height: 1000 } },
       dependencies: ['setup'],
     },
     {
       name: 'webkit-smoke',
-      testMatch: /data-smoke.spec.ts/,
+      testMatch: /data(-import)?-smoke.spec.ts/,
       use: { ...devices['Desktop Safari'], viewport: { width: 1600, height: 1000 } },
       dependencies: ['setup'],
     },
@@ -59,6 +60,16 @@ export default defineConfig({
       cwd: resolve(REPO_ROOT, 'apps', 'api'),
       url: `${E2E_API_URL}/api/v1/health`,
       env: apiEnvironment(),
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+    {
+      // Import inspection and validation run here, never in the API process.
+      name: 'worker',
+      command: 'node dist/main.js',
+      cwd: resolve(REPO_ROOT, 'apps', 'worker'),
+      env: workerEnvironment(),
+      wait: { stdout: /worker ready/ },
       reuseExistingServer: false,
       timeout: 60_000,
     },

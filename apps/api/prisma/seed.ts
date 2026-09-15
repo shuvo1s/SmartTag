@@ -282,6 +282,9 @@ async function main() {
   await upsertUser('viewer@smarttag.local', 'Demo Viewer', [
     { organizationId: yunusco.id, roles: ['VIEWER'] },
   ]);
+  await upsertUser('data@smarttag.local', 'Demo Data Operator', [
+    { organizationId: yunusco.id, roles: ['DATA_OPERATOR'] },
+  ]);
   const acmeAdmin = await upsertUser('acme.admin@smarttag.local', 'Acme Org Admin', [
     { organizationId: acme.id, roles: ['ORG_ADMIN'] },
   ]);
@@ -508,6 +511,7 @@ async function main() {
     'designer@smarttag.local',
     'approver@smarttag.local',
     'viewer@smarttag.local',
+    'data@smarttag.local',
     'acme.admin@smarttag.local',
   ]) {
     console.log(`  - ${email}`);

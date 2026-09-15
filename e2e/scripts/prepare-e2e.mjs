@@ -10,7 +10,14 @@ import { spawnSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import pg from 'pg';
-import { E2E_DATABASE_URL, E2E_STORAGE_ROOT, REPO_ROOT, apiEnvironment } from '../environment.mjs';
+import { createConnection } from 'node:net';
+import {
+  E2E_DATABASE_URL,
+  E2E_REDIS_URL,
+  E2E_STORAGE_ROOT,
+  REPO_ROOT,
+  apiEnvironment,
+} from '../environment.mjs';
 
 const API_ROOT = resolve(REPO_ROOT, 'apps', 'api');
 const DATABASE_ROOT = resolve(REPO_ROOT, 'packages', 'database');
@@ -45,6 +52,39 @@ try {
 }
 
 rmSync(E2E_STORAGE_ROOT, { recursive: true, force: true });
+
+/** Empties the E2E Redis database (the import queue) with plain RESP commands. */
+async function flushRedis(url) {
+  const { hostname, port, pathname } = new URL(url);
+  const database = pathname.slice(1) || '0';
+  const CRLF = String.fromCharCode(13, 10);
+  const command = (...parts) =>
+    `*${parts.length}${CRLF}` +
+    parts.map((part) => `$${Buffer.byteLength(part)}${CRLF}${part}${CRLF}`).join('');
+  await new Promise((resolvePromise, reject) => {
+    const socket = createConnection({ host: hostname, port: Number(port || 6379) }, () => {
+      socket.write(command('SELECT', database) + command('FLUSHDB'));
+    });
+    let received = '';
+    socket.setTimeout(5_000, () => socket.destroy(new Error('Redis did not answer')));
+    socket.on('data', (chunk) => {
+      received += chunk.toString();
+      if (received.split(CRLF).length > 2) {
+        socket.end();
+        if (received.includes('-ERR')) reject(new Error(received));
+        else resolvePromise();
+      }
+    });
+    socket.on('error', (error) =>
+      reject(
+        new Error(
+          `Redis is required for data imports (${url}): ${error.message}. Start it with: npm run redis:local -- start`,
+        ),
+      ),
+    );
+  });
+}
+await flushRedis(E2E_REDIS_URL);
 
 const env = { ...process.env, ...apiEnvironment() };
 // Fixed command strings (no user input) run through the shell so npx resolves on every platform.
