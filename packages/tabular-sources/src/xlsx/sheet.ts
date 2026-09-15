@@ -25,6 +25,8 @@ export interface SheetReadSummary {
   mergedCells: boolean;
 }
 
+const NUL = String.fromCharCode(0);
+
 const CELL_REFERENCE = /^([A-Z]{1,3})(\d+)$/;
 const ISO_DATE_TIME = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}:\d{2}))?/;
 
@@ -73,6 +75,12 @@ export async function* readSheetRows(
     const flag = formula ? ({ formula: true } as const) : {};
     const text = (raw: string): SourceCell => {
       if (raw.length > limits.maxCellChars) throw tooLong();
+      // "_x0000_" escapes decode to NUL, which no text value may contain.
+      if (raw.includes(NUL)) {
+        throw malformed(
+          `row ${rowNumber}, column ${columnLetter(cellColumn)} contains a NUL character`,
+        );
+      }
       return raw === '' ? { kind: 'EMPTY', ...flag } : { kind: 'TEXT', text: raw, ...flag };
     };
     switch (cellType) {

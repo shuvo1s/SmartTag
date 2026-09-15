@@ -25,6 +25,8 @@ export function attribute(attributes: XmlAttributes, name: string): string | und
   return undefined;
 }
 
+const NUL = String.fromCharCode(0);
+
 /**
  * A strict, non-validating XML reader for workbook parts. It never loads DTDs or external entities
  * (DOCTYPE declarations are refused outright), and only the five predefined entities and character
@@ -48,13 +50,19 @@ export function createXmlParser(part: string, handlers: XmlHandlers) {
     const raw = tag.attributes as Readonly<Record<string, string | { readonly value: string }>>;
     for (const [key, value] of Object.entries(raw)) {
       attributes[key] = typeof value === 'string' ? value : value.value;
+      if (attributes[key].includes(NUL)) throw malformed('it contains U+0000');
     }
     handlers.open?.(localName(tag.name), attributes);
   };
   if (handlers.text) {
     const text = handlers.text;
-    parser.ontext = (value) => text(value);
-    parser.oncdata = (value) => text(value);
+    // XML 1.0 cannot contain U+0000; the tokenizer refuses "&#0;" but not a raw NUL character.
+    const checked = (value: string) => {
+      if (value.includes(NUL)) throw malformed('it contains U+0000');
+      text(value);
+    };
+    parser.ontext = checked;
+    parser.oncdata = checked;
   }
   if (handlers.close) {
     const close = handlers.close;

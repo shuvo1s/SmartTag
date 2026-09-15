@@ -150,6 +150,42 @@ describe('XML attacks', () => {
     }
   });
 
+  it('refuses NUL characters from escapes and character references', async () => {
+    const escaped = buildXlsxWorkbook({
+      sheets: [{ name: 'Escaped', rows: [['A'], ['before_x0000_after']] }],
+    });
+    // Like other malformed worksheet content, this refuses the workbook with the sheet named.
+    await expect(
+      xlsx.inspect(sourceFromBuffer(escaped), xlsxSettings(), limits()),
+    ).rejects.toMatchObject({
+      code: 'MALFORMED_FILE',
+      message: 'The worksheet "Escaped" cannot be read: row 2, column A contains a NUL character.',
+    });
+
+    const referenced = buildXlsxWorkbook({
+      sheets: [{ name: 'Data', rows: [['A'], ['x']] }],
+      extraParts: {
+        'xl/sharedStrings.xml':
+          '<?xml version="1.0" encoding="UTF-8"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>A</t></si><si><t>a&#0;b</t></si></sst>',
+      },
+    });
+    await expect(readAllRows(referenced, xlsxSettings('Data'))).rejects.toMatchObject({
+      code: 'MALFORMED_FILE',
+      message: expect.stringMatching(/not valid XML \(Invalid character entity\)/) as string,
+    });
+
+    const raw = buildXlsxWorkbook({
+      sheets: [{ name: 'Data', rows: [['A'], ['x']] }],
+      extraParts: {
+        'xl/sharedStrings.xml': `<?xml version="1.0" encoding="UTF-8"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>A</t></si><si><t>a${String.fromCharCode(0)}b</t></si></sst>`,
+      },
+    });
+    await expect(readAllRows(raw, xlsxSettings('Data'))).rejects.toMatchObject({
+      code: 'MALFORMED_FILE',
+      message: expect.stringMatching(/contains U\+0000/) as string,
+    });
+  });
+
   it('refuses malformed worksheet XML', async () => {
     const book = buildXlsxWorkbook({
       sheets: [{ name: 'Data', rows: [['A']] }],

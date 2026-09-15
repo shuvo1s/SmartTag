@@ -180,6 +180,14 @@ describe('malformed and oversized CSV is refused with a clear message', () => {
     });
   });
 
+  it('a NUL character anywhere in the text (binary data or the wrong encoding)', async () => {
+    const text = `NAME,PRICE\n${'ok,1\n'.repeat(2000)}bad${String.fromCharCode(0)}value,2\n`;
+    await expect(readAllRows(utf8(text), csvSettings({ delimiter: ',' }))).rejects.toMatchObject({
+      code: 'MALFORMED_FILE',
+      message: expect.stringMatching(/row 2002, column A contains a NUL character/) as string,
+    });
+  });
+
   it('an oversized field', async () => {
     const text = `NAME\n${'x'.repeat(120)}\n`;
     await expect(

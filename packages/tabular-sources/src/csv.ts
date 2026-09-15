@@ -30,6 +30,8 @@ export const CSV_PARSER_INFO: ParserInfo = {
   libraries: { 'csv-parse': '7.0.2' },
 };
 
+const NUL = String.fromCharCode(0);
+
 const SAMPLE_BYTES = 64 * 1024;
 const SAMPLE_RECORDS = 50;
 
@@ -247,6 +249,14 @@ function toRow(rowNumber: number, record: readonly string[], limits: ImportLimit
       throw new SourceReadError(
         'FILE_LIMIT_EXCEEDED',
         `The cell in row ${rowNumber}, column ${columnLetter(index)} is longer than ${limits.maxCellChars.toLocaleString('en-US')} characters.`,
+      );
+    }
+    if (value.includes(NUL)) {
+      // Text never contains NUL; it means binary content or a wrong encoding (and PostgreSQL
+      // cannot store it in text or JSON).
+      throw new SourceReadError(
+        'MALFORMED_FILE',
+        `The cell in row ${rowNumber}, column ${columnLetter(index)} contains a NUL character, so the file is not text in the chosen encoding.`,
       );
     }
     cells[index] = value === '' ? { kind: 'EMPTY' } : { kind: 'TEXT', text: value };
