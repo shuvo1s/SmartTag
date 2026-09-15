@@ -34,7 +34,8 @@ export const DATA_IMPORT_TRANSITIONS: Readonly<
   Record<DataImportStatus, readonly DataImportStatus[]>
 > = {
   UPLOADED: ['INSPECTING', 'FAILED', 'CANCELLED'],
-  INSPECTING: ['MAPPING_REQUIRED', 'FAILED', 'CANCELLED'],
+  // A re-inspection (e.g. another delimiter) keeps a mapping that still fits: READY_TO_VALIDATE.
+  INSPECTING: ['MAPPING_REQUIRED', 'READY_TO_VALIDATE', 'FAILED', 'CANCELLED'],
   MAPPING_REQUIRED: ['MAPPING_REQUIRED', 'READY_TO_VALIDATE', 'INSPECTING', 'CANCELLED'],
   READY_TO_VALIDATE: [
     'MAPPING_REQUIRED',

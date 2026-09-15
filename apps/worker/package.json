@@ -2,7 +2,7 @@
   "name": "@smarttag/worker",
   "version": "0.1.0",
   "private": true,
-  "description": "SmartTag background worker (BullMQ). Phase 1: queue foundation only; rendering jobs arrive in later phases.",
+  "description": "SmartTag background worker (BullMQ): system jobs and data import processing (inspection, validation, cleanup).",
   "type": "commonjs",
   "scripts": {
     "build": "node ../../scripts/clean.mjs dist && tsc -p tsconfig.build.json",
@@ -14,6 +14,9 @@
   },
   "dependencies": {
     "@smarttag/config": "0.1.0",
+    "@smarttag/database": "0.1.0",
+    "@smarttag/import-processing": "0.1.0",
+    "@smarttag/object-storage": "0.1.0",
     "@smarttag/shared-types": "0.1.0",
     "bullmq": "^5.81.5",
     "dotenv": "^17.4.2",

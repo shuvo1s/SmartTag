@@ -26,11 +26,7 @@ describe('parseNumberText — explicit separators, never the locale', () => {
     ['1 234,95', COMMA_SPACE, '1234.95'],
     ['1\u00A0234,95', COMMA_SPACE, '1234.95'],
     ['1\u202F234\u202F567,5', COMMA_SPACE, '1234567.5'],
-    [
-      "1'234.50",
-      { decimalSeparator: '.', thousandsSeparator: 'APOSTROPHE' },
-      '1234.50',
-    ],
+    ["1'234.50", { decimalSeparator: '.', thousandsSeparator: 'APOSTROPHE' }, '1234.50'],
     ['-12.500', DOT, '-12.500'],
     ['+7', DOT, '7'],
     ['  42  ', DOT, '42'],

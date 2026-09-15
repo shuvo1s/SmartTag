@@ -22,6 +22,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1131.0"
+    "@aws-sdk/client-s3": "^3.1131.0",
+    "@smarttag/config": "0.1.0",
+    "zod": "^4.6.5"
   }
 }

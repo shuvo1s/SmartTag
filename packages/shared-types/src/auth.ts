@@ -39,6 +39,12 @@ export const PERMISSIONS = [
   'asset:read',
   'asset:create',
   'audit:read',
+  'dataset:read',
+  'dataset:create',
+  'dataset:finalize',
+  'dataset:read-source',
+  'mapping-profile:read',
+  'mapping-profile:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -47,6 +53,8 @@ const READ_ONLY: readonly Permission[] = [
   'customer:read',
   'template:read',
   'asset:read',
+  'dataset:read',
+  'mapping-profile:read',
 ];
 
 /** Single source of truth for role → permission mapping, enforced server-side. */
@@ -75,9 +83,19 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'template-version:edit-draft',
     'template-version:submit',
     'asset:create',
+    // Designers may import and validate data against their templates; finalizing production
+    // datasets is a data operator's decision.
+    'dataset:create',
+    'mapping-profile:manage',
   ],
-  DATA_OPERATOR: [...READ_ONLY],
-  QA: [...READ_ONLY, 'template-version:review'],
+  DATA_OPERATOR: [
+    ...READ_ONLY,
+    'dataset:create',
+    'dataset:finalize',
+    'dataset:read-source',
+    'mapping-profile:manage',
+  ],
+  QA: [...READ_ONLY, 'template-version:review', 'dataset:read-source'],
   APPROVER: [...READ_ONLY, 'template-version:review', 'template-version:approve'],
   PRODUCTION_OPERATOR: [...READ_ONLY],
   VIEWER: [...READ_ONLY],

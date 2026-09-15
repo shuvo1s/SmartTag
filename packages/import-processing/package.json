@@ -1,8 +1,8 @@
 {
-  "name": "@smarttag/shared-types",
+  "name": "@smarttag/import-processing",
   "version": "0.1.0",
   "private": true,
-  "description": "API contracts shared by web, api and worker: request schemas, DTOs, roles, permissions, error codes.",
+  "description": "Background processing of data imports: source inspection, streamed row validation into draft dataset versions, and cleanup of abandoned uploads. Used by the worker (BullMQ handlers) and by API integration tests. Node.js only.",
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,19 +15,21 @@
   "files": [
     "dist"
   ],
-  "sideEffects": false,
   "scripts": {
     "build": "node ../../scripts/clean.mjs dist && tsc -p tsconfig.build.json",
-    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run"
   },
   "dependencies": {
+    "@smarttag/config": "0.1.0",
     "@smarttag/data-core": "0.1.0",
+    "@smarttag/database": "0.1.0",
     "@smarttag/document-schema": "0.1.0",
-    "@smarttag/document-utils": "0.1.0",
     "@smarttag/import-core": "0.1.0",
+    "@smarttag/object-storage": "0.1.0",
+    "@smarttag/shared-types": "0.1.0",
+    "@smarttag/tabular-sources": "0.1.0",
     "zod": "^4.6.5"
   }
 }

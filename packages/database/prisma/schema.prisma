@@ -1,4 +1,4 @@
-// SmartTag Platform — relational model (Phase 1)
+// SmartTag Platform — relational model
 //
 // Conventions
 // - UUIDv7 primary keys (time-ordered, index-friendly), snake_case tables/columns.
@@ -72,15 +72,22 @@ model Organization {
   createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  memberships      Membership[]
-  sessions         Session[]
-  customers        Customer[]
-  brands           Brand[]
-  templates        Template[]
-  templateVersions TemplateVersion[]
-  assets           Asset[]
-  fontFaces        FontFace[]
-  auditEvents      AuditEvent[]
+  memberships             Membership[]
+  sessions                Session[]
+  customers               Customer[]
+  brands                  Brand[]
+  templates               Template[]
+  templateVersions        TemplateVersion[]
+  assets                  Asset[]
+  fontFaces               FontFace[]
+  auditEvents             AuditEvent[]
+  dataSourceFiles         DataSourceFile[]
+  dataImports             DataImport[]
+  datasets                Dataset[]
+  datasetVersions         DatasetVersion[]
+  datasetRecords          DatasetRecord[]
+  mappingProfiles         MappingProfile[]
+  mappingProfileRevisions MappingProfileRevision[]
 
   @@map("organizations")
 }
@@ -101,16 +108,25 @@ model User {
   memberships        Membership[]
   sessions           Session[]
 
-  createdCustomers        Customer[]        @relation("CustomerCreatedBy")
-  createdBrands           Brand[]           @relation("BrandCreatedBy")
-  createdTemplates        Template[]        @relation("TemplateCreatedBy")
-  updatedTemplates        Template[]        @relation("TemplateUpdatedBy")
-  createdTemplateVersions TemplateVersion[] @relation("TemplateVersionCreatedBy")
-  submittedVersions       TemplateVersion[] @relation("TemplateVersionSubmittedBy")
-  approvedVersions        TemplateVersion[] @relation("TemplateVersionApprovedBy")
-  retiredVersions         TemplateVersion[] @relation("TemplateVersionRetiredBy")
-  createdAssets           Asset[]           @relation("AssetCreatedBy")
-  auditEvents             AuditEvent[]
+  createdCustomers               Customer[]               @relation("CustomerCreatedBy")
+  createdBrands                  Brand[]                  @relation("BrandCreatedBy")
+  createdTemplates               Template[]               @relation("TemplateCreatedBy")
+  updatedTemplates               Template[]               @relation("TemplateUpdatedBy")
+  createdTemplateVersions        TemplateVersion[]        @relation("TemplateVersionCreatedBy")
+  submittedVersions              TemplateVersion[]        @relation("TemplateVersionSubmittedBy")
+  approvedVersions               TemplateVersion[]        @relation("TemplateVersionApprovedBy")
+  retiredVersions                TemplateVersion[]        @relation("TemplateVersionRetiredBy")
+  createdAssets                  Asset[]                  @relation("AssetCreatedBy")
+  auditEvents                    AuditEvent[]
+  createdDataSourceFiles         DataSourceFile[]         @relation("DataSourceFileCreatedBy")
+  createdDataImports             DataImport[]             @relation("DataImportCreatedBy")
+  createdDatasets                Dataset[]                @relation("DatasetCreatedBy")
+  updatedDatasets                Dataset[]                @relation("DatasetUpdatedBy")
+  createdDatasetVersions         DatasetVersion[]         @relation("DatasetVersionCreatedBy")
+  finalizedDatasetVersions       DatasetVersion[]         @relation("DatasetVersionFinalizedBy")
+  createdMappingProfiles         MappingProfile[]         @relation("MappingProfileCreatedBy")
+  updatedMappingProfiles         MappingProfile[]         @relation("MappingProfileUpdatedBy")
+  createdMappingProfileRevisions MappingProfileRevision[] @relation("MappingProfileRevisionCreatedBy")
 
   @@map("users")
 }
@@ -219,6 +235,7 @@ model Customer {
   createdBy    User         @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   brands       Brand[]
   templates    Template[]
+  datasets     Dataset[]
 
   @@unique([organizationId, code])
   @@unique([id, organizationId])
@@ -362,9 +379,12 @@ model TemplateVersion {
   submittedBy        User?             @relation("TemplateVersionSubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict)
   approvedBy         User?             @relation("TemplateVersionApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
   retiredBy          User?             @relation("TemplateVersionRetiredBy", fields: [retiredById], references: [id], onDelete: Restrict)
+  dataImports        DataImport[]
+  datasetVersions    DatasetVersion[]
 
   @@unique([templateId, versionNumber])
   @@unique([id, templateId])
+  @@unique([id, organizationId])
   @@index([organizationId, status])
   @@index([documentHash])
   @@map("template_versions")
@@ -472,6 +492,312 @@ model FontFace {
   @@unique([assetId, organizationId])
   @@index([organizationId, familyName, weight, style])
   @@map("font_faces")
+}
+
+// ------------------------------------------------------------------------------------------------
+// Data imports, datasets and mapping profiles (Phase 4)
+//
+// DataImport       one upload being inspected, mapped and validated (a working session)
+// DataSourceFile   the original uploaded bytes (object storage), kept unchanged for audit
+// Dataset          a long-lived logical data collection
+// DatasetVersion   the output of one validation run: DRAFT while an import is reviewed, then
+//                  FINALIZED (numbered, hashed, immutable). A revised upload creates a new version.
+// DatasetRecord    one normalized row of a dataset version, identified by (version, sequence)
+// MappingProfile   a reusable mapping; every change creates an immutable MappingProfileRevision
+// ------------------------------------------------------------------------------------------------
+
+enum DataSourceFormat {
+  CSV
+  XLSX
+
+  @@map("data_source_format")
+}
+
+enum DataSourceFileStatus {
+  /// Row created, bytes not yet confirmed in storage (cleanup removes stale pending uploads).
+  PENDING
+  STORED
+  /// Bytes removed from storage (abandoned import); the metadata stays for audit.
+  DELETED
+
+  @@map("data_source_file_status")
+}
+
+enum DataImportStatus {
+  UPLOADED
+  INSPECTING
+  MAPPING_REQUIRED
+  READY_TO_VALIDATE
+  VALIDATING
+  READY
+  READY_WITH_WARNINGS
+  HAS_ERRORS
+  FAILED
+  CANCELLED
+  FINALIZED
+
+  @@map("data_import_status")
+}
+
+enum DatasetVersionStatus {
+  DRAFT
+  FINALIZED
+
+  @@map("dataset_version_status")
+}
+
+enum DatasetRecordStatus {
+  VALID
+  WARNING
+  ERROR
+
+  @@map("dataset_record_status")
+}
+
+enum MappingProfileStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("mapping_profile_status")
+}
+
+/// An uploaded CSV/XLSX file. Bytes live in object storage under storageKey; never modified.
+model DataSourceFile {
+  id               String               @id @default(uuid(7)) @db.Uuid
+  organizationId   String               @map("organization_id") @db.Uuid
+  status           DataSourceFileStatus @default(PENDING)
+  storageKey       String               @map("storage_key") @db.VarChar(512)
+  originalFilename String               @map("original_filename") @db.VarChar(255)
+  /// Format detected from the content (never from the browser's MIME type).
+  format           DataSourceFormat
+  /// The MIME type the browser sent, kept for diagnostics only.
+  declaredMimeType String?              @map("declared_mime_type") @db.VarChar(127)
+  sizeBytes        Int                  @map("size_bytes")
+  checksumSha256   String               @map("checksum_sha256") @db.Char(64)
+  createdById      String               @map("created_by_id") @db.Uuid
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  storedAt         DateTime?            @map("stored_at") @db.Timestamptz(3)
+  deletedAt        DateTime?            @map("deleted_at") @db.Timestamptz(3)
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy       User             @relation("DataSourceFileCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  imports         DataImport[]
+  datasetVersions DatasetVersion[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, createdAt])
+  @@index([status, createdAt])
+  @@map("data_source_files")
+}
+
+/// One import of one source file into one exact template version.
+model DataImport {
+  id                     String           @id @default(uuid(7)) @db.Uuid
+  organizationId         String           @map("organization_id") @db.Uuid
+  templateVersionId      String           @map("template_version_id") @db.Uuid
+  /// The template version's document hash when the import was created; validation and
+  /// finalization refuse to continue if the version changed since.
+  templateVersionHash    String           @map("template_version_hash") @db.Char(64)
+  dataSchemaHash         String           @map("data_schema_hash") @db.Char(64)
+  /// Existing dataset chosen as the target when the import started (optional).
+  targetDatasetId        String?          @map("target_dataset_id") @db.Uuid
+  sourceFileId           String           @map("source_file_id") @db.Uuid
+  status                 DataImportStatus @default(UPLOADED)
+  /// Optimistic-concurrency counter for user actions (settings, mapping, validate, finalize, cancel).
+  revision               Int              @default(1)
+  sourceSettings         Json             @map("source_settings")
+  inspection             Json?
+  columns                Json             @default("[]")
+  mapping                Json?
+  mappingProfileId       String?          @map("mapping_profile_id") @db.Uuid
+  mappingProfileRevision Int?             @map("mapping_profile_revision")
+  /// Incremented whenever inspection or validation is (re)requested; jobs carry the run they belong to.
+  inspectionRun          Int              @default(0) @map("inspection_run")
+  validationRun          Int              @default(0) @map("validation_run")
+  progressProcessedRows  Int              @default(0) @map("progress_processed_rows")
+  progressTotalRows      Int?             @map("progress_total_rows")
+  progressUpdatedAt      DateTime?        @map("progress_updated_at") @db.Timestamptz(3)
+  failure                Json?
+  /// Parser and normalization versions, job metrics.
+  processing             Json             @default("{}")
+  createdById            String           @map("created_by_id") @db.Uuid
+  createdAt              DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  validatedAt            DateTime?        @map("validated_at") @db.Timestamptz(3)
+  finalizedAt            DateTime?        @map("finalized_at") @db.Timestamptz(3)
+  cancelledAt            DateTime?        @map("cancelled_at") @db.Timestamptz(3)
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  templateVersion TemplateVersion  @relation(fields: [templateVersionId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  targetDataset   Dataset?         @relation(fields: [targetDatasetId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  sourceFile      DataSourceFile   @relation(fields: [sourceFileId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  mappingProfile  MappingProfile?  @relation(fields: [mappingProfileId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy       User             @relation("DataImportCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  datasetVersions DatasetVersion[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, status, updatedAt])
+  @@index([organizationId, createdAt])
+  @@index([status, updatedAt])
+  @@map("data_imports")
+}
+
+model Dataset {
+  id                  String   @id @default(uuid(7)) @db.Uuid
+  organizationId      String   @map("organization_id") @db.Uuid
+  name                String   @db.VarChar(200)
+  description         String   @default("") @db.VarChar(2000)
+  customerId          String?  @map("customer_id") @db.Uuid
+  /// Monotonic counter used to allocate version numbers under a row lock.
+  latestVersionNumber Int      @default(0) @map("latest_version_number")
+  createdById         String   @map("created_by_id") @db.Uuid
+  updatedById         String   @map("updated_by_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  customer     Customer?        @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy    User             @relation("DatasetCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy    User             @relation("DatasetUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  versions     DatasetVersion[]
+  imports      DataImport[]
+
+  @@unique([organizationId, name])
+  @@unique([id, organizationId])
+  @@index([organizationId, updatedAt])
+  @@map("datasets")
+}
+
+/// The output of one validation run of an import. DRAFT versions are rebuilt by revalidation;
+/// FINALIZED versions are numbered, hashed and immutable (enforced by triggers).
+model DatasetVersion {
+  id                     String               @id @default(uuid(7)) @db.Uuid
+  organizationId         String               @map("organization_id") @db.Uuid
+  /// Null while DRAFT; set when finalized.
+  datasetId              String?              @map("dataset_id") @db.Uuid
+  versionNumber          Int?                 @map("version_number")
+  status                 DatasetVersionStatus @default(DRAFT)
+  importId               String               @map("import_id") @db.Uuid
+  validationRun          Int                  @map("validation_run")
+  templateVersionId      String               @map("template_version_id") @db.Uuid
+  templateVersionHash    String               @map("template_version_hash") @db.Char(64)
+  dataSchemaHash         String               @map("data_schema_hash") @db.Char(64)
+  sourceFileId           String               @map("source_file_id") @db.Uuid
+  sourceChecksumSha256   String               @map("source_checksum_sha256") @db.Char(64)
+  /// Canonical mapping (entries sorted by field, parsing rules) used to produce the records.
+  mappingSnapshot        Json                 @map("mapping_snapshot")
+  /// Source settings, columns, limits and parser/normalization versions.
+  importConfiguration    Json                 @map("import_configuration")
+  mappingProfileId       String?              @map("mapping_profile_id") @db.Uuid
+  mappingProfileRevision Int?                 @map("mapping_profile_revision")
+  rowCount               Int                  @default(0) @map("row_count")
+  validCount             Int                  @default(0) @map("valid_count")
+  warningCount           Int                  @default(0) @map("warning_count")
+  errorCount             Int                  @default(0) @map("error_count")
+  blankRowCount          Int                  @default(0) @map("blank_row_count")
+  duplicateRowCount      Int                  @default(0) @map("duplicate_row_count")
+  /// SHA-256 over the ordered record hashes; set when the validation run completed.
+  recordsDigest          String?              @map("records_digest") @db.Char(64)
+  datasetHash            String?              @map("dataset_hash") @db.Char(64)
+  validationSummary      Json                 @default("{}") @map("validation_summary")
+  /// Set when every row was written (a DRAFT without it is an interrupted run).
+  completedAt            DateTime?            @map("completed_at") @db.Timestamptz(3)
+  warningsAcknowledgedAt DateTime?            @map("warnings_acknowledged_at") @db.Timestamptz(3)
+  createdById            String               @map("created_by_id") @db.Uuid
+  createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  finalizedById          String?              @map("finalized_by_id") @db.Uuid
+  finalizedAt            DateTime?            @map("finalized_at") @db.Timestamptz(3)
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  dataset         Dataset?        @relation(fields: [datasetId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  import          DataImport      @relation(fields: [importId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  templateVersion TemplateVersion @relation(fields: [templateVersionId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  sourceFile      DataSourceFile  @relation(fields: [sourceFileId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy       User            @relation("DatasetVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  finalizedBy     User?           @relation("DatasetVersionFinalizedBy", fields: [finalizedById], references: [id], onDelete: Restrict)
+  records         DatasetRecord[]
+
+  @@unique([importId, validationRun])
+  @@unique([datasetId, versionNumber])
+  @@unique([id, organizationId])
+  @@index([organizationId, status, finalizedAt])
+  @@map("dataset_versions")
+}
+
+/// One normalized row. Identity is (datasetVersionId, sequence); sequence follows source order.
+model DatasetRecord {
+  datasetVersionId    String              @map("dataset_version_id") @db.Uuid
+  sequence            Int
+  organizationId      String              @map("organization_id") @db.Uuid
+  /// Row number in the source (spreadsheet row or CSV record index).
+  rowNumber           Int                 @map("row_number")
+  status              DatasetRecordStatus
+  normalizedRecord    Json                @map("normalized_record")
+  recordHash          String              @map("record_hash") @db.Char(64)
+  /// Null for rows with errors.
+  resolvedInputHash   String?             @map("resolved_input_hash") @db.Char(64)
+  errorCount          Int                 @map("error_count")
+  warningCount        Int                 @map("warning_count")
+  issues              Json                @default("[]")
+  /// Sequence of the first record with the same record hash (duplicates are kept, never removed).
+  duplicateOfSequence Int?                @map("duplicate_of_sequence")
+  searchText          String              @default("") @map("search_text")
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  datasetVersion DatasetVersion @relation(fields: [datasetVersionId, organizationId], references: [id, organizationId], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([datasetVersionId, sequence])
+  @@index([datasetVersionId, status, sequence])
+  @@map("dataset_records")
+}
+
+model MappingProfile {
+  id              String               @id @default(uuid(7)) @db.Uuid
+  organizationId  String               @map("organization_id") @db.Uuid
+  name            String               @db.VarChar(200)
+  description     String               @default("") @db.VarChar(2000)
+  status          MappingProfileStatus @default(ACTIVE)
+  /// The latest revision; every definition change creates a new MappingProfileRevision.
+  currentRevision Int                  @default(1) @map("current_revision")
+  dataSchemaHash  String               @map("data_schema_hash") @db.Char(64)
+  headerSignature String               @map("header_signature") @db.Char(64)
+  sourceFormat    DataSourceFormat?    @map("source_format")
+  definition      Json
+  createdById     String               @map("created_by_id") @db.Uuid
+  updatedById     String               @map("updated_by_id") @db.Uuid
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy    User                     @relation("MappingProfileCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy    User                     @relation("MappingProfileUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  revisions    MappingProfileRevision[]
+  imports      DataImport[]
+
+  @@unique([organizationId, name])
+  @@unique([id, organizationId])
+  @@index([organizationId, status, dataSchemaHash])
+  @@map("mapping_profiles")
+}
+
+/// Immutable history of a mapping profile's definitions.
+model MappingProfileRevision {
+  profileId       String   @map("profile_id") @db.Uuid
+  revision        Int
+  organizationId  String   @map("organization_id") @db.Uuid
+  name            String   @db.VarChar(200)
+  definition      Json
+  dataSchemaHash  String   @map("data_schema_hash") @db.Char(64)
+  headerSignature String   @map("header_signature") @db.Char(64)
+  createdById     String   @map("created_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  profile      MappingProfile @relation(fields: [profileId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy    User           @relation("MappingProfileRevisionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@id([profileId, revision])
+  @@map("mapping_profile_revisions")
 }
 
 // ------------------------------------------------------------------------------------------------

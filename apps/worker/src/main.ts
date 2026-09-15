@@ -1,16 +1,18 @@
 import 'dotenv/config';
 import { EnvironmentValidationError } from '@smarttag/config';
-import { QUEUE_NAMES } from '@smarttag/shared-types';
-import { UnrecoverableError, Worker } from 'bullmq';
-import pino from 'pino';
-import { loadWorkerConfig } from './config';
+import { createDatabaseClient } from '@smarttag/database';
+import { createObjectStorage } from '@smarttag/object-storage';
+import { JOB_NAMES, QUEUE_NAMES } from '@smarttag/shared-types';
+import { Queue, UnrecoverableError, Worker, type Job } from 'bullmq';
+import pino, { type Logger } from 'pino';
+import { loadImportWorkerConfig, loadWorkerConfig } from './config';
 import { PermanentJobError, createJobDispatcher } from './job-registry';
+import { createImportHandlers } from './processors/import.processors';
 import { systemPingHandler } from './processors/system-ping.processor';
 
-function main(): void {
-  let config;
+function loadConfiguration() {
   try {
-    config = loadWorkerConfig(process.env);
+    return { worker: loadWorkerConfig(process.env), imports: loadImportWorkerConfig(process.env) };
   } catch (error) {
     if (error instanceof EnvironmentValidationError) {
       process.stderr.write(`${error.message}\n`);
@@ -18,45 +20,94 @@ function main(): void {
     }
     throw error;
   }
+}
 
+function processorFor(dispatch: ReturnType<typeof createJobDispatcher>) {
+  return async (job: Job) => {
+    try {
+      return await dispatch(job);
+    } catch (error) {
+      // Tell BullMQ not to retry failures that retrying cannot fix.
+      throw error instanceof PermanentJobError ? new UnrecoverableError(error.message) : error;
+    }
+  };
+}
+
+function observe(worker: Worker, queue: string, logger: Logger): void {
+  worker.on('failed', (job, error) =>
+    logger.error({ queue, jobId: job?.id, jobName: job?.name, err: error }, 'job failed'),
+  );
+  worker.on('error', (error) => logger.error({ queue, err: error }, 'worker error'));
+}
+
+async function main(): Promise<void> {
+  const config = loadConfiguration();
   const logger = pino({
-    level: config.logLevel,
+    level: config.worker.logLevel,
     base: { service: 'smarttag-worker' },
     redact: { paths: ['*.password', '*.token', '*.secret'], censor: '[REDACTED]' },
   });
-  const dispatch = createJobDispatcher([systemPingHandler], logger);
+  const connection = { url: config.worker.redisUrl, maxRetriesPerRequest: null };
 
-  const worker = new Worker(
+  const systemWorker = new Worker(
     QUEUE_NAMES.SYSTEM,
-    async (job) => {
-      try {
-        return await dispatch(job);
-      } catch (error) {
-        // Tell BullMQ not to retry failures that retrying cannot fix.
-        throw error instanceof PermanentJobError ? new UnrecoverableError(error.message) : error;
-      }
-    },
+    processorFor(createJobDispatcher([systemPingHandler], logger)),
+    { connection, concurrency: config.worker.concurrency },
+  );
+  observe(systemWorker, QUEUE_NAMES.SYSTEM, logger);
+
+  const prisma = createDatabaseClient({
+    connectionString: config.imports.databaseUrl,
+    maxConnections: config.imports.concurrency * 2 + 2,
+  });
+  const storage = createObjectStorage(config.imports.objectStorage);
+  const importWorker = new Worker(
+    QUEUE_NAMES.IMPORTS,
+    processorFor(
+      createJobDispatcher(
+        createImportHandlers({ prisma, storage, settings: config.imports.imports }),
+        logger,
+      ),
+    ),
     {
-      connection: { url: config.redisUrl, maxRetriesPerRequest: null },
-      concurrency: config.concurrency,
+      connection,
+      concurrency: config.imports.concurrency,
+      // Large validations keep the lock renewed between batches; a crashed worker's job is retried.
+      lockDuration: 120_000,
+      maxStalledCount: 2,
+    },
+  );
+  observe(importWorker, QUEUE_NAMES.IMPORTS, logger);
+
+  const importQueue = new Queue(QUEUE_NAMES.IMPORTS, { connection });
+  await importQueue.upsertJobScheduler(
+    'data-import-cleanup',
+    { every: config.imports.cleanupIntervalMs },
+    {
+      name: JOB_NAMES.DATA_CLEANUP,
+      data: { correlationId: null, requestedAt: new Date().toISOString() },
+      opts: { removeOnComplete: 100, removeOnFail: 100 },
     },
   );
 
-  worker.on('ready', () =>
-    logger.info({ queue: QUEUE_NAMES.SYSTEM, concurrency: config.concurrency }, 'worker ready'),
+  await Promise.all([systemWorker.waitUntilReady(), importWorker.waitUntilReady()]);
+  logger.info(
+    {
+      queues: [QUEUE_NAMES.SYSTEM, QUEUE_NAMES.IMPORTS],
+      concurrency: { system: config.worker.concurrency, imports: config.imports.concurrency },
+      storage: storage.driver,
+    },
+    'worker ready',
   );
-  worker.on('failed', (job, error) =>
-    logger.error({ jobId: job?.id, jobName: job?.name, err: error }, 'job failed'),
-  );
-  worker.on('error', (error) => logger.error({ err: error }, 'worker error'));
 
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'shutting down worker');
-    await worker.close();
+    await Promise.all([systemWorker.close(), importWorker.close(), importQueue.close()]);
+    await prisma.$disconnect();
     process.exit(0);
   };
   process.once('SIGINT', () => void shutdown('SIGINT'));
   process.once('SIGTERM', () => void shutdown('SIGTERM'));
 }
 
-main();
+void main();

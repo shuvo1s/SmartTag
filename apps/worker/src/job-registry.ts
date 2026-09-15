@@ -7,12 +7,16 @@ export interface QueuedJob {
   readonly name: string;
   readonly data: unknown;
   readonly attemptsMade: number;
+  /** Attempts configured for the job (BullMQ `opts.attempts`); 1 when not retried. */
+  readonly opts?: { readonly attempts?: number };
 }
 
 export interface JobContext {
   readonly jobId: string | null;
   readonly correlationId: string | null;
   readonly logger: Logger;
+  /** No retry follows if this attempt fails. */
+  readonly finalAttempt: boolean;
 }
 
 export interface JobHandler<TSchema extends z.ZodType = z.ZodType> {
@@ -68,6 +72,11 @@ export function createJobDispatcher(handlers: readonly JobHandler[], logger: Log
       correlationId,
       attempt: job.attemptsMade + 1,
     });
-    return handler.handle(parsed.data, { jobId: job.id ?? null, correlationId, logger: jobLogger });
+    return handler.handle(parsed.data, {
+      jobId: job.id ?? null,
+      correlationId,
+      logger: jobLogger,
+      finalAttempt: job.attemptsMade + 1 >= (job.opts?.attempts ?? 1),
+    });
   };
 }
