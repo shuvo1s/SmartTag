@@ -36,45 +36,7 @@ Identifiers:
 - `documentId`, `assetId` — UUIDs.
 - Element ids (pages, groups, objects, dieline features) — `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`, unique
   **across the whole document**, stable across versions (for diffs, comments and approvals).
-- Data field keys — `^[a-z][a-z0-9_]{0,63}# Canonical document schema (`DesignDocument`, schema version 3)
-
-The canonical document is the **authoritative representation of a design**. It lives in
-`packages/document-schema` and is independent of any editor, canvas library, renderer or
-database. Browser canvases, previews, VDP and future PDF renderers are all _adapters_ around it.
-
-```text
-DesignDocument
-├── schemaVersion      3
-├── documentId         UUID of the logical design (= template id; stable across versions)
-├── metadata           name, description, documentType, language, tags
-├── dimensions         width, height, orientation, displayUnit, bleed, safeArea, margins, dieline
-├── printSettings      colorSpace, backSideFlip, cropMarks
-├── pages[]            id, name, side, background, groups[], objects[]
-├── dataSchema         fields[] (key, displayName, type, required, defaultValue, description, validation)
-└── settings           missingDataPolicy (FAIL | WARN | EMPTY)
-```
-
-A complete example is produced by `createSampleHangTagDocument()` in
-`@smarttag/document-utils/fixtures`, and the web app's **Document playground** shows its JSON.
-
-## Conventions
-
-| Rule                                                                                                                                                                    | Why                                                                               |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| **Every key is required.** "Not set" is `null`, never an omitted key.                                                                                                   | Equal designs serialize identically, so they hash identically.                    |
-| **Objects are strict.** Unknown properties are validation errors.                                                                                                       | Corruption and editor-specific leftovers (e.g. raw Fabric JSON) are caught.       |
-| **All lengths are PDF points.**                                                                                                                                         | See [coordinate-system.md](coordinate-system.md).                                 |
-| **Colors are a discriminated union** (`RGB` with uppercase hex, `CMYK`, `SPOT` with alternate).                                                                         | CMYK/spot output can be added without changing stored designs.                    |
-| **Images reference assets by id.** Binary data never enters the document.                                                                                               | Documents stay small; assets are deduplicated, checksummed and access-controlled. |
-| **No timestamps, authors or workflow status** inside the document.                                                                                                      | They live on `TemplateVersion` rows and must not influence the design hash.       |
-| **Enumerations use UPPER_SNAKE** (`FRONT`, `SHRINK_TO_FIT`), except object `type` values (`text`, `qrCode`), measurement units (`mm`) and data field types (`decimal`). | Follows the platform specification.                                               |
-
-Identifiers:
-
-- `documentId`, `assetId` — UUIDs.
-- Element ids (pages, groups, objects, dieline features) — `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`, unique
-  **across the whole document**, stable across versions (for diffs, comments and approvals).
-  , stable integration identifiers; display names may change.
+- Data field keys — `^[a-z][a-z0-9_]{0,63}$`, stable integration identifiers; display names may change.
   The `__` namespace is reserved for system fields; `constructor` and `prototype` are refused.
 
 ## `metadata`
