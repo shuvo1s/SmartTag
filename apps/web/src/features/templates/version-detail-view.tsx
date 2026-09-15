@@ -40,6 +40,10 @@ export function VersionDetailView({
   }
   const v = version.data;
   const editable = canEditVersionContent(v.status, session.permissions);
+  const canImport =
+    session.permissions.includes('dataset:create') &&
+    v.status !== 'RETIRED' &&
+    v.summary.dataFieldCount > 0;
 
   return (
     <>
@@ -57,6 +61,15 @@ export function VersionDetailView({
         description={v.changeSummary || undefined}
         actions={
           <span className="flex gap-2">
+            {canImport ? (
+              <Link
+                href={`/data-imports/new?versionId=${v.id}`}
+                data-testid="import-data"
+                className={buttonStyles({ variant: 'secondary' })}
+              >
+                Import data
+              </Link>
+            ) : null}
             <Link
               href={`/developer/playground?versionId=${v.id}`}
               className={buttonStyles({ variant: 'secondary' })}

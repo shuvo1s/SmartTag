@@ -36,6 +36,11 @@ export interface DocumentPreviewProps {
   resourceVersion?: number;
   /** The font registry is still being fetched (resources will follow). */
   fontsLoading?: boolean;
+  /**
+   * Also run LAYOUT checks (text overflow, missing glyphs) with the browser's text layout engine.
+   * Used for imported rows, whose server validation cannot shape text.
+   */
+  layoutChecks?: boolean;
 }
 
 /**
@@ -50,6 +55,7 @@ export function DocumentPreview({
   resources = null,
   resourceVersion = 0,
   fontsLoading = false,
+  layoutChecks = false,
 }: DocumentPreviewProps) {
   const [pageId, setPageId] = useState(document.pages[0]?.id ?? '');
   const [zoom, setZoom] = useState<number>(initialZoom);
@@ -67,10 +73,16 @@ export function DocumentPreview({
   const activePageId = document.pages.some((page) => page.id === pageId)
     ? pageId
     : (document.pages[0]?.id ?? '');
-  const resolution = useMemo(
-    () => (record ? buildDataPreview(document, record) : null),
-    [document, record],
-  );
+  const resolution = useMemo(() => {
+    // Layout checks measure with loaded fonts; re-run when fonts arrive.
+    void resourceVersion;
+    if (!record) return null;
+    return buildDataPreview(
+      document,
+      record,
+      layoutChecks && resources ? { textLayout: resources.services.textLayout } : {},
+    );
+  }, [document, record, layoutChecks, resources, resourceVersion]);
   const rendered = useMemo(() => {
     // Fonts and images load asynchronously; their arrival must produce a new render.
     void resourceVersion;
@@ -273,9 +285,11 @@ export function DocumentIssues({
 export function ValidatedDocumentPreview({
   document,
   record,
+  layoutChecks = false,
 }: {
   document: unknown;
   record?: Readonly<Record<string, unknown>> | null;
+  layoutChecks?: boolean;
 }) {
   const parsed = useMemo(() => parseDesignDocument(document), [document]);
   const fonts = useFontRegistryQuery();
@@ -300,6 +314,7 @@ export function ValidatedDocumentPreview({
         resources={resources}
         resourceVersion={resourceVersion}
         fontsLoading={fonts.isPending}
+        layoutChecks={layoutChecks}
       />
     </div>
   );

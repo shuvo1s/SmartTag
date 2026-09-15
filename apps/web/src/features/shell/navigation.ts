@@ -26,6 +26,12 @@ export const NAVIGATION: readonly NavigationSection[] = [
         availability: 'AVAILABLE',
         permission: 'template:read',
       },
+      {
+        label: 'Data',
+        href: '/datasets',
+        availability: 'AVAILABLE',
+        permission: 'dataset:read',
+      },
       { label: 'Assets', href: '/assets', availability: 'PLANNED', plannedFor: 'Planned' },
       { label: 'Jobs', href: '/jobs', availability: 'PLANNED', plannedFor: 'Planned' },
       {
