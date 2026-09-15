@@ -41,6 +41,37 @@ export async function createDraft(
   return { template, versionId };
 }
 
+/** Creates a template through the API exactly as the New template form does: blank v1 draft. */
+export async function createBlankTemplate(
+  request: APIRequestContext,
+  options: {
+    pageLayout?: 'FRONT_ONLY' | 'FRONT_AND_BACK';
+    dimensions?: { unit: 'mm'; width: number; height: number; bleed: number; safeMargin: number };
+  } = {},
+): Promise<Draft> {
+  counter += 1;
+  const code = `E2E-BLANK-${Date.now().toString(36).toUpperCase()}-${counter}`;
+  const created = await request.post('/api/v1/templates', {
+    headers: ORIGIN,
+    data: {
+      name: `E2E blank ${code}`,
+      code,
+      documentType: 'HANG_TAG',
+      dimensions: options.dimensions ?? {
+        unit: 'mm',
+        width: 50,
+        height: 90,
+        bleed: 3,
+        safeMargin: 3,
+      },
+      pageLayout: options.pageLayout ?? 'FRONT_AND_BACK',
+    },
+  });
+  expect(created.status(), await created.text()).toBe(201);
+  const template = (await created.json()) as TemplateDto;
+  return { template, versionId: template.currentVersion!.id };
+}
+
 export async function getVersion(
   request: APIRequestContext,
   versionId: string,
@@ -68,6 +99,11 @@ export async function openEditor(
 ) {
   await page.addInitScript(() => window.localStorage.setItem('smarttag:editor-diagnostics', '1'));
   await page.goto(`/templates/${draft.template.id}/versions/${draft.versionId}/edit`);
+  await waitForEditor(page);
+}
+
+/** Waits until the designer on the current page has loaded and fitted the page. */
+export async function waitForEditor(page: Page) {
   await expect(page.getByTestId('editor-canvas')).toBeVisible();
   await expect(page.getByTestId('layers-panel')).toBeVisible();
   // Wait until the canvas has fitted the page (viewport attributes set).
