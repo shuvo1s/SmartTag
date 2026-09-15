@@ -1,0 +1,27 @@
+{
+  "name": "@smarttag/object-storage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vendor-neutral object storage (local filesystem, S3-compatible) and the platform's storage key layout. Shared by the API and the worker.",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node ../../scripts/clean.mjs dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1131.0"
+  }
+}

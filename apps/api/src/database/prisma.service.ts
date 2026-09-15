@@ -1,7 +1,6 @@
 import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient, prismaClientOptions } from '@smarttag/database';
 import { APP_CONFIG, type AppConfig } from '../config/env.schema';
-import { PrismaClient, type Prisma } from '../generated/prisma/client';
 
 /**
  * Single Prisma client for the process (node-postgres driver adapter, Prisma 7).
@@ -10,7 +9,7 @@ import { PrismaClient, type Prisma } from '../generated/prisma/client';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleDestroy {
   constructor(@Inject(APP_CONFIG) config: AppConfig) {
-    super({ adapter: new PrismaPg({ connectionString: config.database.url }) });
+    super(prismaClientOptions({ connectionString: config.database.url }));
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -18,5 +17,4 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
   }
 }
 
-/** A Prisma client usable both inside and outside an interactive transaction. */
-export type DbClient = Prisma.TransactionClient;
+export type { DbClient } from '@smarttag/database';

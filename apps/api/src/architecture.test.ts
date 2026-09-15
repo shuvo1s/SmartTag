@@ -16,7 +16,7 @@ import {
   Role,
   TemplateStatus,
   TemplateVersionStatus,
-} from './generated/prisma/enums';
+} from '@smarttag/database';
 import { AssetsController } from './modules/assets/assets.controller';
 import { AuthController } from './modules/auth/auth.controller';
 import {

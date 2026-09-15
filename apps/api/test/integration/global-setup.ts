@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { config as loadDotenv } from 'dotenv';
 import { Client } from 'pg';
 
-const API_ROOT = resolve(__dirname, '../..');
+const DATABASE_PACKAGE_ROOT = resolve(__dirname, '../../../../packages/database');
 
 /**
  * Runs once before the integration suite:
@@ -13,7 +13,7 @@ const API_ROOT = resolve(__dirname, '../..');
  * This also proves that the committed migrations apply cleanly to an empty database.
  */
 export default async function globalSetup(): Promise<void> {
-  loadDotenv({ path: resolve(API_ROOT, '.env'), quiet: true });
+  loadDotenv({ path: resolve(__dirname, '../../.env'), quiet: true });
   const url = process.env.TEST_DATABASE_URL;
   if (!url) {
     throw new Error('TEST_DATABASE_URL is not set (see apps/api/.env.example)');
@@ -36,7 +36,7 @@ export default async function globalSetup(): Promise<void> {
 
   // A fixed command string (no user input) through the shell so npx resolves on every platform.
   const result = spawnSync('npx prisma migrate deploy', {
-    cwd: API_ROOT,
+    cwd: DATABASE_PACKAGE_ROOT,
     env: { ...process.env, DATABASE_URL: url },
     encoding: 'utf8',
     shell: true,

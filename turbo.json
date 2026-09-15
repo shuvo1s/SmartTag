@@ -36,6 +36,12 @@
       "cache": false,
       "outputs": [],
       "passThroughEnv": ["E2E_*", "CI"]
+    },
+    "@smarttag/database#typecheck": {
+      "dependsOn": ["build"]
+    },
+    "@smarttag/database#lint": {
+      "dependsOn": ["build"]
     }
   }
 }

@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import { AppError } from '../../common/errors/app-error';
 import type { ActorContext } from '../../common/http/request-context';
 import { PrismaService } from '../../database/prisma.service';
-import type { Prisma } from '../../generated/prisma/client';
+import type { Prisma } from '@smarttag/database';
 import { AuditService } from '../audit/audit.service';
 import {
   inspectContent,
@@ -23,12 +23,12 @@ import {
 import { inspectFont, type InspectedFont } from './font-inspector';
 import { SVG_SANITIZER_VERSION, sanitizeSvg, type SvgSanitizationReport } from './svg-sanitizer';
 import {
-  OBJECT_STORAGE,
   ObjectNotFoundError,
   assetStorageKey,
   type ObjectStorage,
   type StoredObject,
-} from './storage/object-storage';
+} from '@smarttag/object-storage';
+import { OBJECT_STORAGE } from './storage/storage.module';
 
 export interface UploadedFile {
   readonly originalname: string;

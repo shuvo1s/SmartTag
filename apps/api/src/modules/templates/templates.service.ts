@@ -16,7 +16,7 @@ import type {
 import { AppError } from '../../common/errors/app-error';
 import type { ActorContext } from '../../common/http/request-context';
 import { PrismaService, type DbClient } from '../../database/prisma.service';
-import type { Prisma } from '../../generated/prisma/client';
+import type { Prisma } from '@smarttag/database';
 import { AuditService } from '../audit/audit.service';
 import { assertPermission } from '../authorization/authorization.decorators';
 import { prepareDocumentForStorage } from './document-storage';

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { AuditAction, AuditResourceType } from '@smarttag/shared-types';
 import type { ActorContext } from '../../common/http/request-context';
 import type { DbClient } from '../../database/prisma.service';
-import type { Prisma } from '../../generated/prisma/client';
+import type { Prisma } from '@smarttag/database';
 
 export interface AuditEventInput {
   readonly action: AuditAction;

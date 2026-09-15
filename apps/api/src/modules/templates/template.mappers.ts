@@ -4,7 +4,7 @@ import type {
   TemplateVersionDetailDto,
   TemplateVersionSummaryDto,
 } from '@smarttag/shared-types';
-import type { Prisma } from '../../generated/prisma/client';
+import type { Prisma } from '@smarttag/database';
 
 const userRef = { select: { id: true, displayName: true } } as const;
 

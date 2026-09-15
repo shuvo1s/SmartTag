@@ -24,8 +24,6 @@ export interface StoredObject {
   readonly contentLength: number | null;
 }
 
-export const OBJECT_STORAGE = Symbol('OBJECT_STORAGE');
-
 export class ObjectNotFoundError extends Error {
   constructor(readonly key: string) {
     super(`Object not found: ${key}`);
@@ -45,4 +43,12 @@ export function assertValidObjectKey(key: string): void {
 /** Content-addressed key: identical bytes within an organization share one stored object. */
 export function assetStorageKey(organizationId: string, checksumSha256: string): string {
   return `organizations/${organizationId}/assets/sha256/${checksumSha256.slice(0, 2)}/${checksumSha256}`;
+}
+
+/**
+ * Key of an uploaded data source file (CSV/XLSX). One object per upload (keyed by the source-file
+ * id, not by content), so deleting an abandoned upload can never remove bytes another import uses.
+ */
+export function dataSourceStorageKey(organizationId: string, sourceFileId: string): string {
+  return `organizations/${organizationId}/data-sources/${sourceFileId}`;
 }

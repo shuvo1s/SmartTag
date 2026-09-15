@@ -1,0 +1,35 @@
+{
+  "name": "@smarttag/database",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PostgreSQL relational model: Prisma schema, hand-written integrity migrations and the generated client shared by the API and the worker.",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "prisma"
+  ],
+  "scripts": {
+    "build": "node ../../scripts/clean.mjs dist && prisma generate && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "prisma": "7.10.0"
+  }
+}

@@ -5,6 +5,6 @@ dist
 coverage
 /.local
 /storage
-apps/api/src/generated
-apps/api/prisma/migrations/**/*.sql
+packages/database/src/generated
+packages/database/prisma/migrations/**/*.sql
 package-lock.json

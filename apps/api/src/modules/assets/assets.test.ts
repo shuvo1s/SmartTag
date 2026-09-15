@@ -1,8 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { text } from 'node:stream/consumers';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { TINY_PNG } from '../../../test/fixtures/images';
 import {
   detectMimeType,
@@ -10,12 +6,6 @@ import {
   isMimeAllowedForAssetType,
   sanitizeFilename,
 } from './asset-content-inspector';
-import { LocalFilesystemStorage } from './storage/local-filesystem.storage';
-import {
-  ObjectNotFoundError,
-  assertValidObjectKey,
-  assetStorageKey,
-} from './storage/object-storage';
 
 describe('asset content inspection', () => {
   it('detects file types from signatures, not names', () => {
@@ -81,59 +71,5 @@ describe('asset content inspection', () => {
     expect(sanitizeFilename('C:\\Users\\me\\logo "final".png')).toBe('logo final.png');
     expect(sanitizeFilename('লোগো.svg')).toBe('লোগো.svg');
     expect(sanitizeFilename('\u0000\u0007')).toBe('asset');
-  });
-});
-
-describe('object storage keys', () => {
-  it('builds content-addressed, tenant-prefixed keys', () => {
-    const checksum = 'ab'.repeat(32);
-    expect(assetStorageKey('org-1', checksum)).toBe(
-      `organizations/org-1/assets/sha256/ab/${checksum}`,
-    );
-  });
-
-  it.each(['../secret', '/absolute', 'a//b', 'trailing/', 'spaces are bad', ''])(
-    'rejects unsafe key %p',
-    (key) => {
-      expect(() => assertValidObjectKey(key)).toThrow();
-    },
-  );
-});
-
-describe('LocalFilesystemStorage', () => {
-  let root: string;
-  let storage: LocalFilesystemStorage;
-
-  beforeAll(async () => {
-    root = await mkdtemp(join(tmpdir(), 'smarttag-storage-'));
-    storage = new LocalFilesystemStorage(root);
-  });
-
-  afterAll(async () => {
-    await rm(root, { recursive: true, force: true });
-  });
-
-  it('stores, reads, checks and deletes objects', async () => {
-    const key = 'organizations/o/assets/sha256/aa/abc';
-    expect(await storage.objectExists(key)).toBe(false);
-    await storage.putObject(key, Buffer.from('hello'), {
-      contentType: 'text/plain',
-      checksumSha256: 'x',
-    });
-    expect(await storage.objectExists(key)).toBe(true);
-    const object = await storage.getObject(key);
-    expect(object.contentLength).toBe(5);
-    expect(await text(object.body)).toBe('hello');
-    await storage.deleteObject(key);
-    await expect(storage.getObject(key)).rejects.toBeInstanceOf(ObjectNotFoundError);
-  });
-
-  it('refuses keys that would escape the storage root', async () => {
-    await expect(
-      storage.putObject('../escape', Buffer.from('x'), {
-        contentType: 'text/plain',
-        checksumSha256: 'x',
-      }),
-    ).rejects.toThrow();
   });
 });

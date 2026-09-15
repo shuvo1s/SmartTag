@@ -1,7 +1,7 @@
 import type { DesignDocument } from '@smarttag/document-schema';
 import { computeDocumentHash, summarizeDesignDocument } from '@smarttag/document-utils';
 import type { DocumentSummaryDto } from '@smarttag/shared-types';
-import type { Prisma } from '../../generated/prisma/client';
+import type { Prisma } from '@smarttag/database';
 
 export interface PreparedDocument {
   readonly schemaVersion: number;

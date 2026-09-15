@@ -13,6 +13,7 @@ import pg from 'pg';
 import { E2E_DATABASE_URL, E2E_STORAGE_ROOT, REPO_ROOT, apiEnvironment } from '../environment.mjs';
 
 const API_ROOT = resolve(REPO_ROOT, 'apps', 'api');
+const DATABASE_ROOT = resolve(REPO_ROOT, 'packages', 'database');
 const url = new URL(E2E_DATABASE_URL);
 const databaseName = url.pathname.replace(/^\//, '');
 if (!/^[a-z0-9_]+_e2e$/.test(databaseName)) {
@@ -47,8 +48,11 @@ rmSync(E2E_STORAGE_ROOT, { recursive: true, force: true });
 
 const env = { ...process.env, ...apiEnvironment() };
 // Fixed command strings (no user input) run through the shell so npx resolves on every platform.
-for (const command of ['npx prisma migrate deploy', 'npx tsx prisma/seed.ts']) {
-  const result = spawnSync(command, { cwd: API_ROOT, env, encoding: 'utf8', shell: true });
+for (const [command, cwd] of [
+  ['npx prisma migrate deploy', DATABASE_ROOT],
+  ['npx tsx prisma/seed.ts', API_ROOT],
+]) {
+  const result = spawnSync(command, { cwd, env, encoding: 'utf8', shell: true });
   if (result.status !== 0) {
     throw new Error(`${command} failed:\n${result.stdout}\n${result.stderr}`);
   }

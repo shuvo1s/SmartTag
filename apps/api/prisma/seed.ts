@@ -8,7 +8,6 @@
  *   npm run db:seed
  */
 import 'dotenv/config';
-import { PrismaPg } from '@prisma/adapter-pg';
 import {
   assertValidDesignDocument,
   parseDesignDocument,
@@ -34,13 +33,12 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadAppConfig } from '../src/config/env.schema';
-import { PrismaClient, type Prisma } from '../src/generated/prisma/client';
+import { PrismaClient, prismaClientOptions, type Prisma } from '@smarttag/database';
+import { assetStorageKey, createObjectStorage } from '@smarttag/object-storage';
 import { PasswordHasher } from '../src/modules/auth/password-hasher';
 import { prepareDocumentForStorage } from '../src/modules/templates/document-storage';
 import { inspectContent } from '../src/modules/assets/asset-content-inspector';
 import { inspectFont } from '../src/modules/assets/font-inspector';
-import { assetStorageKey } from '../src/modules/assets/storage/object-storage';
-import { createObjectStorage } from '../src/modules/assets/storage/storage.module';
 import { sanitizeSvg } from '../src/modules/assets/svg-sanitizer';
 
 /**
@@ -86,9 +84,7 @@ if (password.length < 12) {
   throw new Error('SEED_USER_PASSWORD must be set (at least 12 characters)');
 }
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: config.database.url }),
-});
+const prisma = new PrismaClient(prismaClientOptions({ connectionString: config.database.url }));
 const hasher = new PasswordHasher();
 const storage = createObjectStorage(config.objectStorage);
 
