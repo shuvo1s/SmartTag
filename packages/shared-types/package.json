@@ -24,6 +24,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@smarttag/data-core": "0.1.0",
     "@smarttag/document-schema": "0.1.0",
     "@smarttag/document-utils": "0.1.0",
     "zod": "^4.6.5"

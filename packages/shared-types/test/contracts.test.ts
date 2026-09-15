@@ -14,6 +14,7 @@ import {
   isVersionContentEditable,
   permissionsForRoles,
   type CreateTemplateRequest,
+  ValidateTemplateDataRequestSchema,
 } from '../src';
 
 const validTemplate: CreateTemplateRequest = {
@@ -186,5 +187,18 @@ describe('other contracts', () => {
       }),
     ).toBe(true);
     expect(isApiErrorBody({ message: 'x' })).toBe(false);
+  });
+});
+
+describe('template data validation request', () => {
+  it('requires a record and leaves its contents to the shared data validator', () => {
+    expect(ValidateTemplateDataRequestSchema.safeParse({}).success).toBe(false);
+    expect(ValidateTemplateDataRequestSchema.safeParse({ record: null }).success).toBe(true);
+    const parsed = ValidateTemplateDataRequestSchema.parse(
+      JSON.parse('{"record":{"__proto__":{"x":1},"size":"XL"}}'),
+    );
+    // The record is passed through untouched (no merging that could pollute prototypes).
+    expect(Object.hasOwn(parsed.record as object, '__proto__')).toBe(true);
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
   });
 });

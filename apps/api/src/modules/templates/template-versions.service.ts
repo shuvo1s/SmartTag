@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { hashCanonicalJson } from '@smarttag/document-utils';
+import type { DesignDocument } from '@smarttag/document-schema';
+import { collectBoundProperties, hashCanonicalJson } from '@smarttag/document-utils';
 import {
   isVersionContentEditable,
   type CreateTemplateVersionRequest,
@@ -21,6 +22,16 @@ import {
   versionSummarySelect,
 } from './template.mappers';
 import { planStatusTransition } from './version-status-policy';
+
+/** Data schema summary for audit events: counts only, never field values or test data. */
+function dataSchemaCounts(document: DesignDocument) {
+  const bound = collectBoundProperties(document);
+  return {
+    fieldCount: document.dataSchema.fields.length,
+    bindingCount: bound.length,
+    expressionCount: bound.filter((property) => property.mode === 'EXPRESSION').length,
+  };
+}
 
 type CreateVersionCommand = Omit<CreateTemplateVersionRequest, 'changeSummary'> & {
   changeSummary: string;
@@ -110,6 +121,7 @@ export class TemplateVersionsService {
           versionNumber: latestVersionNumber,
           documentHash: prepared.documentHash,
           basedOnVersionId,
+          ...dataSchemaCounts(document),
         },
       });
       return version.id;
@@ -188,6 +200,7 @@ export class TemplateVersionsService {
           schemaVersion: prepared.schemaVersion,
           pageCount: document.pages.length,
           objectCount: document.pages.reduce((count, page) => count + page.objects.length, 0),
+          ...dataSchemaCounts(document),
         },
       });
     });

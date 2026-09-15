@@ -12,5 +12,6 @@ export * from './errors';
 export * from './fonts';
 export * from './jobs';
 export * from './pagination';
+export * from './template-data';
 export * from './template-version-lifecycle';
 export * from './templates';

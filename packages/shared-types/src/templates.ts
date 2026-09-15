@@ -182,6 +182,10 @@ export interface DocumentSummaryDto {
   readonly objectCount: number;
   readonly dataFieldCount: number;
   readonly boundFieldKeys: readonly string[];
+  /** Properties driven by data (schema v3 summaries; absent in older summaries). */
+  readonly boundPropertyCount?: number;
+  /** Properties driven by expressions (schema v3 summaries; absent in older summaries). */
+  readonly expressionCount?: number;
   readonly assetIds: readonly string[];
   /** Controlled font assets referenced by text objects (schema v2+; absent in v1 summaries). */
   readonly fontAssetIds?: readonly string[];

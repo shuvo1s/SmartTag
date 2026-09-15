@@ -212,6 +212,9 @@ describe('font registry and controlled fonts in documents', () => {
         schemaVersion: 3,
         pageCount: 2,
         objectCount: 17,
+        fieldCount: 10,
+        bindingCount: 9,
+        expressionCount: 0,
       });
     });
   });
