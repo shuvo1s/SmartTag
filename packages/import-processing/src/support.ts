@@ -94,14 +94,24 @@ export async function lookupImageAvailability(
 /** Tracks the highest resident set size seen while a job runs. */
 export class MemorySampler {
   private peak = process.memoryUsage().rss;
+  private peakHeap = process.memoryUsage().heapUsed;
 
   sample(): void {
-    this.peak = Math.max(this.peak, process.memoryUsage().rss);
+    const usage = process.memoryUsage();
+    this.peak = Math.max(this.peak, usage.rss);
+    this.peakHeap = Math.max(this.peakHeap, usage.heapUsed);
   }
 
+  /** Resident set size of the process (includes memory V8 has not returned to the OS). */
   get peakRssBytes(): number {
     this.sample();
     return this.peak;
+  }
+
+  /** Live JavaScript heap at the sampled moments. */
+  get peakHeapUsedBytes(): number {
+    this.sample();
+    return this.peakHeap;
   }
 }
 

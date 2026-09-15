@@ -33,6 +33,21 @@ import {
 
 const sha256 = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
 
+/** A dataset record as sent to PostgreSQL's jsonb_to_recordset (snake_case columns). */
+interface RecordRow {
+  readonly sequence: number;
+  readonly row_number: number;
+  readonly status: string;
+  readonly normalized_record: unknown;
+  readonly record_hash: string;
+  readonly resolved_input_hash: string | null;
+  readonly error_count: number;
+  readonly warning_count: number;
+  readonly issues: unknown;
+  readonly duplicate_of_sequence: number | null;
+  readonly search_text: string;
+}
+
 class StaleRunError extends Error {
   constructor() {
     super('The import changed while it was being validated');
@@ -195,15 +210,21 @@ export async function processValidateJob(
     let blank = 0;
     let duplicates = 0;
     let batches = 0;
+    let pipelineMs = 0;
+    let databaseMs = 0;
     let batch: SourceRow[] = [];
 
     const flush = async () => {
       if (batch.length === 0) return;
+      const pipelineStarted = performance.now();
       const prepared = batch.map((row) => processor.prepare(row));
       const ids = prepared.flatMap((row) => processor.imageCandidates(row));
+      const lookupStarted = performance.now();
       const availability = await lookupImageAvailability(prisma, current.organizationId, ids);
+      const lookupMs = performance.now() - lookupStarted;
+      databaseMs += lookupMs;
       const lookup = (id: string): AssetAvailability => availability.get(id) ?? 'UNAVAILABLE';
-      const records: Prisma.DatasetRecordCreateManyInput[] = [];
+      const records: RecordRow[] = [];
       for (const item of prepared) {
         const row: ProcessedRow = processor.finish(item, lookup);
         sequence += 1;
@@ -217,28 +238,43 @@ export async function processValidateJob(
         else errors += 1;
         summary.add(row);
         records.push({
-          datasetVersionId: draft.id,
           sequence,
-          organizationId: current.organizationId,
-          rowNumber: row.rowNumber,
+          row_number: row.rowNumber,
           status: row.status,
-          normalizedRecord: row.normalizedRecord,
-          recordHash,
-          resolvedInputHash:
+          normalized_record: row.normalizedRecord,
+          record_hash: recordHash,
+          resolved_input_hash:
             row.resolvedInputHashPayload === null ? null : sha256(row.resolvedInputHashPayload),
-          errorCount: row.errorCount,
-          warningCount: row.warningCount,
-          issues: row.issues as unknown as Prisma.InputJsonValue,
-          duplicateOfSequence: firstSequence ?? null,
-          searchText: row.searchText,
+          error_count: row.errorCount,
+          warning_count: row.warningCount,
+          issues: row.issues,
+          duplicate_of_sequence: firstSequence ?? null,
+          search_text: row.searchText,
         });
       }
+      pipelineMs += performance.now() - pipelineStarted - lookupMs;
+      const writeStarted = performance.now();
       await stillCurrent();
-      await prisma.datasetRecord.createMany({ data: records });
+      // One statement per batch: the rows travel as a single JSON parameter.
+      await prisma.$executeRaw`
+        INSERT INTO dataset_records (
+          dataset_version_id, sequence, organization_id, row_number, status, normalized_record,
+          record_hash, resolved_input_hash, error_count, warning_count, issues,
+          duplicate_of_sequence, search_text
+        )
+        SELECT ${draft.id}::uuid, r.sequence, ${current.organizationId}::uuid, r.row_number,
+          r.status::dataset_record_status, r.normalized_record, r.record_hash, r.resolved_input_hash,
+          r.error_count, r.warning_count, r.issues, r.duplicate_of_sequence, r.search_text
+        FROM jsonb_to_recordset(${JSON.stringify(records)}::jsonb) AS r(
+          sequence integer, row_number integer, status text, normalized_record jsonb,
+          record_hash text, resolved_input_hash text, error_count integer, warning_count integer,
+          issues jsonb, duplicate_of_sequence integer, search_text text
+        )`;
       await prisma.dataImport.updateMany({
         where: { id: current.id, status: 'VALIDATING', validationRun: job.validationRun },
         data: { progressProcessedRows: sequence, progressUpdatedAt: new Date() },
       });
+      databaseMs += performance.now() - writeStarted;
       batches += 1;
       batch = [];
       memory.sample();
@@ -284,6 +320,9 @@ export async function processValidateJob(
               durationMs,
               rowsPerSecond: durationMs > 0 ? Math.round((sequence * 1000) / durationMs) : sequence,
               peakRssBytes: memory.peakRssBytes,
+              peakHeapUsedBytes: memory.peakHeapUsedBytes,
+              pipelineMs: Math.round(pipelineMs),
+              databaseMs: Math.round(databaseMs),
               completedAt: new Date().toISOString(),
             },
           },
