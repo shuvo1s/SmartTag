@@ -179,6 +179,35 @@ describe('defaults', () => {
   });
 });
 
+describe('values rejected before record validation (imports)', () => {
+  it('are invalid: null, never replaced by the default, never reported as missing', () => {
+    const result = validateDataRecord(
+      schema,
+      { ...VARIABLE_DATA_RECORD, price: undefined, currency: undefined },
+      { rejectedFields: new Set(['price', 'currency']) },
+    );
+    expect(result.valid).toBe(false);
+    // The caller (the importer) reports why; record validation adds nothing for these fields.
+    expect(result.issues).toEqual([]);
+    expect(result.normalizedRecord.price).toBeNull();
+    // currency has a default ("USD") that must not hide the rejected source value.
+    expect(result.normalizedRecord.currency).toBeNull();
+    expect([...result.invalidFields].sort()).toEqual(['currency', 'price']);
+    expect(result.fields.find((field) => field.key === 'price')).toEqual({
+      key: 'price',
+      source: 'RECORD',
+      empty: null,
+      invalid: true,
+    });
+  });
+
+  it('without rejected fields the result is unchanged', () => {
+    expect(validateDataRecord(schema, VARIABLE_DATA_RECORD, { rejectedFields: new Set() })).toEqual(
+      validateDataRecord(schema, VARIABLE_DATA_RECORD),
+    );
+  });
+});
+
 describe('unknown keys, reserved keys and prototype pollution', () => {
   it('warns about unknown keys and ignores them', () => {
     const result = validateDataRecord(schema, { ...VARIABLE_DATA_RECORD, colour: 'Navy' });

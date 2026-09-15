@@ -32,8 +32,19 @@ export interface FieldValueStatus {
   readonly invalid: boolean;
 }
 
+export interface DataRecordValidationOptions {
+  /**
+   * Fields whose source value was already rejected before record validation — for example a
+   * spreadsheet cell an import could not parse with its configured date or number format. They
+   * are treated exactly like invalid record values: normalized to null, never replaced by their
+   * default, not reported as missing, and listed in `invalidFields` (so bound properties report
+   * INVALID_DATA_VALUE). The caller reports why the value was rejected; no DATA issue is added.
+   */
+  readonly rejectedFields?: ReadonlySet<string>;
+}
+
 export interface DataRecordValidation {
-  /** True when no ERROR was found. */
+  /** True when no ERROR was found and no field value was rejected. */
   readonly valid: boolean;
   /** DATA-layer issues in schema field order, followed by record-level issues. */
   readonly issues: readonly DataIssue[];
@@ -83,7 +94,12 @@ const REQUIRED_MESSAGES = {
  *   3. otherwise no value: an ERROR for required fields; optional fields stay null and the
  *      document's missing-data policy decides at binding resolution
  */
-export function validateDataRecord(schema: DataSchema, input: unknown): DataRecordValidation {
+export function validateDataRecord(
+  schema: DataSchema,
+  input: unknown,
+  options: DataRecordValidationOptions = {},
+): DataRecordValidation {
+  const rejected = options.rejectedFields ?? new Set<string>();
   const issues: DataIssue[] = [];
   const fieldIssues: DataIssue[] = [];
   const values: Record<string, NormalizedValue> = Object.create(null) as Record<
@@ -143,6 +159,12 @@ export function validateDataRecord(schema: DataSchema, input: unknown): DataReco
   }
 
   for (const field of schema.fields) {
+    if (rejected.has(field.key)) {
+      invalidFields.add(field.key);
+      values[field.key] = null;
+      statuses.push({ key: field.key, source: 'RECORD', empty: null, invalid: true });
+      continue;
+    }
     const raw = Object.hasOwn(record, field.key) ? record[field.key] : undefined;
     const status = validateField(field, raw, fieldIssues, invalidFields);
     values[field.key] = status.value;
@@ -157,7 +179,9 @@ export function validateDataRecord(schema: DataSchema, input: unknown): DataReco
 
   const all = [...fieldIssues, ...issues];
   return {
-    valid: !all.some((issue) => issue.severity === 'ERROR'),
+    valid:
+      !all.some((issue) => issue.severity === 'ERROR') &&
+      !schema.fields.some((field) => rejected.has(field.key)),
     issues: all,
     normalizedRecord: Object.freeze(sorted),
     fields: statuses,

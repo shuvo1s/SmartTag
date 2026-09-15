@@ -1,4 +1,4 @@
-import { SHA256_HEX_PATTERN, hashCanonicalJson } from '@smarttag/document-utils';
+import { SHA256_HEX_PATTERN, canonicalizeJson, sha256Hex } from '@smarttag/document-utils';
 import type { NormalizedDataRecord } from './validate-record';
 
 export const RESOLVED_INPUT_HASH_SCHEME = 'smarttag-resolved-input-v1' as const;
@@ -22,10 +22,21 @@ export async function computeResolvedInputHash(
   templateVersionHash: string,
   normalizedRecord: NormalizedDataRecord,
 ): Promise<string> {
+  return sha256Hex(resolvedInputHashPayload(templateVersionHash, normalizedRecord));
+}
+
+/**
+ * The exact UTF-8 text `computeResolvedInputHash` digests. Batch processors that hash many
+ * records with a synchronous SHA-256 implementation digest this payload and obtain the same hash.
+ */
+export function resolvedInputHashPayload(
+  templateVersionHash: string,
+  normalizedRecord: NormalizedDataRecord,
+): string {
   if (!SHA256_HEX_PATTERN.test(templateVersionHash)) {
     throw new RangeError('templateVersionHash must be a lower-case SHA-256 hex digest');
   }
-  return hashCanonicalJson({
+  return canonicalizeJson({
     scheme: RESOLVED_INPUT_HASH_SCHEME,
     templateVersionHash,
     record: normalizedRecord,

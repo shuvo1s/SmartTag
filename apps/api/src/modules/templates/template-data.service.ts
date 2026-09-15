@@ -2,13 +2,14 @@ import { Injectable } from '@nestjs/common';
 import {
   DATA_LIMITS,
   buildDataPreview,
+  checkRecordAssetReferences,
   computeResolvedInputHash,
+  recordImageAssetIds,
   summarizeDataIssues,
   validateDataRecord,
   type AssetAvailability,
-  type DataIssue,
 } from '@smarttag/data-core';
-import { parseDesignDocument, type DesignDocument } from '@smarttag/document-schema';
+import { parseDesignDocument } from '@smarttag/document-schema';
 import {
   isPlaceableImageMimeType,
   type TemplateDataValidationDto,
@@ -56,31 +57,20 @@ export class TemplateDataService {
 
     // Image values must be assets of THIS organization that can be placed. The lookup is
     // tenant-scoped, so an id owned by another organization is indistinguishable from a missing one.
-    const availability = await this.imageAvailability(actor.organizationId, document, input.record);
-    const preview = buildDataPreview(document, input.record, {
-      assetAvailability: (assetId) => availability.get(assetId) ?? 'UNKNOWN',
-    });
-
-    const assetIssues: DataIssue[] = [];
-    for (const field of document.dataSchema.fields) {
-      const value = preview.record.normalizedRecord[field.key];
-      const status = preview.record.fields.find((candidate) => candidate.key === field.key);
-      if (
-        field.type === 'image' &&
-        typeof value === 'string' &&
-        status?.source === 'RECORD' &&
-        availability.get(value) !== 'AVAILABLE'
-      ) {
-        assetIssues.push({
-          layer: 'DATA',
-          code: 'UNKNOWN_ASSET_REFERENCE',
-          severity: 'ERROR',
-          field: field.key,
-          target: null,
-          message: `${field.displayName}: asset ${value} is not a placeable image of this organization`,
-        });
-      }
-    }
+    const availability = await this.imageAvailability(
+      actor.organizationId,
+      recordImageAssetIds(
+        document.dataSchema,
+        validateDataRecord(document.dataSchema, input.record),
+      ),
+    );
+    const assetAvailability = (assetId: string) => availability.get(assetId) ?? 'UNKNOWN';
+    const preview = buildDataPreview(document, input.record, { assetAvailability });
+    const assetIssues = checkRecordAssetReferences(
+      document.dataSchema,
+      preview.record,
+      assetAvailability,
+    );
 
     const issues = [
       ...preview.record.issues,
@@ -112,21 +102,12 @@ export class TemplateDataService {
 
   private async imageAvailability(
     organizationId: string,
-    document: DesignDocument,
-    record: unknown,
+    ids: readonly string[],
   ): Promise<Map<string, AssetAvailability>> {
-    const imageFields = document.dataSchema.fields.filter((field) => field.type === 'image');
-    if (imageFields.length === 0) return new Map();
-    const normalized = validateDataRecord({ fields: imageFields }, record).normalizedRecord;
-    const ids = [
-      ...new Set(
-        Object.values(normalized).filter((value): value is string => typeof value === 'string'),
-      ),
-    ];
     const availability = new Map<string, AssetAvailability>(ids.map((id) => [id, 'UNAVAILABLE']));
     if (ids.length === 0) return availability;
     const assets = await this.prisma.asset.findMany({
-      where: { organizationId, id: { in: ids } },
+      where: { organizationId, id: { in: [...ids] } },
       select: { id: true, assetType: true, mimeType: true },
     });
     for (const asset of assets) {
