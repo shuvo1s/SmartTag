@@ -1,4 +1,5 @@
 import type {
+  ExpressionBinding,
   FieldBinding,
   Insets,
   RgbColor,
@@ -12,6 +13,10 @@ export function staticBinding(): StaticBinding {
 
 export function fieldBinding(field: string): FieldBinding {
   return { mode: 'FIELD', field };
+}
+
+export function expressionBinding(expression: string): ExpressionBinding {
+  return { mode: 'EXPRESSION', expression };
 }
 
 /** Creates a canonical RGB color. Accepts "#rgb", "#rrggbb" in any case. */

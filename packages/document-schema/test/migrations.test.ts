@@ -4,10 +4,12 @@ import {
   DOCUMENT_MIGRATIONS,
   createDocumentMigrator,
   migrateDesignDocument,
+  migrateV1ToV2,
+  migrateV2ToV3,
   parseDesignDocument,
   type DocumentMigration,
 } from '../src';
-import { minimalDocument, minimalDocumentV1, objectsOf } from './fixtures';
+import { minimalDocument, minimalDocumentV1, minimalDocumentV2, objectsOf } from './fixtures';
 
 const v1ToV2: DocumentMigration = {
   fromVersion: 1,
@@ -109,20 +111,17 @@ describe('createDocumentMigrator', () => {
 
 describe('production migration registry', () => {
   it('forms a valid chain up to the current schema version', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(3);
     expect(DOCUMENT_MIGRATIONS.length).toBe(CURRENT_SCHEMA_VERSION - 1);
     expect(migrateDesignDocument(minimalDocument())).toMatchObject({ ok: true, applied: [] });
   });
 
-  it('migrates a stored v1 document to v2 without changing anything else', () => {
+  it('v1 → v2 adds only fontAssetId and wrap to text objects', () => {
     const v1 = minimalDocumentV1();
     const snapshot = JSON.stringify(v1);
-    const result = migrateDesignDocument(v1);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    const migrated = migrateV1ToV2.migrate(JSON.parse(snapshot) as Record<string, unknown>);
     expect(JSON.stringify(v1)).toBe(snapshot);
-    expect(result.applied).toEqual(['v1→v2: text objects gain fontAssetId (null) and wrap (NONE)']);
 
-    const migrated = result.document;
     const text = objectsOf(migrated)[0]!;
     expect(text).toMatchObject({ type: 'text', fontAssetId: null, wrap: 'NONE' });
     // Removing exactly the two new keys gives back the original v1 document.
@@ -139,18 +138,85 @@ describe('production migration registry', () => {
     expect(objectsOf(migrated)[1]).toEqual(objectsOf(v1)[1]);
   });
 
-  it('a migrated v1 document validates as v2 and reports its uncontrolled fonts', () => {
+  it('v2 → v3 adds only empty validation rules to data fields', () => {
+    const v2 = minimalDocumentV2();
+    const snapshot = JSON.stringify(v2);
+    const result = migrateDesignDocument(v2);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(JSON.stringify(v2)).toBe(snapshot);
+    expect(result.applied).toEqual(['v2→v3: data fields gain validation rules (none)']);
+    expect(result.document).toEqual(minimalDocument());
+
+    const fields = (result.document.dataSchema as { fields: Record<string, unknown>[] }).fields;
+    expect(fields.map((field) => field.validation)).toEqual([
+      { minLength: null, maxLength: null, pattern: null, allowedValues: null },
+      { minLength: null, maxLength: null, pattern: null, allowedValues: null },
+      {},
+      {},
+    ]);
+  });
+
+  it('v2 → v3 gives every field type its rule keys and keeps unknown shapes for validation', () => {
+    const migrated = migrateV2ToV3.migrate({
+      schemaVersion: 2,
+      dataSchema: {
+        fields: [
+          { key: 'n', type: 'number' },
+          { key: 'd', type: 'decimal' },
+          { key: 'b', type: 'boolean' },
+          { key: 'x', type: 'mystery' },
+          'not a field',
+        ],
+      },
+    });
+    expect(migrated).toEqual({
+      schemaVersion: 3,
+      dataSchema: {
+        fields: [
+          { key: 'n', type: 'number', validation: { min: null, max: null, allowedValues: null } },
+          { key: 'd', type: 'decimal', validation: { min: null, max: null, allowedValues: null } },
+          { key: 'b', type: 'boolean', validation: {} },
+          { key: 'x', type: 'mystery' },
+          'not a field',
+        ],
+      },
+    });
+    // A document without a data schema is left for validation to report.
+    expect(migrateV2ToV3.migrate({ schemaVersion: 2 })).toEqual({ schemaVersion: 3 });
+  });
+
+  it('migrates a stored v1 document through v2 to v3', () => {
+    const result = migrateDesignDocument(minimalDocumentV1());
+    expect(result).toMatchObject({ ok: true, fromVersion: 1, toVersion: 3 });
+    expect(result.ok && result.applied).toEqual([
+      'v1→v2: text objects gain fontAssetId (null) and wrap (NONE)',
+      'v2→v3: data fields gain validation rules (none)',
+    ]);
+  });
+
+  it('a migrated v1 document validates as v3 and reports its uncontrolled fonts', () => {
     const result = parseDesignDocument(minimalDocumentV1());
     expect(result.valid).toBe(true);
     expect(result.originalSchemaVersion).toBe(1);
-    expect(result.document?.schemaVersion).toBe(2);
+    expect(result.document?.schemaVersion).toBe(3);
     expect(result.warnings.map((warning) => warning.code)).toEqual(['TEXT_FONT_NOT_CONTROLLED']);
+  });
+
+  it('migration is deterministic and repeated migration causes no drift', () => {
+    const once = migrateDesignDocument(minimalDocumentV1());
+    const twice = once.ok ? migrateDesignDocument(once.document) : null;
+    expect(twice).toMatchObject({ ok: true, applied: [] });
+    expect(twice?.ok && twice.document).toEqual(once.ok && once.document);
+    expect(JSON.stringify(migrateDesignDocument(minimalDocumentV2()))).toBe(
+      JSON.stringify(migrateDesignDocument(minimalDocumentV2())),
+    );
   });
 
   it('keeps current-version documents unchanged', () => {
     const current = minimalDocument();
     const result = migrateDesignDocument(current);
-    expect(result).toMatchObject({ ok: true, applied: [], fromVersion: 2 });
+    expect(result).toMatchObject({ ok: true, applied: [], fromVersion: 3 });
     expect(result.ok && result.document).toEqual(current);
   });
 

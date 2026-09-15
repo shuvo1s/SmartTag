@@ -61,7 +61,7 @@ describe('template versions: creation, drafts, lifecycle and immutability', () =
       versionNumber: 2,
       status: 'DRAFT',
       revision: 1,
-      schemaVersion: 2,
+      schemaVersion: 3,
       basedOnVersionId: template.currentVersion!.id,
       changeSummary: 'Artwork',
       documentHash: await computeDocumentHash(document),

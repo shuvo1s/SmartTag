@@ -1,8 +1,8 @@
 {
-  "name": "@smarttag/document-schema",
+  "name": "@smarttag/data-core",
   "version": "0.1.0",
   "private": true,
-  "description": "Canonical, versioned SmartTag DesignDocument schema and validation. Framework- and canvas-independent; depends only on Zod and the dependency-free expression-core.",
+  "description": "Variable data domain: data-record validation and normalization, binding resolution, resolved-artwork checks, field usages and resolved-input identity. Framework- and canvas-independent.",
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -24,7 +24,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@smarttag/expression-core": "0.1.0",
-    "zod": "^4.6.5"
+    "@smarttag/barcode-core": "0.1.0",
+    "@smarttag/document-schema": "0.1.0",
+    "@smarttag/document-utils": "0.1.0",
+    "@smarttag/expression-core": "0.1.0"
+  },
+  "devDependencies": {
+    "@smarttag/rendering-core": "0.1.0"
   }
 }

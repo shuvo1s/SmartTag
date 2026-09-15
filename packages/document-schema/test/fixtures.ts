@@ -7,10 +7,10 @@ const MM = 72 / 25.4;
 /** A controlled font asset id used by text fixtures. */
 export const FONT_ASSET_ID = '0192f0a0-5b1e-7c3d-a1b2-00000000f001';
 
-/** Current-schema (v2) document. */
+/** Current-schema (v3) document. */
 export function minimalDocument(): Record<string, unknown> {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     documentId: '0192f0a0-5b1e-7c3d-8e4f-1a2b3c4d5e6f',
     metadata: {
       name: 'Minimal tag',
@@ -62,6 +62,7 @@ export function minimalDocument(): Record<string, unknown> {
           required: true,
           defaultValue: null,
           description: '',
+          validation: { minLength: null, maxLength: null, pattern: null, allowedValues: null },
         },
         {
           key: 'gtin',
@@ -70,6 +71,7 @@ export function minimalDocument(): Record<string, unknown> {
           required: true,
           defaultValue: null,
           description: '',
+          validation: { minLength: null, maxLength: null, pattern: null, allowedValues: null },
         },
         {
           key: 'logo',
@@ -78,6 +80,7 @@ export function minimalDocument(): Record<string, unknown> {
           required: false,
           defaultValue: null,
           description: '',
+          validation: {},
         },
         {
           key: 'show_badge',
@@ -86,6 +89,7 @@ export function minimalDocument(): Record<string, unknown> {
           required: false,
           defaultValue: true,
           description: '',
+          validation: {},
         },
       ],
     },
@@ -185,11 +189,24 @@ export function imageObject(overrides: Record<string, unknown> = {}): Record<str
 type Mutable = Record<string, unknown>;
 
 /**
+ * The same document as persisted with schema version 2 (before data fields had validation rules).
+ * Used to prove that stored v2 documents still load.
+ */
+export function minimalDocumentV2(): Mutable {
+  const document = minimalDocument();
+  document.schemaVersion = 2;
+  for (const field of (document.dataSchema as Mutable).fields as Mutable[]) {
+    delete field.validation;
+  }
+  return document;
+}
+
+/**
  * The same document as persisted with schema version 1 (before text objects had fontAssetId and
  * wrap). Used to prove that stored v1 documents still load.
  */
 export function minimalDocumentV1(): Mutable {
-  const document = minimalDocument();
+  const document = minimalDocumentV2();
   document.schemaVersion = 1;
   for (const page of document.pages as Mutable[]) {
     for (const object of page.objects as Mutable[]) {

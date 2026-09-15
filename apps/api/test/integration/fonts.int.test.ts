@@ -199,8 +199,8 @@ describe('font registry and controlled fonts in documents', () => {
       const response = await save({ ...SAMPLE_HANG_TAG_V1_JSON, documentId: template.id });
       expect(response.status).toBe(200);
       const version = response.body as TemplateVersionDetailDto;
-      expect(version.schemaVersion).toBe(2);
-      expect((version.document as { schemaVersion: number }).schemaVersion).toBe(2);
+      expect(version.schemaVersion).toBe(3);
+      expect((version.document as { schemaVersion: number }).schemaVersion).toBe(3);
 
       const audit = await t.prisma.auditEvent.findFirstOrThrow({
         where: { action: 'TEMPLATE_VERSION_UPDATED', resourceId: version.id },
@@ -209,7 +209,7 @@ describe('font registry and controlled fonts in documents', () => {
         revision: 2,
         previousDocumentHash: previous.documentHash,
         documentHash: version.documentHash,
-        schemaVersion: 2,
+        schemaVersion: 3,
         pageCount: 2,
         objectCount: 17,
       });

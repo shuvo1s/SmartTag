@@ -144,7 +144,7 @@ describe('database invariants', () => {
     ).rejects.toThrow(/document_hash_chk/);
     await expect(
       t.prisma.$executeRawUnsafe(
-        `UPDATE template_versions SET schema_version = 3 WHERE id = $1::uuid`,
+        `UPDATE template_versions SET schema_version = 4 WHERE id = $1::uuid`,
         version.id,
       ),
     ).rejects.toThrow(/document_json_chk/);

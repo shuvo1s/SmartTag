@@ -2,7 +2,7 @@
   "name": "@smarttag/document-utils",
   "version": "0.1.0",
   "private": true,
-  "description": "Units, canonical serialization, hashing, data bindings and document builders for the canonical DesignDocument.",
+  "description": "Units, canonical serialization, hashing, binding introspection and document builders for the canonical DesignDocument.",
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -28,6 +28,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@smarttag/document-schema": "0.1.0"
+    "@smarttag/document-schema": "0.1.0",
+    "@smarttag/expression-core": "0.1.0"
   }
 }

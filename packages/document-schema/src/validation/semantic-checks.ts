@@ -1,8 +1,5 @@
-import {
-  isFieldTypeCompatible,
-  type BindablePropertyKind,
-  type PropertyBinding,
-} from '../bindings';
+import type { BindablePropertyKind, PropertyBinding } from '../bindings';
+import { checkFieldDefinition } from '../data-field-rules';
 import type { DataField } from '../data-schema';
 import type { DesignDocument, Page } from '../document';
 import {
@@ -16,6 +13,7 @@ import {
   type Rect,
 } from '../geometry';
 import { OBJECT_BINDABLE_PROPERTIES, type ArtworkObject } from '../objects';
+import { checkPropertyBinding } from './binding-checks';
 import type { DocumentIssuePath, IssueCollector } from './issues';
 
 /**
@@ -150,10 +148,14 @@ function checkUniqueElementIds(document: DesignDocument, issues: IssueCollector)
 function checkDataSchema(document: DesignDocument, issues: IssueCollector): Map<string, DataField> {
   const fieldsByKey = new Map<string, DataField>();
   document.dataSchema.fields.forEach((field, index) => {
+    const fieldPath = ['dataSchema', 'fields', index] as const;
+    for (const problem of checkFieldDefinition(field)) {
+      issues.error(problem.code, [...fieldPath, ...problem.path], problem.message);
+    }
     if (fieldsByKey.has(field.key)) {
       issues.error(
         'DUPLICATE_FIELD_KEY',
-        ['dataSchema', 'fields', index, 'key'],
+        [...fieldPath, 'key'],
         `Data field key "${field.key}" is defined more than once`,
       );
       return;
@@ -218,22 +220,13 @@ function checkBindings(
 
   for (const [property, kind] of Object.entries(properties)) {
     const binding = bindings[property];
-    if (binding?.mode !== 'FIELD') {
-      continue;
-    }
-    const bindingPath = [...objectPath, 'bindings', property, 'field'];
-    const field = fieldsByKey.get(binding.field);
-    if (!field) {
+    if (!binding) continue;
+    for (const problem of checkPropertyBinding(property, kind, binding, fieldsByKey)) {
+      const location = problem.range ? ` (character ${problem.range.start + 1})` : '';
       issues.error(
-        'UNKNOWN_BINDING_FIELD',
-        bindingPath,
-        `Property "${property}" is bound to unknown data field "${binding.field}"`,
-      );
-    } else if (!isFieldTypeCompatible(kind, field.type)) {
-      issues.error(
-        'INCOMPATIBLE_BINDING',
-        bindingPath,
-        `Data field "${field.key}" of type "${field.type}" cannot be bound to "${property}" of a ${object.type} object`,
+        problem.code,
+        [...objectPath, 'bindings', property, ...problem.path],
+        `${object.name || object.id}: ${problem.message}${location}`,
       );
     }
   }

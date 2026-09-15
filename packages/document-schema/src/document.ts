@@ -47,17 +47,24 @@ export const PrintSettingsSchema = z.strictObject({
 });
 export type PrintSettings = z.infer<typeof PrintSettingsSchema>;
 
+/**
+ * What happens when a property depends on an optional field that has neither a value in the data
+ * record nor a default (see docs/data-schema.md#missing-data-policy):
+ * - FAIL:  blocking error — the record is not production-valid
+ * - WARN:  the property renders empty (text/value "", no image, hidden) and a warning is reported
+ * - EMPTY: the property renders empty silently
+ * Required fields without a value are always errors, whatever the policy.
+ */
+export const MISSING_DATA_POLICIES = ['FAIL', 'WARN', 'EMPTY'] as const;
+export type MissingDataPolicy = (typeof MISSING_DATA_POLICIES)[number];
+
 export const DocumentSettingsSchema = z.strictObject({
-  /**
-   * What happens when a bound field has no value in a data record and no default value:
-   * FAIL stops the record; EMPTY renders the property as empty/hidden.
-   */
-  missingDataPolicy: z.enum(['FAIL', 'EMPTY']),
+  missingDataPolicy: z.enum(MISSING_DATA_POLICIES),
 });
 export type DocumentSettings = z.infer<typeof DocumentSettingsSchema>;
 
 /**
- * SmartTag canonical design document (schema version 1).
+ * SmartTag canonical design document (current schema version, see `version.ts`).
  *
  * Every key is required: "not set" is expressed with `null`, never by omitting a key. This keeps
  * the persisted form canonical, so equal designs serialize — and hash — identically.

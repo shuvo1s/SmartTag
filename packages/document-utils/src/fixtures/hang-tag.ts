@@ -9,7 +9,6 @@ import {
   createTextObject,
 } from '../builders/objects';
 import { fieldBinding, rgb, solidStroke } from '../builders/primitives';
-import type { DataRecord } from '../bindings/coerce';
 import { mmToPt as mm } from '../units';
 
 /** Deterministic ids so that seeds, tests and docs can refer to the sample. */
@@ -41,6 +40,7 @@ export const SAMPLE_HANG_TAG_DATA_FIELDS: readonly DataField[] = [
     required: true,
     defaultValue: null,
     description: 'Customer-facing product name',
+    validation: { minLength: null, maxLength: null, pattern: null, allowedValues: null },
   },
   {
     key: 'style',
@@ -49,6 +49,7 @@ export const SAMPLE_HANG_TAG_DATA_FIELDS: readonly DataField[] = [
     required: true,
     defaultValue: null,
     description: 'Style / article number',
+    validation: { minLength: null, maxLength: null, pattern: null, allowedValues: null },
   },
   {
     key: 'color',
@@ -57,6 +58,7 @@ export const SAMPLE_HANG_TAG_DATA_FIELDS: readonly DataField[] = [
     required: true,
     defaultValue: null,
     description: 'Color name',
+    validation: { minLength: null, maxLength: null, pattern: null, allowedValues: null },
   },
   {
     key: 'size',
@@ -65,6 +67,7 @@ export const SAMPLE_HANG_TAG_DATA_FIELDS: readonly DataField[] = [
     required: true,
     defaultValue: null,
     description: 'Size code, e.g. M or 32/34',
+    validation: { minLength: null, maxLength: null, pattern: null, allowedValues: null },
   },
   {
     key: 'price',
@@ -73,6 +76,7 @@ export const SAMPLE_HANG_TAG_DATA_FIELDS: readonly DataField[] = [
     required: true,
     defaultValue: null,
     description: 'Retail price without currency symbol',
+    validation: { min: null, max: null, allowedValues: null },
   },
   {
     key: 'currency',
@@ -81,6 +85,7 @@ export const SAMPLE_HANG_TAG_DATA_FIELDS: readonly DataField[] = [
     required: false,
     defaultValue: 'EUR',
     description: 'ISO 4217 currency code',
+    validation: { minLength: null, maxLength: null, pattern: null, allowedValues: null },
   },
   {
     key: 'gtin',
@@ -89,6 +94,7 @@ export const SAMPLE_HANG_TAG_DATA_FIELDS: readonly DataField[] = [
     required: true,
     defaultValue: null,
     description: 'GTIN-13 encoded as EAN-13',
+    validation: { minLength: null, maxLength: null, pattern: null, allowedValues: null },
   },
   {
     key: 'country_of_origin',
@@ -97,6 +103,7 @@ export const SAMPLE_HANG_TAG_DATA_FIELDS: readonly DataField[] = [
     required: false,
     defaultValue: 'Bangladesh',
     description: 'Country of manufacture',
+    validation: { minLength: null, maxLength: null, pattern: null, allowedValues: null },
   },
   {
     key: 'product_url',
@@ -105,6 +112,7 @@ export const SAMPLE_HANG_TAG_DATA_FIELDS: readonly DataField[] = [
     required: false,
     defaultValue: null,
     description: 'Encoded in the QR code',
+    validation: {},
   },
   {
     key: 'product_image',
@@ -113,10 +121,12 @@ export const SAMPLE_HANG_TAG_DATA_FIELDS: readonly DataField[] = [
     required: false,
     defaultValue: null,
     description: 'Optional product image asset',
+    validation: {},
   },
 ];
 
-export const SAMPLE_HANG_TAG_RECORD: DataRecord = {
+/** A data record for the sample, keyed by field key (raw values, as an API or import would send). */
+export const SAMPLE_HANG_TAG_RECORD: Readonly<Record<string, string | number | boolean | null>> = {
   product_name: 'Organic Cotton Tee',
   style: 'ST-1001',
   color: 'Navy',

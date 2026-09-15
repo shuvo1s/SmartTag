@@ -1,14 +1,11 @@
 'use client';
 
 import { parseDesignDocument, type DesignDocument } from '@smarttag/document-schema';
-import {
-  computeDocumentHash,
-  createBlankDesignDocument,
-  type DataRecord,
-} from '@smarttag/document-utils';
+import { computeDocumentHash, createBlankDesignDocument } from '@smarttag/document-utils';
 import {
   SAMPLE_HANG_TAG_RECORD,
   createSampleHangTagDocument,
+  createVariableDataHangTagDocument,
 } from '@smarttag/document-utils/fixtures';
 import {
   Alert,
@@ -120,14 +117,17 @@ export function DocumentPlayground({
     staleTime: Infinity,
   });
 
-  const record = useMemo((): { value: DataRecord | null; error: string | null } => {
+  const record = useMemo((): {
+    value: Readonly<Record<string, unknown>> | null;
+    error: string | null;
+  } => {
     if (!applyRecord) return { value: null, error: null };
     try {
       const value: unknown = JSON.parse(recordSource);
       if (typeof value !== 'object' || value === null || Array.isArray(value)) {
         return { value: null, error: 'The data record must be a JSON object' };
       }
-      return { value: value as DataRecord, error: null };
+      return { value: value as Readonly<Record<string, unknown>>, error: null };
     } catch (error) {
       return { value: null, error: error instanceof Error ? error.message : 'Invalid JSON' };
     }
@@ -154,6 +154,13 @@ export function DocumentPlayground({
                   onClick={() => load(createSampleHangTagDocument())}
                 >
                   Sample hang tag
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => load(createVariableDataHangTagDocument())}
+                >
+                  Variable data tag
                 </Button>
                 <Button
                   size="sm"
@@ -258,7 +265,7 @@ export function DocumentPlayground({
       <Card>
         <CardHeader
           title="Preview"
-          description="Canonical document → scene → SVG. Symbols are placeholders in Phase 1."
+          description="Canonical document (+ validated data record) → scene → SVG."
         />
         <CardBody>
           {document ? (

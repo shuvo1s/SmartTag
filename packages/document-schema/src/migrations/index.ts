@@ -5,9 +5,11 @@ import {
 import { CURRENT_SCHEMA_VERSION, MINIMUM_SUPPORTED_SCHEMA_VERSION } from '../version';
 import { createDocumentMigrator, type DocumentMigration } from './migrator';
 import { migrateV1ToV2 } from './v1-to-v2';
+import { migrateV2ToV3 } from './v2-to-v3';
 
 export * from './migrator';
 export { migrateV1ToV2 } from './v1-to-v2';
+export { migrateV2ToV3 } from './v2-to-v3';
 
 /**
  * Registry of production migrations, ordered by `fromVersion`.
@@ -17,7 +19,7 @@ export { migrateV1ToV2 } from './v1-to-v2';
  *   2. add `vN-to-vN+1.ts` exporting a DocumentMigration and register it here
  *   3. add fixture tests: a real vN document migrates and validates as vN+1
  */
-export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [migrateV1ToV2];
+export const DOCUMENT_MIGRATIONS: readonly DocumentMigration[] = [migrateV1ToV2, migrateV2ToV3];
 
 const migrator = createDocumentMigrator({
   currentVersion: CURRENT_SCHEMA_VERSION,

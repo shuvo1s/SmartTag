@@ -1,17 +1,17 @@
+import { EXPRESSION_LIMITS, type ExpressionType } from '@smarttag/expression-core';
 import { z } from 'zod';
 import type { DataFieldType } from './data-schema';
 import { FieldKeySchema } from './primitives';
 
 /**
- * Formal property-binding model (see docs/vdp-strategy.md).
+ * Formal property-binding model (see docs/data-bindings.md).
  *
  * Each bindable artwork property has exactly one binding entry. The static value always lives
- * in the property itself (it doubles as the design-time preview value); the binding decides
- * whether production output uses that static value or a value from a data record.
+ * in the property itself (it doubles as the design-time sample value); the binding decides
+ * whether output uses that static value, the value of one data field, or a calculated expression.
  *
- * The union is intentionally open for extension — future modes such as EXPRESSION, COMPOSITE
- * (literal + field segments) or LOOKUP are added as new members, never by embedding
- * `{{placeholders}}` in strings.
+ * Bindings are never `{{placeholders}}` embedded in strings: every mode is an explicit object that
+ * is validated against the data schema.
  */
 export const StaticBindingSchema = z.strictObject({
   mode: z.literal('STATIC'),
@@ -22,17 +22,30 @@ export const FieldBindingSchema = z.strictObject({
   field: FieldKeySchema,
 });
 
+/**
+ * A calculated value, e.g. `concat("SIZE: ", size)`. Stored as source text (readable, diffable and
+ * hash-stable); parsed and type-checked by `@smarttag/expression-core` during validation.
+ */
+export const ExpressionBindingSchema = z.strictObject({
+  mode: z.literal('EXPRESSION'),
+  expression: z.string().min(1).max(EXPRESSION_LIMITS.maxSourceLength),
+});
+
+export const BINDING_MODES = ['STATIC', 'FIELD', 'EXPRESSION'] as const;
+
 export const PropertyBindingSchema = z.discriminatedUnion('mode', [
   StaticBindingSchema,
   FieldBindingSchema,
+  ExpressionBindingSchema,
 ]);
 
 export type StaticBinding = z.infer<typeof StaticBindingSchema>;
 export type FieldBinding = z.infer<typeof FieldBindingSchema>;
+export type ExpressionBinding = z.infer<typeof ExpressionBindingSchema>;
 export type PropertyBinding = z.infer<typeof PropertyBindingSchema>;
 export type BindingMode = PropertyBinding['mode'];
 
-/** The kind of value a bindable property accepts — used to check field-type compatibility. */
+/** The kind of value a bindable property accepts — used to check type compatibility. */
 export type BindablePropertyKind = 'TEXT' | 'SYMBOL_DATA' | 'IMAGE_ASSET' | 'VISIBILITY';
 
 /**
@@ -54,3 +67,22 @@ export function isFieldTypeCompatible(
 ): boolean {
   return BINDING_COMPATIBILITY[kind].includes(fieldType);
 }
+
+/**
+ * Whether an expression whose static result type is `type` may feed a property. Expression and
+ * field bindings accept exactly the same value types.
+ */
+export function isExpressionTypeCompatible(
+  kind: BindablePropertyKind,
+  type: ExpressionType,
+): boolean {
+  return type !== 'null' && isFieldTypeCompatible(kind, type);
+}
+
+/** Short description of what a property kind accepts, for messages. */
+export const BINDABLE_PROPERTY_KIND_LABELS: Readonly<Record<BindablePropertyKind, string>> = {
+  TEXT: 'text, numbers, dates or URLs',
+  SYMBOL_DATA: 'text, numbers or URLs',
+  IMAGE_ASSET: 'an image',
+  VISIBILITY: 'true/false',
+};

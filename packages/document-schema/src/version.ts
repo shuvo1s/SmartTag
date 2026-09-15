@@ -8,8 +8,9 @@
  * History:
  * - 1: initial canonical model (Phase 1)
  * - 2: text objects reference an exact font file (`fontAssetId`) and declare `wrap` (Phase 2)
+ * - 3: EXPRESSION bindings, per-field `validation` rules and the WARN missing-data policy (Phase 3)
  */
-export const CURRENT_SCHEMA_VERSION = 2 as const;
+export const CURRENT_SCHEMA_VERSION = 3 as const;
 
 export type CurrentSchemaVersion = typeof CURRENT_SCHEMA_VERSION;
 

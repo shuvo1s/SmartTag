@@ -56,15 +56,17 @@ describe('DocumentPreview', () => {
     expect(canvas().querySelector('[data-object-id="front-size-label"]')?.textContent).toBe('SIZE');
   });
 
-  it('reports unresolved bound values', () => {
+  it('reports data record issues by layer and artwork property', () => {
     render(
       <DocumentPreview
         document={createSampleHangTagDocument()}
         record={{ ...SAMPLE_HANG_TAG_RECORD, gtin: undefined }}
       />,
     );
-    expect(screen.getByText(/could not be resolved/)).toBeInTheDocument();
-    expect(screen.getByText(/front-barcode.value/)).toBeInTheDocument();
+    expect(screen.getByText(/The data record has issues/)).toBeInTheDocument();
+    const issues = screen.getByTestId('record-issues');
+    expect(issues).toHaveTextContent('REQUIRED_VALUE_MISSING');
+    expect(issues).toHaveTextContent('Front / EAN-13 barcode / Value');
   });
 
   it('warns that text uses substitute fonts when controlled fonts are not loaded', () => {

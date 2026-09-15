@@ -77,7 +77,7 @@ describe('prepareDocumentForStorage', () => {
   it('stores a verifiable hash and a render-free summary', async () => {
     const document = createSampleHangTagDocument({ documentId: TEMPLATE_ID });
     const prepared = await prepareDocumentForStorage(document);
-    expect(prepared.schemaVersion).toBe(2);
+    expect(prepared.schemaVersion).toBe(3);
     expect(prepared.documentHash).toBe(await computeDocumentHash(document));
     // What is stored re-hashes to the recorded hash.
     expect(await hashCanonicalJson(prepared.documentJson)).toBe(prepared.documentHash);
@@ -85,6 +85,9 @@ describe('prepareDocumentForStorage', () => {
     expect(prepared.summaryJson).toMatchObject({
       pageCount: 2,
       documentType: 'HANG_TAG',
+      dataFieldCount: 10,
+      boundPropertyCount: 9,
+      expressionCount: 0,
       assetIds: expect.arrayContaining([SAMPLE_BRAND_LOGO_ASSET_ID]) as unknown,
       fontAssetIds: [
         SAMPLE_FONT_ASSET_IDS.notoSansMedium,
@@ -193,7 +196,7 @@ describe('TemplateDocumentService', () => {
       ...SAMPLE_HANG_TAG_V1_JSON,
       documentId: TEMPLATE_ID,
     });
-    expect(document.schemaVersion).toBe(2);
+    expect(document.schemaVersion).toBe(3);
   });
 
   it('rejects references to assets outside the organization, pointing at the offending object', async () => {

@@ -6,7 +6,7 @@ import type {
   PageSide,
 } from '@smarttag/document-schema';
 import { collectAssetReferences, collectAssetReferencesByKind } from './assets';
-import { listBoundFieldKeys } from './bindings/collect';
+import { collectBoundProperties } from './bindings/collect';
 
 /** Compact, render-free description of a document for listings and detail screens. */
 export interface DocumentSummary {
@@ -22,6 +22,10 @@ export interface DocumentSummary {
   readonly objectCount: number;
   readonly dataFieldCount: number;
   readonly boundFieldKeys: readonly string[];
+  /** Properties driven by data (field or expression bindings). */
+  readonly boundPropertyCount: number;
+  /** Properties driven by expressions. */
+  readonly expressionCount: number;
   /** All referenced assets (images and fonts). */
   readonly assetIds: readonly string[];
   readonly fontAssetIds: readonly string[];
@@ -29,6 +33,7 @@ export interface DocumentSummary {
 
 export function summarizeDesignDocument(document: DesignDocument): DocumentSummary {
   const { dimensions } = document;
+  const bound = collectBoundProperties(document);
   return {
     documentType: document.metadata.documentType,
     widthPt: dimensions.width,
@@ -41,7 +46,9 @@ export function summarizeDesignDocument(document: DesignDocument): DocumentSumma
     pageSides: document.pages.map((page) => page.side),
     objectCount: document.pages.reduce((count, page) => count + page.objects.length, 0),
     dataFieldCount: document.dataSchema.fields.length,
-    boundFieldKeys: listBoundFieldKeys(document),
+    boundFieldKeys: [...new Set(bound.flatMap((property) => property.fields))],
+    boundPropertyCount: bound.length,
+    expressionCount: bound.filter((property) => property.mode === 'EXPRESSION').length,
     assetIds: collectAssetReferences(document),
     fontAssetIds: collectAssetReferencesByKind(document).fontAssetIds,
   };

@@ -51,7 +51,7 @@ test.describe('new template → designer workflow', () => {
 
     const created = await getVersion(context.request, versionId!);
     expect(created).toMatchObject({ templateId, versionNumber: 1, status: 'DRAFT', revision: 1 });
-    expect(created.document.schemaVersion).toBe(2);
+    expect(created.document.schemaVersion).toBe(3);
     expect(created.document.pages.map((p) => [p.side, p.objects.length])).toEqual([
       ['FRONT', 0],
       ['BACK', 0],

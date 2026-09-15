@@ -5,12 +5,16 @@ import {
   SAMPLE_FONT_ASSET_IDS,
   SAMPLE_HANG_TAG_DOCUMENT_ID,
   createSampleHangTagDocument,
+  createVariableDataHangTagDocument,
 } from '../src/fixtures';
 import {
   DOCUMENT_TYPE_DEFINITIONS,
   collectAssetReferences,
   computeEffectiveResolution,
   createBlankDesignDocument,
+  createDataField,
+  displayNameFromKey,
+  suggestFieldKey,
   createElementId,
   isDocumentTypeAvailable,
   listDocumentTypes,
@@ -207,5 +211,39 @@ describe('document type registry', () => {
     expect(isDocumentTypeAvailable('RFID_LABEL')).toBe(false);
     expect(listDocumentTypes('AVAILABLE').map((d) => d.type)).toEqual(['HANG_TAG']);
     expect(listDocumentTypes()).toHaveLength(Object.keys(DOCUMENT_TYPE_DEFINITIONS).length);
+  });
+});
+
+describe('data field builders', () => {
+  it('creates complete optional fields with empty rules', () => {
+    expect(createDataField({ key: 'retail_price', type: 'decimal' })).toEqual({
+      key: 'retail_price',
+      displayName: 'Retail price',
+      type: 'decimal',
+      required: false,
+      defaultValue: null,
+      description: '',
+      validation: { min: null, max: null, allowedValues: null },
+    });
+    expect(createDataField({ key: 'is_sustainable', type: 'boolean' }).validation).toEqual({});
+  });
+
+  it('suggests stable keys from display names', () => {
+    expect(suggestFieldKey('Product Name')).toBe('product_name');
+    expect(suggestFieldKey('Retail Price (€)')).toBe('retail_price');
+    expect(suggestFieldKey('Crème Brûlée')).toBe('creme_brulee');
+    expect(suggestFieldKey('2nd Line')).toBe('nd_line');
+    expect(suggestFieldKey('__proto__')).toBe('proto');
+    expect(suggestFieldKey('!!!')).toBe('');
+    expect(displayNameFromKey('country_of_origin')).toBe('Country of origin');
+  });
+
+  it('summarizes field, binding and expression counts', () => {
+    const summary = summarizeDesignDocument(createVariableDataHangTagDocument());
+    expect(summary).toMatchObject({
+      dataFieldCount: 11,
+      boundPropertyCount: 10,
+      expressionCount: 7,
+    });
   });
 });

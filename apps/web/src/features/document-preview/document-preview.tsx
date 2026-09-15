@@ -1,17 +1,13 @@
 'use client';
 
+import { buildDataPreview, describeTarget } from '@smarttag/data-core';
 import {
   formatIssuePath,
   parseDesignDocument,
   type DesignDocument,
   type DocumentValidationIssue,
 } from '@smarttag/document-schema';
-import {
-  formatLength,
-  ptToCssPx,
-  resolveDocumentBindings,
-  type DataRecord,
-} from '@smarttag/document-utils';
+import { formatLength, ptToCssPx } from '@smarttag/document-utils';
 import { buildPageScene, renderSceneToSvg, type SvgGuideOptions } from '@smarttag/rendering-core';
 import { Alert, cn } from '@smarttag/ui';
 import { useId, useMemo, useState } from 'react';
@@ -30,8 +26,8 @@ export const assetContentUrl = (assetId: string) => `/api/v1/assets/${assetId}/c
 
 export interface DocumentPreviewProps {
   document: DesignDocument;
-  /** When provided, bound properties are replaced with values from this record. */
-  record?: DataRecord | null;
+  /** When provided, the record is validated and bound properties are resolved from it. */
+  record?: Readonly<Record<string, unknown>> | null;
   resolveAssetUrl?: (assetId: string) => string | null;
   initialZoom?: (typeof ZOOM_LEVELS)[number];
   /** Controlled fonts, text layout and barcode encoder; without them the preview approximates. */
@@ -72,13 +68,13 @@ export function DocumentPreview({
     ? pageId
     : (document.pages[0]?.id ?? '');
   const resolution = useMemo(
-    () => (record ? resolveDocumentBindings(document, record) : null),
+    () => (record ? buildDataPreview(document, record) : null),
     [document, record],
   );
   const rendered = useMemo(() => {
     // Fonts and images load asynchronously; their arrival must produce a new render.
     void resourceVersion;
-    const scene = buildPageScene(resolution?.document ?? document, activePageId, {
+    const scene = buildPageScene(resolution?.resolution.document ?? document, activePageId, {
       textLayout: resources?.services.textLayout,
       barcodeEncoder: resources?.services.barcodeEncoder ?? undefined,
     });
@@ -195,12 +191,17 @@ export function DocumentPreview({
         <FontAvailabilityNotice availability={fontAvailability} />
       )}
 
-      {resolution && !resolution.ok ? (
-        <Alert tone="warning" title="Some bound values could not be resolved from the data record">
-          <ul className="list-disc pl-5">
-            {resolution.issues.map((issue) => (
-              <li key={`${issue.objectId}-${issue.property}`}>
-                {issue.objectId}.{issue.property}: {issue.message}
+      {resolution && resolution.issues.length > 0 ? (
+        <Alert
+          tone={resolution.productionValid ? 'warning' : 'danger'}
+          title="The data record has issues"
+        >
+          <ul className="list-disc pl-5" data-testid="record-issues">
+            {resolution.issues.map((issue, index) => (
+              <li key={index}>
+                <span className="font-mono text-xs">{issue.code}</span>{' '}
+                {issue.target ? `${describeTarget(issue.target)}: ` : ''}
+                {issue.message}
               </li>
             ))}
           </ul>
@@ -274,7 +275,7 @@ export function ValidatedDocumentPreview({
   record,
 }: {
   document: unknown;
-  record?: DataRecord | null;
+  record?: Readonly<Record<string, unknown>> | null;
 }) {
   const parsed = useMemo(() => parseDesignDocument(document), [document]);
   const fonts = useFontRegistryQuery();
