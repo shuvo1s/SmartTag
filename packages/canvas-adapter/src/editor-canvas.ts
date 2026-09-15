@@ -29,7 +29,12 @@ import {
 } from '@smarttag/editor-core';
 import { buildPageGuides, type PageGuides } from '@smarttag/rendering-core';
 import { ActiveSelection, Canvas, type FabricObject, type TPointerEventInfo } from 'fabric';
-import { ArtworkFabricObject, type ArtworkObjectState } from './artwork-object';
+import {
+  ArtworkFabricObject,
+  NO_DATA_DISPLAY,
+  type ArtworkDataDisplay,
+  type ArtworkObjectState,
+} from './artwork-object';
 import { measureFabricFrame, reconcilePage, toFrameChange } from './geometry';
 import {
   drawGuides,
@@ -53,6 +58,19 @@ export const DEFAULT_VIEW: EditorCanvasView = {
   showIssues: true,
   showPlacementWarnings: true,
 };
+
+/**
+ * Data Preview state for the canvas: how objects look with the test record applied. Built by the
+ * application from a data-core resolution; purely visual and never written back to the document.
+ */
+export interface CanvasDataPreview {
+  /** Resolved objects by id; objects not listed show their template values. */
+  readonly objects: ReadonlyMap<string, ArtworkObject>;
+  /** Objects the record hides. */
+  readonly hiddenObjectIds: ReadonlySet<string>;
+  /** Worst data issue per object id. */
+  readonly issues: ReadonlyMap<string, 'ERROR' | 'WARNING'>;
+}
 
 export interface EditorCanvasEvents {
   /** Double-click on a text object (the UI opens an inline editor). */
@@ -107,6 +125,7 @@ export class EditorCanvas {
   private panning: { x: number; y: number } | null = null;
   private panMode = false;
   private lastRenderMs = 0;
+  private dataPreview: CanvasDataPreview | null = null;
 
   constructor(element: HTMLCanvasElement, options: EditorCanvasOptions) {
     this.services = options.services;
@@ -166,6 +185,34 @@ export class EditorCanvas {
     this.view = { ...this.view, ...view };
     for (const object of this.byId.values()) object.showIssues = this.view.showIssues;
     this.fabric.requestRenderAll();
+  }
+
+  /**
+   * Shows the artwork with resolved test data (or template values again with null). Only drawing
+   * changes: selection, transforms and commands keep working on canonical objects.
+   */
+  setDataPreview(preview: CanvasDataPreview | null): void {
+    this.dataPreview = preview;
+    let changed = false;
+    for (const object of this.byId.values()) {
+      if (object.setDataDisplay(this.dataDisplayFor(object.objectId))) changed = true;
+    }
+    if (changed) this.fabric.requestRenderAll();
+  }
+
+  getDataPreview(): CanvasDataPreview | null {
+    return this.dataPreview;
+  }
+
+  private dataDisplayFor(objectId: string): ArtworkDataDisplay {
+    const preview = this.dataPreview;
+    if (!preview) return NO_DATA_DISPLAY;
+    const object = preview.objects.get(objectId) ?? null;
+    const hidden = preview.hiddenObjectIds.has(objectId);
+    const issue = preview.issues.get(objectId) ?? null;
+    return object === null && !hidden && issue === null
+      ? NO_DATA_DISPLAY
+      : { object, hidden, issue };
   }
 
   /** Re-render after fonts or images finished loading. */
@@ -244,6 +291,7 @@ export class EditorCanvas {
 
       for (const { fabricObject, object, state: objectState } of updates) {
         fabricObject.applyCanonical(object, objectState);
+        fabricObject.setDataDisplay(this.dataDisplayFor(object.id));
       }
       for (const object of ordered) {
         if (!this.byId.has(object.id)) {
@@ -253,6 +301,7 @@ export class EditorCanvas {
             this.objectState(page, object),
           );
           created.showIssues = this.view.showIssues;
+          created.setDataDisplay(this.dataDisplayFor(object.id));
           this.byId.set(object.id, created);
           this.fabric.add(created);
         }

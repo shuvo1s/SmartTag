@@ -418,3 +418,78 @@ function drawIssueMarker(
   ctx.fillText('!', width, ppx * 0.5);
   ctx.restore();
 }
+
+export type DataIssueSeverity = 'ERROR' | 'WARNING';
+
+const DATA_MARKER_COLORS: Readonly<Record<DataIssueSeverity, string>> = {
+  ERROR: '#C62828',
+  WARNING: '#B26A00',
+};
+
+/**
+ * Editor-only marker for a data problem of the object in Data Preview (missing value, expression
+ * error, invalid barcode after resolution, overflow): a coloured corner tag at the top-left.
+ * Never part of artwork; the canonical renderer does not know about it.
+ */
+export function drawDataIssueMarker(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  pointsPerPixel: number,
+  severity: DataIssueSeverity,
+): void {
+  const ppx = pointsPerPixel;
+  const color = DATA_MARKER_COLORS[severity];
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.25 * ppx;
+  ctx.setLineDash([2 * ppx, 2 * ppx]);
+  ctx.strokeRect(0, 0, width, height);
+  ctx.setLineDash([]);
+  const size = 12 * ppx;
+  ctx.fillStyle = color;
+  ctx.fillRect(-size / 2, -size / 2, size, size);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = `normal 700 ${9 * ppx}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(severity === 'ERROR' ? '!' : '?', 0, ppx * 0.5);
+  ctx.restore();
+}
+
+/**
+ * Editor-only ghost of an object that the test record hides (its visibility binding resolved to
+ * false): a hatched, dashed frame so the object can still be found and selected.
+ */
+export function drawDataHiddenGhost(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  pointsPerPixel: number,
+): void {
+  const ppx = pointsPerPixel;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(82, 96, 109, 0.8)';
+  ctx.lineWidth = 1 * ppx;
+  ctx.setLineDash([3 * ppx, 3 * ppx]);
+  ctx.strokeRect(0, 0, width, height);
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.rect(0, 0, width, height);
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(82, 96, 109, 0.25)';
+  const step = 8 * ppx;
+  for (let offset = -height; offset < width; offset += step) {
+    ctx.moveTo(offset, height);
+    ctx.lineTo(offset + height, 0);
+  }
+  ctx.stroke();
+  if (width > 70 * ppx && height > 12 * ppx) {
+    ctx.fillStyle = 'rgba(51, 62, 72, 0.9)';
+    ctx.font = `normal 600 ${9 * ppx}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Hidden by data', width / 2, height / 2);
+  }
+  ctx.restore();
+}

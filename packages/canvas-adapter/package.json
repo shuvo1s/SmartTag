@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@smarttag/barcode-bwip": "0.1.0",
+    "@smarttag/data-core": "0.1.0",
     "jsdom": "^30.0.1"
   }
 }
