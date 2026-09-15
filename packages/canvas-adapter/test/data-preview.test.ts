@@ -129,7 +129,7 @@ describe('Data Preview on the canvas', () => {
     );
     const size = canvas.getFabricObject('vd-size')!;
     size.set({ left: size.left + 20 });
-    canvas.fabric.fire('object:modified', { target: size, action: 'drag' } as never);
+    canvas.fabric.fire('object:modified', { target: size, action: 'drag' });
     await flushMicrotasks();
     const moved = findPage(store.getState().document, 'page-front').objects.find(
       (o) => o.id === 'vd-size',
