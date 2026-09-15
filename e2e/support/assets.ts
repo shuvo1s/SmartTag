@@ -1,0 +1,3 @@
+/** 2×1 px transparent PNG (same bytes as the API test fixture). */
+export const TINY_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAC0lEQVR42mNgQAcAAA0AAR3F2GcAAAAASUVORK5CYII=';

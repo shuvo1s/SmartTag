@@ -23,7 +23,7 @@ import {
   updateObject,
 } from '@smarttag/editor-core';
 import { cn } from '@smarttag/ui';
-import { AlertTriangle, Database, Lock, Unlock } from 'lucide-react';
+import { AlertTriangle, Database, Eye, Lock, Sigma, Unlock } from 'lucide-react';
 import { useMemo } from 'react';
 import {
   ColorField,
@@ -34,6 +34,7 @@ import {
   ToggleField,
   panelInputClass,
 } from './editor-inputs';
+import { PropertyBindingControl } from './binding-controls';
 import { useEditorSession } from './editor-session';
 
 type ObjectOf<T extends ArtworkObject['type']> = Extract<ArtworkObject, { type: T }>;
@@ -175,6 +176,8 @@ export function ObjectProperties({
       {object.type === 'text' ? (
         <TextSection
           object={object}
+          document={document}
+          pageId={pageId}
           disabled={disabled}
           unit={unit}
           patch={patch}
@@ -182,7 +185,13 @@ export function ObjectProperties({
         />
       ) : null}
       {object.type === 'image' ? (
-        <ImageSection object={object} disabled={disabled} patch={patch} />
+        <ImageSection
+          object={object}
+          document={document}
+          pageId={pageId}
+          disabled={disabled}
+          patch={patch}
+        />
       ) : null}
       {object.type === 'rectangle' || object.type === 'ellipse' ? (
         <ShapeSection object={object} disabled={disabled} unit={unit} patch={patch} />
@@ -191,11 +200,42 @@ export function ObjectProperties({
         <LineSection object={object} disabled={disabled} patch={patch} />
       ) : null}
       {object.type === 'barcode' ? (
-        <BarcodeSection object={object} disabled={disabled} unit={unit} patch={patch} />
+        <BarcodeSection
+          object={object}
+          document={document}
+          pageId={pageId}
+          disabled={disabled}
+          unit={unit}
+          patch={patch}
+        />
       ) : null}
       {object.type === 'qrCode' ? (
-        <QrSection object={object} disabled={disabled} patch={patch} />
+        <QrSection
+          object={object}
+          document={document}
+          pageId={pageId}
+          disabled={disabled}
+          patch={patch}
+        />
       ) : null}
+      <PanelSection title="Visibility">
+        <PropertyBindingControl
+          object={object}
+          pageId={pageId}
+          property="visible"
+          document={document}
+          disabled={disabled}
+          staticLabel="Visible in the template"
+        >
+          <ToggleField
+            label="Visible"
+            testId="prop-visible"
+            checked={object.visible}
+            disabled={disabled}
+            onChange={(visible) => patch(visible ? 'Show' : 'Hide', { visible })}
+          />
+        </PropertyBindingControl>
+      </PanelSection>
     </div>
   );
 }
@@ -206,7 +246,7 @@ function typeLabel(type: ArtworkObject['type']): string {
   return type === 'qrCode' ? 'QR code' : type;
 }
 
-/** Existing data bindings are shown and preserved; the mapping UI arrives in Phase 3. */
+/** Summary of the object's data-driven properties (editor-only, never printed). */
 function BindingIndicators({
   object,
   document,
@@ -217,7 +257,7 @@ function BindingIndicators({
   const bindings = object.bindings as Readonly<Record<string, PropertyBinding>>;
   const bound = Object.keys(OBJECT_BINDABLE_PROPERTIES[object.type]).flatMap((property) => {
     const binding = bindings[property];
-    return binding?.mode === 'FIELD' ? [{ property, field: binding.field }] : [];
+    return binding && binding.mode !== 'STATIC' ? [{ property, binding }] : [];
   });
   if (bound.length === 0) return null;
   return (
@@ -225,14 +265,37 @@ function BindingIndicators({
       data-testid="binding-indicators"
       className="border-b border-slate-200 bg-amber-50/60 px-3 py-2"
     >
-      {bound.map(({ property, field }) => {
-        const definition = document.dataSchema.fields.find((candidate) => candidate.key === field);
+      {bound.map(({ property, binding }) => {
+        const label =
+          property === 'assetId' ? 'Image' : property === 'visible' ? 'Visibility' : property;
+        if (binding.mode === 'EXPRESSION') {
+          return (
+            <p key={property} className="flex items-center gap-1.5 text-[11px] text-amber-900">
+              <Sigma className="size-3 shrink-0" />
+              <span className="capitalize">{label}</span>
+              <span className="text-amber-700">↳</span>
+              <code
+                className="truncate rounded bg-white px-1 font-mono text-[10px]"
+                title={binding.expression}
+              >
+                {binding.expression}
+              </code>
+            </p>
+          );
+        }
+        const definition = document.dataSchema.fields.find(
+          (candidate) => candidate.key === binding.field,
+        );
         return (
           <p key={property} className="flex items-center gap-1.5 text-[11px] text-amber-900">
-            <Database className="size-3 shrink-0" />
-            <span className="capitalize">{property === 'assetId' ? 'Image' : property}</span>
+            {property === 'visible' ? (
+              <Eye className="size-3 shrink-0" />
+            ) : (
+              <Database className="size-3 shrink-0" />
+            )}
+            <span className="capitalize">{label}</span>
             <span className="text-amber-700">↳</span>
-            <code className="rounded bg-white px-1 font-mono text-[10px]">{field}</code>
+            <code className="rounded bg-white px-1 font-mono text-[10px]">{binding.field}</code>
             {definition ? (
               <span className="truncate text-amber-700">{definition.displayName}</span>
             ) : null}
@@ -240,7 +303,7 @@ function BindingIndicators({
         );
       })}
       <p className="mt-1 text-[10px] text-amber-700">
-        Bound to data; the value shown is the design-time sample.
+        Driven by data. Template values show the stored sample; Data preview shows test data.
       </p>
     </div>
   );
@@ -248,12 +311,16 @@ function BindingIndicators({
 
 function TextSection({
   object,
+  document,
+  pageId,
   disabled,
   unit,
   patch,
   renderVersion,
 }: {
   object: ObjectOf<'text'>;
+  document: DesignDocument;
+  pageId: string;
   disabled: boolean;
   unit: DesignDocument['dimensions']['displayUnit'];
   patch: Patch;
@@ -287,22 +354,31 @@ function TextSection({
 
   return (
     <PanelSection title="Text">
-      <label className="block">
-        <span className="sr-only">Text content</span>
-        <textarea
-          data-testid="prop-text-content"
-          aria-label="Text content"
-          className={cn(panelInputClass, 'h-16 resize-y py-1 font-sans')}
-          value={object.content}
-          dir="auto"
-          lang={object.language ?? undefined}
-          disabled={disabled}
-          onChange={(event) =>
-            patch('Edit text', { content: event.target.value }, `text:${object.id}:content`)
-          }
-          onBlur={() => session.store.sealHistory()}
-        />
-      </label>
+      <PropertyBindingControl
+        object={object}
+        pageId={pageId}
+        property="content"
+        document={document}
+        disabled={disabled}
+        staticLabel="Sample text"
+      >
+        <label className="block">
+          <span className="sr-only">Text content</span>
+          <textarea
+            data-testid="prop-text-content"
+            aria-label="Text content"
+            className={cn(panelInputClass, 'h-16 resize-y py-1 font-sans')}
+            value={object.content}
+            dir="auto"
+            lang={object.language ?? undefined}
+            disabled={disabled}
+            onChange={(event) =>
+              patch('Edit text', { content: event.target.value }, `text:${object.id}:content`)
+            }
+            onBlur={() => session.store.sealHistory()}
+          />
+        </label>
+      </PropertyBindingControl>
 
       <SelectField
         label="Font"
@@ -521,10 +597,14 @@ function TextSection({
 
 function ImageSection({
   object,
+  document,
+  pageId,
   disabled,
   patch,
 }: {
   object: ObjectOf<'image'>;
+  document: DesignDocument;
+  pageId: string;
   disabled: boolean;
   patch: Patch;
 }) {
@@ -533,19 +613,28 @@ function ImageSection({
   const resolution = asset ? rateImageResolution(object, asset) : null;
   return (
     <PanelSection title="Image">
-      <div className="flex items-center justify-between gap-2 text-[11px] text-slate-600">
-        <span className="truncate" title={asset?.filename}>
-          {asset ? asset.filename : object.assetId ? 'Asset' : 'No image'}
-        </span>
-        <button
-          type="button"
-          className="shrink-0 text-brand-700 hover:underline disabled:text-slate-400"
-          disabled={disabled}
-          onClick={() => session.setUi({ assetPicker: { purpose: 'replace' } })}
-        >
-          Replace…
-        </button>
-      </div>
+      <PropertyBindingControl
+        object={object}
+        pageId={pageId}
+        property="assetId"
+        document={document}
+        disabled={disabled}
+        staticLabel="Sample image"
+      >
+        <div className="flex items-center justify-between gap-2 text-[11px] text-slate-600">
+          <span className="truncate" title={asset?.filename}>
+            {asset ? asset.filename : object.assetId ? 'Asset' : 'No image'}
+          </span>
+          <button
+            type="button"
+            className="shrink-0 text-brand-700 hover:underline disabled:text-slate-400"
+            disabled={disabled}
+            onClick={() => session.setUi({ assetPicker: { purpose: 'replace' } })}
+          >
+            Replace…
+          </button>
+        </div>
+      </PropertyBindingControl>
       <SelectField
         label="Fit"
         testId="prop-fit"
@@ -716,11 +805,15 @@ function LineSection({
 
 function BarcodeSection({
   object,
+  document,
+  pageId,
   disabled,
   unit,
   patch,
 }: {
   object: ObjectOf<'barcode'>;
+  document: DesignDocument;
+  pageId: string;
   disabled: boolean;
   unit: DesignDocument['dimensions']['displayUnit'];
   patch: Patch;
@@ -740,31 +833,41 @@ function BarcodeSection({
         }))}
         onChange={(symbology) => patch('Symbology', { symbology })}
       />
-      <label className="flex items-center gap-1.5">
-        <span className="w-12 shrink-0 text-[11px] text-slate-500">Value</span>
-        <input
-          data-testid="prop-barcode-value"
-          aria-label="Barcode value"
-          className={cn(panelInputClass, 'font-mono')}
-          value={object.value}
-          disabled={disabled}
-          onChange={(event) =>
-            patch('Barcode value', { value: event.target.value }, `barcode:${object.id}:value`)
-          }
-        />
-      </label>
-      {!validation.valid ? (
-        <p
-          data-testid="barcode-validation"
-          className="rounded bg-red-50 px-2 py-1 text-[11px] text-red-800"
-        >
-          {validation.issues[0]?.message}
-        </p>
-      ) : !enabled ? (
-        <p className="rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
-          Valid, but the {SYMBOLOGY_SPECS[object.symbology].displayName} preview is not enabled yet.
-        </p>
-      ) : null}
+      <PropertyBindingControl
+        object={object}
+        pageId={pageId}
+        property="value"
+        document={document}
+        disabled={disabled}
+        staticLabel="Sample value"
+      >
+        <label className="flex items-center gap-1.5">
+          <span className="w-12 shrink-0 text-[11px] text-slate-500">Value</span>
+          <input
+            data-testid="prop-barcode-value"
+            aria-label="Barcode value"
+            className={cn(panelInputClass, 'font-mono')}
+            value={object.value}
+            disabled={disabled}
+            onChange={(event) =>
+              patch('Barcode value', { value: event.target.value }, `barcode:${object.id}:value`)
+            }
+          />
+        </label>
+        {!validation.valid ? (
+          <p
+            data-testid="barcode-validation"
+            className="rounded bg-red-50 px-2 py-1 text-[11px] text-red-800"
+          >
+            {validation.issues[0]?.message}
+          </p>
+        ) : !enabled ? (
+          <p className="rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-600">
+            Valid, but the {SYMBOLOGY_SPECS[object.symbology].displayName} preview is not enabled
+            yet.
+          </p>
+        ) : null}
+      </PropertyBindingControl>
       <ToggleField
         label="Show human-readable text"
         checked={object.showHumanReadableText}
@@ -814,34 +917,47 @@ function BarcodeSection({
 
 function QrSection({
   object,
+  document,
+  pageId,
   disabled,
   patch,
 }: {
   object: ObjectOf<'qrCode'>;
+  document: DesignDocument;
+  pageId: string;
   disabled: boolean;
   patch: Patch;
 }) {
   const validation = validateQrValue(object.value, object.errorCorrection);
   return (
     <PanelSection title="QR code">
-      <label className="block">
-        <span className="sr-only">QR value</span>
-        <textarea
-          data-testid="prop-qr-value"
-          aria-label="QR value"
-          className={cn(panelInputClass, 'h-14 resize-y py-1 font-mono')}
-          value={object.value}
-          disabled={disabled}
-          onChange={(event) =>
-            patch('QR value', { value: event.target.value }, `qr:${object.id}:value`)
-          }
-        />
-      </label>
-      {!validation.valid ? (
-        <p className="rounded bg-red-50 px-2 py-1 text-[11px] text-red-800">
-          {validation.issues[0]?.message}
-        </p>
-      ) : null}
+      <PropertyBindingControl
+        object={object}
+        pageId={pageId}
+        property="value"
+        document={document}
+        disabled={disabled}
+        staticLabel="Sample value"
+      >
+        <label className="block">
+          <span className="sr-only">QR value</span>
+          <textarea
+            data-testid="prop-qr-value"
+            aria-label="QR value"
+            className={cn(panelInputClass, 'h-14 resize-y py-1 font-mono')}
+            value={object.value}
+            disabled={disabled}
+            onChange={(event) =>
+              patch('QR value', { value: event.target.value }, `qr:${object.id}:value`)
+            }
+          />
+        </label>
+        {!validation.valid ? (
+          <p className="rounded bg-red-50 px-2 py-1 text-[11px] text-red-800">
+            {validation.issues[0]?.message}
+          </p>
+        ) : null}
+      </PropertyBindingControl>
       <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
         <SelectField
           label="ECC"

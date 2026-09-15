@@ -1,9 +1,17 @@
 'use client';
 
 import { EditorCanvas } from '@smarttag/canvas-adapter';
-import { updateObject } from '@smarttag/editor-core';
+import {
+  EditorCommandError,
+  addObjects,
+  createFieldObject,
+  updateObject,
+  viewportScale,
+} from '@smarttag/editor-core';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { FIELD_DRAG_TYPE } from './data-panel';
 import { useEditorSession, useEditorState, useEditorUi } from './editor-session';
+import { defaultFontChoice } from './editor-shortcuts';
 
 /**
  * Hosts the Fabric canvas. The EditorCanvas subscribes to the editor store itself; React only
@@ -30,7 +38,24 @@ export function CanvasView({ hidden = false }: { hidden?: boolean }) {
           setViewport(next);
           session.setUi({ viewport: next });
         },
-        onEditTextRequest: (objectId) => session.setUi({ editingTextId: objectId }),
+        onEditTextRequest: (objectId) => {
+          const state = session.store.getState();
+          const object = state.document.pages
+            .find((page) => page.id === state.activePageId)
+            ?.objects.find((candidate) => candidate.id === objectId);
+          if (
+            session.preview.getState().mode === 'DATA' &&
+            object?.type === 'text' &&
+            object.bindings.content.mode !== 'STATIC'
+          ) {
+            session.notify(
+              'info',
+              'This text comes from data. Switch to Template values to edit its sample text.',
+            );
+            return;
+          }
+          session.setUi({ editingTextId: objectId });
+        },
         onPointerMove: (point) => session.setUi({ pointer: point }),
         onTransformRejected: (message) => session.notify('warning', message),
       },
@@ -57,10 +82,47 @@ export function CanvasView({ hidden = false }: { hidden?: boolean }) {
     };
   }, [session]);
 
+  const onDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    const key = event.dataTransfer.getData(FIELD_DRAG_TYPE);
+    const canvas = session.canvas;
+    if (!key || !canvas || session.store.getState().readOnly) return;
+    event.preventDefault();
+    const state = session.store.getState();
+    const field = state.document.dataSchema.fields.find((candidate) => candidate.key === key);
+    if (!field) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const current = canvas.getViewport();
+    const scale = viewportScale(current.zoom);
+    const center = {
+      x: (event.clientX - bounds.left - current.panX) / scale,
+      y: (event.clientY - bounds.top - current.panY) / scale,
+    };
+    try {
+      const object = createFieldObject(field, state.document, {
+        center,
+        font: defaultFontChoice(session),
+      });
+      session.apply(`Add ${field.displayName}`, (doc, pageId) => ({
+        document: addObjects(doc, pageId, [object]),
+        selection: [object.id],
+      }));
+    } catch (error) {
+      if (error instanceof EditorCommandError) session.notify('warning', error.message);
+      else throw error;
+    }
+  };
+
   return (
     <div
       ref={container}
       data-testid="editor-canvas"
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes(FIELD_DRAG_TYPE)) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        }
+      }}
+      onDrop={onDrop}
       data-zoom={viewport.zoom}
       data-pan-x={viewport.panX}
       data-pan-y={viewport.panY}

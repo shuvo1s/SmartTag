@@ -19,6 +19,7 @@ import type {
 } from '@smarttag/shared-types';
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react';
 import { createRenderingResources, type RenderingResources } from '../rendering/rendering-services';
+import { DataPreviewController, type DataPreviewState } from './data-preview-controller';
 import { createVersionSaveAdapter } from './editor-api';
 
 export interface EditorSessionInit {
@@ -36,7 +37,14 @@ type Listener = () => void;
 
 /** Transient UI state that is never part of the document (panels, tool, notices). */
 export interface EditorUiState {
-  readonly leftPanel: 'layers' | 'assets';
+  readonly leftPanel: 'layers' | 'assets' | 'data';
+  /** Sub-tab of the Data panel. */
+  readonly dataTab: 'fields' | 'test';
+  readonly fieldDialog:
+    null | { readonly mode: 'create' } | { readonly mode: 'edit'; readonly key: string };
+  readonly deleteFieldKey: string | null;
+  /** Field highlighted in the Data panel (e.g. after choosing a validation issue). */
+  readonly focusedField: string | null;
   readonly mode: 'edit' | 'preview' | 'compare';
   readonly assetPicker: null | { readonly purpose: 'image' | 'logo' | 'replace' };
   readonly editingTextId: string | null;
@@ -66,8 +74,15 @@ export class EditorSession {
   readonly assets = new Map<string, AssetDto>();
   canvas: EditorCanvas | null = null;
   versionStatus: TemplateVersionDetailDto['status'];
+  readonly preview: DataPreviewController;
+  /** Image assets that could not be loaded for this organization (not found, other tenant). */
+  readonly unavailableAssets = new Set<string>();
   private ui: EditorUiState = {
     leftPanel: 'layers',
+    dataTab: 'fields',
+    fieldDialog: null,
+    deleteFieldKey: null,
+    focusedField: null,
     mode: 'edit',
     assetPicker: null,
     editingTextId: null,
@@ -95,6 +110,16 @@ export class EditorSession {
         ? { width: asset.widthPx, height: asset.heightPx }
         : null;
     });
+    this.preview = new DataPreviewController(
+      this.store,
+      () => this.resources.services,
+      (assetId) =>
+        this.assets.has(assetId)
+          ? 'AVAILABLE'
+          : this.unavailableAssets.has(assetId)
+            ? 'UNAVAILABLE'
+            : 'UNKNOWN',
+    );
     this.save = new SaveController(
       this.store,
       createVersionSaveAdapter(init.version.id, init.onSaved),
@@ -110,6 +135,7 @@ export class EditorSession {
   /** Starts autosave and resource tracking (paired with stop(); safe to call again). */
   start(): void {
     this.save.start();
+    this.preview.start();
     if (this.resourceUnsubscribers.length === 0) {
       this.resourceUnsubscribers = [
         this.resources.fonts.subscribe(() => this.bumpResources()),
@@ -120,16 +146,21 @@ export class EditorSession {
 
   stop(): void {
     this.save.dispose();
+    this.preview.stop();
     for (const unsubscribe of this.resourceUnsubscribers) unsubscribe();
     this.resourceUnsubscribers = [];
   }
 
   attachCanvas(canvas: EditorCanvas): void {
     this.canvas = canvas;
+    this.preview.attachCanvas(canvas);
   }
 
   detachCanvas(canvas: EditorCanvas): void {
-    if (this.canvas === canvas) this.canvas = null;
+    if (this.canvas === canvas) {
+      this.canvas = null;
+      this.preview.attachCanvas(null);
+    }
   }
 
   setVersionStatus(status: TemplateVersionDetailDto['status']): void {
@@ -143,6 +174,19 @@ export class EditorSession {
     for (const asset of assets) {
       if (asset && !this.assets.has(asset.id)) {
         this.assets.set(asset.id, asset);
+        this.unavailableAssets.delete(asset.id);
+        added = true;
+      }
+    }
+    if (added) this.bumpResources();
+  }
+
+  /** Records assets that the API refused (missing or owned by another organization). */
+  markAssetsUnavailable(assetIds: readonly string[]): void {
+    let added = false;
+    for (const assetId of assetIds) {
+      if (!this.assets.has(assetId) && !this.unavailableAssets.has(assetId)) {
+        this.unavailableAssets.add(assetId);
         added = true;
       }
     }
@@ -152,6 +196,7 @@ export class EditorSession {
   private bumpResources(): void {
     this.resourceVersion += 1;
     this.canvas?.invalidate();
+    this.preview.invalidateResources();
     for (const listener of [...this.resourceListeners]) listener();
   }
 
@@ -241,6 +286,16 @@ export function useResourceVersion(): number {
     session.subscribeResources,
     session.getResourceVersion,
     session.getResourceVersion,
+  );
+}
+
+/** Test data and preview mode (changes on every test-data edit). */
+export function usePreviewState(): DataPreviewState {
+  const session = useEditorSession();
+  return useSyncExternalStore(
+    session.preview.subscribe,
+    session.preview.getState,
+    session.preview.getState,
   );
 }
 

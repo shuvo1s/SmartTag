@@ -5,6 +5,7 @@ import {
   type ArtworkObject,
   type PropertyBinding,
 } from '@smarttag/document-schema';
+import { useMemo } from 'react';
 import {
   findPage,
   isEffectivelyLocked,
@@ -27,6 +28,8 @@ import {
   Database,
   Eye,
   EyeOff,
+  AlertTriangle,
+  Sigma,
   Image as ImageIcon,
   Lock,
   Minus,
@@ -36,7 +39,7 @@ import {
   Unlock,
 } from 'lucide-react';
 import { useState, type KeyboardEvent } from 'react';
-import { useEditorSession, useEditorState } from './editor-session';
+import { useEditorSession, useEditorState, usePreviewState } from './editor-session';
 
 const TYPE_ICONS = {
   text: Type,
@@ -48,11 +51,15 @@ const TYPE_ICONS = {
   qrCode: QrCode,
 } as const;
 
-function isDataBound(object: ArtworkObject): boolean {
+/** The first data-driven property of an object, for the layer row subtitle. */
+function primaryBinding(object: ArtworkObject): PropertyBinding | null {
   const bindings = object.bindings as Readonly<Record<string, PropertyBinding>>;
-  return Object.keys(OBJECT_BINDABLE_PROPERTIES[object.type]).some(
-    (property) => bindings[property]?.mode === 'FIELD',
-  );
+  const properties = Object.keys(OBJECT_BINDABLE_PROPERTIES[object.type]);
+  for (const property of [...properties.filter((p) => p !== 'visible'), 'visible']) {
+    const binding = bindings[property];
+    if (binding && binding.mode !== 'STATIC') return binding;
+  }
+  return null;
 }
 
 export function LayersPanel() {
@@ -61,7 +68,20 @@ export function LayersPanel() {
   const pageId = useEditorState((state) => state.activePageId);
   const selection = useEditorState((state) => state.selection);
   const readOnly = useEditorState((state) => state.readOnly);
+  const preview = usePreviewState();
   const page = findPage(document, pageId);
+  const dataState = useMemo(() => {
+    void preview.version;
+    if (preview.mode !== 'DATA') return null;
+    const result = session.preview.compute(document);
+    const issues = new Map<string, 'ERROR' | 'WARNING'>();
+    for (const issue of result.issues) {
+      if (!issue.target) continue;
+      if (issues.get(issue.target.objectId) !== 'ERROR')
+        issues.set(issue.target.objectId, issue.severity);
+    }
+    return { hidden: result.resolution.hiddenObjectIds, issues };
+  }, [preview.mode, preview.version, document, session]);
   // Top of the stack first, as in design tools.
   const layers = paintOrder(page).reverse();
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -212,13 +232,52 @@ export function LayersPanel() {
               ) : (
                 <span className="min-w-0 flex-1 truncate">{object.name || object.id}</span>
               )}
-              {isDataBound(object) ? (
-                <Database
-                  data-testid="layer-bound"
-                  aria-label="Bound to data"
-                  className="size-3 shrink-0 text-amber-600"
+              {dataState?.issues.get(object.id) ? (
+                <AlertTriangle
+                  data-testid="layer-data-issue"
+                  aria-label={
+                    dataState.issues.get(object.id) === 'ERROR' ? 'Data error' : 'Data warning'
+                  }
+                  className={cn(
+                    'size-3 shrink-0',
+                    dataState.issues.get(object.id) === 'ERROR' ? 'text-red-600' : 'text-amber-600',
+                  )}
                 />
               ) : null}
+              {dataState?.hidden.has(object.id) ? (
+                <EyeOff
+                  data-testid="layer-data-hidden"
+                  aria-label="Hidden by test data"
+                  className="size-3 shrink-0 text-sky-700"
+                />
+              ) : null}
+              {(() => {
+                const binding = primaryBinding(object);
+                if (!binding) return null;
+                return binding.mode === 'EXPRESSION' ? (
+                  <Sigma
+                    data-testid="layer-bound"
+                    data-mode="EXPRESSION"
+                    aria-label={`Expression: ${binding.expression}`}
+                    className="size-3 shrink-0 text-amber-600"
+                  >
+                    <title>{binding.expression}</title>
+                  </Sigma>
+                ) : binding.mode === 'FIELD' ? (
+                  <span
+                    data-testid="layer-bound"
+                    data-mode="FIELD"
+                    title={`Bound to ${binding.field}`}
+                    className="flex max-w-20 shrink items-center gap-0.5 truncate font-mono text-[9px] text-amber-700"
+                  >
+                    <Database
+                      aria-label="Bound to data"
+                      className="size-3 shrink-0 text-amber-600"
+                    />
+                    <span className="truncate">↳ {binding.field}</span>
+                  </span>
+                ) : null;
+              })()}
               <button
                 type="button"
                 aria-label={

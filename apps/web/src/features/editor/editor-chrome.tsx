@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Barcode,
+  Database,
   Check,
   Circle,
   Columns2,
@@ -33,7 +34,14 @@ import {
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { VersionStatusBadge } from '../templates/status-badges';
 import { AssetBrowser, insertImage } from './asset-picker';
-import { useEditorSession, useEditorState, useEditorUi, useSaveState } from './editor-session';
+import { DataPanel } from './data-panel';
+import {
+  useEditorSession,
+  useEditorState,
+  useEditorUi,
+  usePreviewState,
+  useSaveState,
+} from './editor-session';
 import { SHORTCUTS, addTool } from './editor-shortcuts';
 import { LayersPanel } from './layers-panel';
 
@@ -96,6 +104,7 @@ export function TopBar({ onNavigateBack }: { onNavigateBack: () => void }) {
   const readOnly = useEditorState((state) => state.readOnly);
   const mode = useEditorUi((ui) => ui.mode);
   const zoom = useEditorUi((ui) => ui.viewport.zoom);
+  const previewMode = usePreviewState().mode;
 
   const statusTone =
     save.status === 'SAVED'
@@ -226,6 +235,37 @@ export function TopBar({ onNavigateBack }: { onNavigateBack: () => void }) {
       </div>
 
       <div className="mx-2 h-6 w-px bg-slate-200" />
+      <div
+        role="radiogroup"
+        aria-label="Artwork values"
+        className="flex rounded border border-slate-300 bg-slate-50 p-px"
+      >
+        {(
+          [
+            ['TEMPLATE', 'Template values'],
+            ['DATA', 'Data preview'],
+          ] as const
+        ).map(([value, text]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={previewMode === value}
+            data-testid={`preview-mode-${value === 'TEMPLATE' ? 'template' : 'data'}`}
+            onClick={() => session.preview.setMode(value)}
+            className={cn(
+              'h-6 rounded-sm px-2 text-[11px]',
+              previewMode === value
+                ? value === 'DATA'
+                  ? 'bg-sky-700 font-semibold text-white'
+                  : 'bg-white font-semibold text-slate-900 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900',
+            )}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
       <ToolbarButton
         label="Preview from canonical renderer"
         testId="toggle-preview"
@@ -320,6 +360,14 @@ export function LeftToolbar() {
       >
         <Images className="size-4" />
       </ToolbarButton>
+      <ToolbarButton
+        label="Data"
+        testId="panel-data"
+        active={panel === 'data'}
+        onClick={() => session.setUi({ leftPanel: 'data' })}
+      >
+        <Database className="size-4" />
+      </ToolbarButton>
     </nav>
   );
 }
@@ -330,11 +378,14 @@ export function LeftPanel() {
   const readOnly = useEditorState((state) => state.readOnly);
   return (
     <aside
-      aria-label={panel === 'layers' ? 'Layers' : 'Assets'}
-      className="flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white"
+      aria-label={panel === 'layers' ? 'Layers' : panel === 'assets' ? 'Assets' : 'Data'}
+      className={cn(
+        'flex shrink-0 flex-col border-r border-slate-200 bg-white',
+        panel === 'data' ? 'w-80' : 'w-60',
+      )}
     >
       <div className="flex border-b border-slate-200 text-xs">
-        {(['layers', 'assets'] as const).map((value) => (
+        {(['layers', 'assets', 'data'] as const).map((value) => (
           <button
             key={value}
             type="button"
@@ -352,6 +403,8 @@ export function LeftPanel() {
       </div>
       {panel === 'layers' ? (
         <LayersPanel />
+      ) : panel === 'data' ? (
+        <DataPanel />
       ) : (
         <AssetBrowser
           compact
@@ -375,9 +428,20 @@ export function StatusBar({ renderVersion }: { renderVersion: number }) {
   const pointer = useEditorUi((ui) => ui.pointer);
   const zoom = useEditorUi((ui) => ui.viewport.zoom);
   const save = useSaveState();
+  const preview = usePreviewState();
   const unit = document.dimensions.displayUnit;
   const page = findPage(document, pageId);
   const validation = useMemo(() => validateDesignDocument(document), [document]);
+  const dataIssues = useMemo(() => {
+    void preview.version;
+    void renderVersion;
+    if (preview.mode !== 'DATA') return null;
+    const issues = session.preview.compute(document).issues;
+    return {
+      errors: issues.filter((issue) => issue.severity === 'ERROR').length,
+      warnings: issues.filter((issue) => issue.severity === 'WARNING').length,
+    };
+  }, [preview.mode, preview.version, renderVersion, document, session]);
   const renderIssues = useMemo(() => {
     void renderVersion;
     return page.objects.filter((object) =>
@@ -415,6 +479,15 @@ export function StatusBar({ renderVersion }: { renderVersion: number }) {
         >
           {validation.warnings.length} warning{validation.warnings.length === 1 ? '' : 's'} ·{' '}
           {renderIssues} object{renderIssues === 1 ? '' : 's'} with display issues
+        </span>
+      ) : null}
+      {dataIssues ? (
+        <span
+          data-testid="data-issue-count"
+          className={dataIssues.errors > 0 ? 'text-red-700' : 'text-sky-800'}
+        >
+          Data preview: {dataIssues.errors} error{dataIssues.errors === 1 ? '' : 's'} ·{' '}
+          {dataIssues.warnings} warning{dataIssues.warnings === 1 ? '' : 's'}
         </span>
       ) : null}
       <span className="ml-auto">

@@ -11,6 +11,7 @@ import {
   moveObjects,
   nudgeDistancePt,
   pasteObjects,
+  type FontChoice,
   type ToolType,
 } from '@smarttag/editor-core';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
@@ -58,29 +59,34 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
+/** The registered font new text uses (Noto Sans Regular when available); starts loading it. */
+export function defaultFontChoice(session: EditorSession): FontChoice | null {
+  const face =
+    session.fontFaces.find(
+      (candidate) =>
+        candidate.familyName === 'Noto Sans' &&
+        candidate.weight === 400 &&
+        candidate.style === 'NORMAL',
+    ) ??
+    session.fontFaces[0] ??
+    null;
+  if (!face) return null;
+  void session.resources.fonts.load(face.assetId);
+  return {
+    assetId: face.assetId,
+    familyName: face.familyName,
+    weight: face.weight,
+    style: face.style,
+  };
+}
+
 export function addTool(session: EditorSession, tool: ToolType): void {
   if (tool === 'image' || tool === 'logo') {
     session.setUi({ assetPicker: { purpose: tool } });
     return;
   }
   const document = session.store.getState().document;
-  const defaultFont =
-    session.fontFaces.find(
-      (face) => face.familyName === 'Noto Sans' && face.weight === 400 && face.style === 'NORMAL',
-    ) ??
-    session.fontFaces[0] ??
-    null;
-  if (defaultFont) void session.resources.fonts.load(defaultFont.assetId);
-  const object = createToolObject(tool, document, {
-    font: defaultFont
-      ? {
-          assetId: defaultFont.assetId,
-          familyName: defaultFont.familyName,
-          weight: defaultFont.weight,
-          style: defaultFont.style,
-        }
-      : null,
-  });
+  const object = createToolObject(tool, document, { font: defaultFontChoice(session) });
   session.apply(`Add ${tool === 'qrCode' ? 'QR code' : tool}`, (doc, pageId) => ({
     document: addObjects(doc, pageId, [object]),
     selection: [object.id],

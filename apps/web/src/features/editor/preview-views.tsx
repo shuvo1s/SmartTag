@@ -6,7 +6,7 @@ import { buildPageScene, renderSceneToSvg } from '@smarttag/rendering-core';
 import { useMemo, useState } from 'react';
 import { FontAvailabilityNotice, summarizeFontAvailability } from '../rendering/font-availability';
 import { svgOptionsFor } from '../rendering/rendering-services';
-import { useEditorSession, useEditorState, useEditorUi } from './editor-session';
+import { useEditorSession, useEditorState, useEditorUi, usePreviewState } from './editor-session';
 
 /** SVG of the active page rendered from the CANONICAL document by rendering-core. */
 function useCanonicalSvg(options: {
@@ -16,9 +16,14 @@ function useCanonicalSvg(options: {
   renderVersion: number;
 }) {
   const session = useEditorSession();
-  const document = useEditorState((state) => state.document);
+  const canonical = useEditorState((state) => state.document);
   const pageId = useEditorState((state) => state.activePageId);
+  const preview = usePreviewState();
   return useMemo(() => {
+    void preview.version;
+    // Data preview renders the artwork resolved with the test record — never stored.
+    const document =
+      preview.mode === 'DATA' ? session.preview.compute(canonical).resolution.document : canonical;
     const scene = buildPageScene(document, pageId, {
       textLayout: session.resources.services.textLayout,
       barcodeEncoder: session.resources.services.barcodeEncoder ?? undefined,
@@ -39,7 +44,9 @@ function useCanonicalSvg(options: {
     // renderVersion changes when fonts or images finish loading
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    document,
+    canonical,
+    preview.mode,
+    preview.version,
     pageId,
     session,
     options.guides,

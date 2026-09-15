@@ -9,8 +9,13 @@
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { assertValidDesignDocument, parseDesignDocument } from '@smarttag/document-schema';
 import {
+  assertValidDesignDocument,
+  parseDesignDocument,
+  type DesignDocument,
+} from '@smarttag/document-schema';
+import {
+  canonicalizeJson,
   createBlankDesignDocument,
   createTextObject,
   hashCanonicalJson,
@@ -22,6 +27,7 @@ import {
   SAMPLE_FONT_ASSET_IDS,
   SAMPLE_HANG_TAG_V1_JSON,
   createSampleHangTagDocument,
+  createVariableDataHangTagDocument,
 } from '@smarttag/document-utils/fixtures';
 import type { Role } from '@smarttag/shared-types';
 import { createHash } from 'node:crypto';
@@ -36,6 +42,29 @@ import { inspectFont } from '../src/modules/assets/font-inspector';
 import { assetStorageKey } from '../src/modules/assets/storage/object-storage';
 import { createObjectStorage } from '../src/modules/assets/storage/storage.module';
 import { sanitizeSvg } from '../src/modules/assets/svg-sanitizer';
+
+/**
+ * The JSON a schema v2 editor stored for a document (Phase 2): the same design without the
+ * `validation` rules introduced by schema v3. Only valid for documents without rules; verified by
+ * migrating it back.
+ */
+function asStoredSchemaV2Json(document: DesignDocument): Prisma.InputJsonObject {
+  const json = JSON.parse(JSON.stringify(document)) as {
+    schemaVersion: number;
+    dataSchema: { fields: Record<string, unknown>[] };
+  };
+  json.schemaVersion = 2;
+  for (const field of json.dataSchema.fields) delete field.validation;
+  const parsed = parseDesignDocument(json);
+  if (
+    !parsed.valid ||
+    parsed.originalSchemaVersion !== 2 ||
+    canonicalizeJson(parsed.document) !== canonicalizeJson(document)
+  ) {
+    throw new Error('Seed v2 document does not migrate back to the same design');
+  }
+  return json as unknown as Prisma.InputJsonObject;
+}
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]', 'postgres']);
 
@@ -338,7 +367,9 @@ async function main() {
       },
     });
 
-    // Version 2 (DRAFT) is the current schema: same artwork with controlled fonts assigned.
+    // Version 2 (DRAFT) was saved by the Phase 2 designer (schema version 2): same artwork with
+    // controlled fonts assigned. It is stored as genuine v2 JSON, so the database always holds a
+    // real v1 AND v2 document; the designer migrates the draft in memory and saving upgrades it.
     const v2Document = createSampleHangTagDocument({ documentId: template.id });
     const front = v2Document.pages[0]!;
     front.objects = front.objects.map((object) =>
@@ -366,18 +397,64 @@ async function main() {
         textColor: rgb('#52606D'),
       }),
     );
+    const v2Json = asStoredSchemaV2Json(assertValidDesignDocument(v2Document));
     const v2 = await prisma.templateVersion.create({
       data: {
         organizationId: yunusco.id,
         templateId: template.id,
         versionNumber: 2,
-        ...(await prepareDocumentForStorage(assertValidDesignDocument(v2Document))),
+        schemaVersion: 2,
+        documentJson: v2Json,
+        documentHash: await hashCanonicalJson(v2Json),
+        summaryJson: JSON.parse(
+          JSON.stringify(summarizeDesignDocument(assertValidDesignDocument(v2Document))),
+        ) as Prisma.InputJsonObject,
         changeSummary: 'Controlled fonts; larger brand-colored product name; care hint',
         basedOnVersionId: v1.id,
         createdById: designer.id,
       },
     });
     await prisma.template.update({ where: { id: template.id }, data: { currentVersionId: v2.id } });
+  }
+
+  // --- Yunusco: variable data hang tag (schema v3 data schema, bindings and expressions) -----
+  const vdpCode = 'HT-VDP-50X90';
+  if (
+    !(await prisma.template.findUnique({
+      where: { organizationId_code: { organizationId: yunusco.id, code: vdpCode } },
+    }))
+  ) {
+    const template = await prisma.template.create({
+      data: {
+        organizationId: yunusco.id,
+        customerId: demoApparel.customer.id,
+        brandId: demoApparel.brandIds['DEMO-ACTIVE'],
+        code: vdpCode,
+        name: 'Variable data hang tag 50 × 90 mm',
+        description:
+          'Data fields with rules, field and expression bindings and conditional visibility.',
+        documentType: 'HANG_TAG',
+        latestVersionNumber: 1,
+        createdById: designer.id,
+        updatedById: designer.id,
+      },
+    });
+    const version = await prisma.templateVersion.create({
+      data: {
+        organizationId: yunusco.id,
+        templateId: template.id,
+        versionNumber: 1,
+        ...(await prepareDocumentForStorage(
+          assertValidDesignDocument(createVariableDataHangTagDocument({ documentId: template.id })),
+        )),
+        changeSummary: 'Variable data layout',
+        createdById: designer.id,
+      },
+    });
+    await prisma.template.update({
+      where: { id: template.id },
+      data: { currentVersionId: version.id },
+    });
   }
 
   // --- Acme (second tenant): a template that Yunusco users must never see -------------------
