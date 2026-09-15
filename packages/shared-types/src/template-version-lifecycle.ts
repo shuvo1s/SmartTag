@@ -84,3 +84,16 @@ export function availableTransitions(
 export function isVersionContentEditable(status: TemplateVersionStatus): boolean {
   return status === 'DRAFT';
 }
+
+/**
+ * Whether a user with these permissions may change a version's design content — the same two
+ * conditions the API enforces on `PATCH /template-versions/:id` (the `template-version:edit-draft`
+ * guard and the DRAFT check). The UI uses it only to decide which actions to offer; the API remains
+ * the authority and re-checks both, plus the organization and the expected revision.
+ */
+export function canEditVersionContent(
+  status: TemplateVersionStatus,
+  permissions: readonly Permission[],
+): boolean {
+  return isVersionContentEditable(status) && permissions.includes('template-version:edit-draft');
+}

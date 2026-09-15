@@ -122,5 +122,7 @@ export function useInvalidateVersion() {
   return (version: TemplateVersionDetailDto) => {
     queryClient.setQueryData(templateKeys.version(version.id), version);
     void queryClient.invalidateQueries({ queryKey: templateKeys.versions(version.templateId) });
+    // The template page shows the current version's summary (object count, hash).
+    void queryClient.invalidateQueries({ queryKey: templateKeys.detail(version.templateId) });
   };
 }

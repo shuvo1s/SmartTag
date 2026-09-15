@@ -1,12 +1,14 @@
 import {
   availableTransitions,
+  canEditVersionContent,
   type Permission,
   type TemplateVersionStatus,
   type TemplateVersionSummaryDto,
 } from '@smarttag/shared-types';
-import { Button, EmptyState, Table, Td, Th } from '@smarttag/ui';
+import { Button, EmptyState, Table, Td, Th, buttonStyles } from '@smarttag/ui';
 import Link from 'next/link';
 import { formatDateTime, shortHash } from '@/lib/format';
+import { designerPath, versionPath } from './routes';
 import { VersionStatusBadge } from './status-badges';
 
 export interface VersionsTableProps {
@@ -43,11 +45,12 @@ export function VersionsTable({
       <tbody className="divide-y divide-slate-100 bg-white">
         {versions.map((version) => {
           const transitions = availableTransitions(version.status, permissions);
+          const editable = canEditVersionContent(version.status, permissions);
           return (
             <tr key={version.id} data-testid={`version-row-${version.versionNumber}`}>
               <Td className="font-medium text-slate-900">
                 <Link
-                  href={`/templates/${version.templateId}/versions/${version.id}`}
+                  href={versionPath(version.templateId, version.id)}
                   className="text-brand-700 hover:underline"
                 >
                   v{version.versionNumber}
@@ -83,6 +86,16 @@ export function VersionsTable({
               </Td>
               <Td className="text-right">
                 <div className="flex justify-end gap-2">
+                  {editable ? (
+                    // Offered only when the API would accept the edit; it still re-checks.
+                    <Link
+                      href={designerPath(version.templateId, version.id)}
+                      data-testid={`edit-in-designer-v${version.versionNumber}`}
+                      className={buttonStyles({ variant: 'primary', size: 'sm' })}
+                    >
+                      Edit in designer
+                    </Link>
+                  ) : null}
                   {transitions.map((transition) => (
                     <Button
                       key={transition.action}

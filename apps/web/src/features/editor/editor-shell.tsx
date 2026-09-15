@@ -8,6 +8,7 @@ import { Info, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { apiRequest, describeError } from '@/lib/api-client';
+import { templatePath } from '../templates/routes';
 import { AssetPickerDialog } from './asset-picker';
 import { CanvasView } from './canvas-view';
 import { useAssetsById } from './editor-api';
@@ -83,7 +84,8 @@ export function EditorShell({ templateId }: { templateId: string }) {
     ) {
       return;
     }
-    router.push(`/templates/${templateId}/versions/${session.versionId}`);
+    // The template page holds the version list with Edit in designer and Submit for review.
+    router.push(templatePath(templateId));
   };
 
   const reloadLatest = async () => {

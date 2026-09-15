@@ -1,6 +1,7 @@
 'use client';
 
 import { formatDimensions } from '@smarttag/document-utils';
+import { canEditVersionContent } from '@smarttag/shared-types';
 import {
   Alert,
   Card,
@@ -14,9 +15,10 @@ import {
 import Link from 'next/link';
 import { describeError } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format';
-import { useCan } from '../auth/session';
+import { useSession } from '../auth/session';
 import { ValidatedDocumentPreview } from '../document-preview/document-preview';
 import { useTemplate, useTemplateVersion } from './api';
+import { designerPath } from './routes';
 import { VersionStatusBadge } from './status-badges';
 
 export function VersionDetailView({
@@ -28,7 +30,7 @@ export function VersionDetailView({
 }) {
   const template = useTemplate(templateId);
   const version = useTemplateVersion(versionId);
-  const canEdit = useCan('template-version:edit-draft');
+  const session = useSession();
 
   if (version.error ?? template.error) {
     return <Alert tone="danger">{describeError(version.error ?? template.error)}</Alert>;
@@ -37,6 +39,7 @@ export function VersionDetailView({
     return <Spinner />;
   }
   const v = version.data;
+  const editable = canEditVersionContent(v.status, session.permissions);
 
   return (
     <>
@@ -61,13 +64,11 @@ export function VersionDetailView({
               Open in playground
             </Link>
             <Link
-              href={`/templates/${templateId}/versions/${v.id}/edit`}
+              href={designerPath(templateId, v.id)}
               data-testid="open-designer"
-              className={buttonStyles({
-                variant: v.status === 'DRAFT' && canEdit ? 'primary' : 'secondary',
-              })}
+              className={buttonStyles({ variant: editable ? 'primary' : 'secondary' })}
             >
-              {v.status === 'DRAFT' && canEdit ? 'Edit in designer' : 'Open designer (view only)'}
+              {editable ? 'Edit in designer' : 'Open designer (view only)'}
             </Link>
           </span>
         }

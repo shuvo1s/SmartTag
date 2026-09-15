@@ -4,12 +4,14 @@ import { listDocumentTypes } from '@smarttag/document-utils';
 import { Alert, PageHeader, Spinner } from '@smarttag/ui';
 import { useRouter } from 'next/navigation';
 import { describeError } from '@/lib/api-client';
-import { useCan } from '../auth/session';
+import { useCan, useSession } from '../auth/session';
 import { useCreateTemplate, useCustomers } from './api';
 import { CreateTemplateForm } from './create-template-form';
+import { pathAfterTemplateCreated } from './routes';
 
 export function CreateTemplateView() {
   const router = useRouter();
+  const session = useSession();
   const canCreate = useCan('template:create');
   const customers = useCustomers();
   const createTemplate = useCreateTemplate();
@@ -23,7 +25,7 @@ export function CreateTemplateView() {
       <PageHeader
         eyebrow="Templates"
         title="New template"
-        description="Creates the template and its first draft version with a blank canonical document."
+        description="Creates the template and its first draft version with a blank canonical document (no artwork), then opens the draft in the designer."
       />
       {customers.error ? (
         <Alert tone="danger">{describeError(customers.error)}</Alert>
@@ -34,7 +36,7 @@ export function CreateTemplateView() {
           onCancel={() => router.push('/templates')}
           onSubmit={async (values) => {
             const template = await createTemplate.mutateAsync(values);
-            router.push(`/templates/${template.id}`);
+            router.push(pathAfterTemplateCreated(template, session.permissions));
           }}
         />
       ) : (

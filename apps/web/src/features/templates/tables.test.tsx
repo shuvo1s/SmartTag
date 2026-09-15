@@ -120,6 +120,43 @@ describe('VersionsTable', () => {
     expect(onTransition).toHaveBeenCalledWith('v-3', 'APPROVED');
   });
 
+  it('offers Edit in designer for drafts to roles that may edit them, next to Submit for review', () => {
+    render(
+      <VersionsTable
+        versions={versions}
+        currentVersionId="v-3"
+        permissions={permissionsForRoles(['DESIGNER'])}
+        onTransition={vi.fn()}
+      />,
+    );
+    const draft = within(screen.getByTestId('version-row-2'));
+    expect(draft.getByRole('link', { name: 'Edit in designer' })).toHaveAttribute(
+      'href',
+      '/templates/0192f0a0-5b1e-7c3d-8e4f-1a2b3c4d5e6f/versions/v-2/edit',
+    );
+    expect(draft.getByRole('button', { name: 'Submit for review' })).toBeInTheDocument();
+    for (const row of ['version-row-3', 'version-row-1']) {
+      expect(
+        within(screen.getByTestId(row)).queryByRole('link', { name: 'Edit in designer' }),
+      ).toBeNull();
+    }
+  });
+
+  it.each([[['VIEWER']], [['APPROVER', 'QA']]] as const)(
+    'never offers Edit in designer to %j',
+    (roles) => {
+      render(
+        <VersionsTable
+          versions={versions}
+          currentVersionId="v-3"
+          permissions={permissionsForRoles(roles)}
+          onTransition={vi.fn()}
+        />,
+      );
+      expect(screen.queryByRole('link', { name: 'Edit in designer' })).toBeNull();
+    },
+  );
+
   it('never offers to reopen approved versions, even to administrators', () => {
     render(
       <VersionsTable

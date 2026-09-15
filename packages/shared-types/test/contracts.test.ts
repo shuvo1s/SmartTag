@@ -8,6 +8,7 @@ import {
   TEMPLATE_VERSION_STATUSES,
   UpdateTemplateRequestSchema,
   availableTransitions,
+  canEditVersionContent,
   findTransition,
   isApiErrorBody,
   isVersionContentEditable,
@@ -86,6 +87,19 @@ describe('template version lifecycle', () => {
 
   it('only drafts are content-editable', () => {
     expect(TEMPLATE_VERSION_STATUSES.filter(isVersionContentEditable)).toEqual(['DRAFT']);
+  });
+
+  it('offers design editing only for drafts and only to roles that may edit drafts', () => {
+    const editableFor = (roles: Parameters<typeof permissionsForRoles>[0]) =>
+      TEMPLATE_VERSION_STATUSES.filter((status) =>
+        canEditVersionContent(status, permissionsForRoles(roles)),
+      );
+    expect(editableFor(['DESIGNER'])).toEqual(['DRAFT']);
+    expect(editableFor(['TEMPLATE_ADMIN'])).toEqual(['DRAFT']);
+    expect(editableFor(['ORG_ADMIN'])).toEqual(['DRAFT']);
+    expect(editableFor(['APPROVER', 'QA'])).toEqual([]);
+    expect(editableFor(['VIEWER'])).toEqual([]);
+    expect(editableFor(['DATA_OPERATOR', 'PRODUCTION_OPERATOR'])).toEqual([]);
   });
 });
 

@@ -5,6 +5,7 @@ import {
   formatDimensions,
   formatLength,
 } from '@smarttag/document-utils';
+import { canEditVersionContent } from '@smarttag/shared-types';
 import {
   Alert,
   Button,
@@ -29,6 +30,7 @@ import {
   useTransitionVersion,
   useUpdateTemplate,
 } from './api';
+import { designerPath } from './routes';
 import { TemplateStatusBadge, VersionStatusBadge } from './status-badges';
 import { VersionsTable } from './versions-table';
 
@@ -53,6 +55,10 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
   const data = template.data;
   const summary = data.currentVersion?.summary;
   const mutationError = transition.error ?? createVersion.error ?? updateTemplate.error;
+  const editableCurrentVersion =
+    data.currentVersion && canEditVersionContent(data.currentVersion.status, session.permissions)
+      ? data.currentVersion
+      : null;
 
   return (
     <>
@@ -72,6 +78,15 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
         }
         actions={
           <>
+            {editableCurrentVersion ? (
+              <Link
+                href={designerPath(data.id, editableCurrentVersion.id)}
+                data-testid="template-edit-in-designer"
+                className={buttonStyles({ variant: 'primary' })}
+              >
+                Edit v{editableCurrentVersion.versionNumber} in designer
+              </Link>
+            ) : null}
             {data.currentVersion && can('template-version:create') && data.status === 'ACTIVE' ? (
               <Button
                 variant="secondary"
@@ -230,7 +245,7 @@ export function TemplateDetailView({ templateId }: { templateId: string }) {
         <Card className="mt-6">
           <CardHeader
             title={`Preview — v${data.currentVersion.versionNumber}`}
-            description="Rendered from the stored canonical document. Barcodes and QR codes are placeholders in Phase 1."
+            description="Rendered from the stored canonical document."
             actions={
               <Link
                 href={`/developer/playground?versionId=${data.currentVersion.id}`}
