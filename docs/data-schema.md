@@ -2,7 +2,7 @@
 
 Every template version declares the variable data its artwork needs: the **data schema**
 (`document.dataSchema.fields`, schema version 3). Records — typed in the designer's Test Data
-today, arriving from APIs and CSV/Excel imports later — are validated against it by one shared
+today, arriving from CSV/Excel imports since Phase 4 and APIs later — are validated against it by one shared
 implementation in `@smarttag/data-core`.
 
 ```text
@@ -16,7 +16,7 @@ data record (not stored with the template)
 
 The schema belongs to the canonical document, so it is versioned, hashed, approved and immutable
 together with the artwork. Records are **not** part of the document: test data is temporary editor
-context, and production records will live in datasets (Phase 4).
+context; production records live in datasets ([datasets.md](datasets.md)).
 
 ## Field definition
 
@@ -221,15 +221,18 @@ record value (validated) → field default → missing-data policy
 | Pattern source               | 200 characters, ≤ 2 000 automaton states, repetitions ≤ 100    |
 | Expression source            | 2 000 characters (see [expressions.md](expressions.md#limits)) |
 
-## Future CSV / Excel / API architecture (Phase 4)
+## CSV / Excel imports (Phase 4) and future APIs
 
 ```text
-CSV / Excel / ERP payload
-   └─ mapping profile: external column → field key
+CSV / Excel (later: ERP payload)
+   └─ mapping (optionally from a mapping profile): source column → field key, parsing rules
         └─ record (per row) ──validateDataRecord──▶ normalized record + DATA issues
              └─ resolveDocumentBindings + checkResolvedObjects (+ layout) ──▶ per-row issues
 ```
 
-Importers only need to map columns to keys; typing, defaults, rules, missing values, expressions,
-barcode checks and the validation summary UI are already shared. The validation API
+The Phase 4 importer only maps columns to keys and normalizes ingestion formats (decimal
+separators, date formats, boolean tokens — [import-normalization.md](import-normalization.md));
+typing, defaults, rules, missing values, expressions and barcode checks are this shared pipeline.
+The data schema hash (`computeDataSchemaHash`) identifies a schema for mapping profiles
+([mapping-profiles.md](mapping-profiles.md)). The validation API
 (`POST /template-versions/:id/data/validate`) is the same pipeline for one record.

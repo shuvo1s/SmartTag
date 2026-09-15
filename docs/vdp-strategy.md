@@ -76,7 +76,7 @@ See [data-bindings.md](data-bindings.md).
 ## Batch VDP (later phases)
 
 ```text
-Dataset (CSV / Excel / API / ERP)  ──map columns → field keys──▶  validated records (datasetHash)
+DatasetVersion (Phase 4: CSV / Excel; later API / ERP)  ──mapped + validated──▶  records (datasetHash)
 TemplateVersion (APPROVED, documentHash)
              │
              ▼  worker job (correlationId, versionId, datasetId, rendererVersion)

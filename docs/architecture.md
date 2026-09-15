@@ -30,7 +30,7 @@ flowchart LR
   end
 
   subgraph "apps/worker (BullMQ)"
-    Jobs[Job registry<br/>render/VDP processors in later phases]
+    Jobs[Job registry<br/>import inspection · validation · cleanup]
   end
 
   DB[(PostgreSQL<br/>Prisma migrations)]
@@ -43,17 +43,17 @@ flowchart LR
   Services --> DB
   Services --> Store
   Services --> Audit --> DB
-  Services -. enqueue (later) .-> Redis --> Jobs
-  Jobs -. read versions / write outputs .-> DB & Store
+  Services -- enqueue imports --> Redis --> Jobs
+  Jobs -- read sources · write dataset records --> DB & Store
 ```
 
-| Component          | Responsibility                                                                                                          | Must not                                                       |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| **apps/web**       | Presentation, forms, previews, navigation. Talks only to its own origin.                                                | Contain business rules, authorization decisions or print math. |
-| **apps/api**       | Authentication, authorization, tenant scoping, validation, persistence, audit, storage.                                 | Trust the browser for anything.                                |
-| **apps/worker**    | Asynchronous jobs (rendering, VDP batches, exports). Phase 1 ships the job registry and a `system.ping` processor only. | Accept unvalidated payloads.                                   |
-| **PostgreSQL**     | System of record, including invariants enforced by constraints and triggers.                                            | —                                                              |
-| **Object storage** | Asset bytes, later rendered outputs. Records store only an opaque key.                                                  | Be referenced by vendor-specific URLs in records.              |
+| Component          | Responsibility                                                                                                    | Must not                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **apps/web**       | Presentation, forms, previews, navigation. Talks only to its own origin.                                          | Contain business rules, authorization decisions or print math. |
+| **apps/api**       | Authentication, authorization, tenant scoping, validation, persistence, audit, storage.                           | Trust the browser for anything.                                |
+| **apps/worker**    | Asynchronous jobs: data import inspection, row validation and cleanup (Phase 4); rendering and VDP batches later. | Accept unvalidated payloads.                                   |
+| **PostgreSQL**     | System of record, including invariants enforced by constraints and triggers.                                      | —                                                              |
+| **Object storage** | Asset bytes, later rendered outputs. Records store only an opaque key.                                            | Be referenced by vendor-specific URLs in records.              |
 
 ## Repository layout
 
@@ -68,7 +68,13 @@ packages/
   document-schema/  Canonical DesignDocument types, Zod schemas, validator, migrations
   document-utils/   Units, canonical JSON + hashing, builders, binding introspection, fixtures
   data-core/        Data records: validation, normalization, binding resolution, resolved-object and
-                    layout checks, field usages, resolved-input hashing
+                    layout checks, field usages, resolved-input hashing, data schema hash
+  import-core/      Import domain: source model, parsing rules, mapping, suggestions, profile
+                    compatibility, row pipeline onto data-core, dataset hashing, import lifecycle
+  tabular-sources/  CSV (csv-parse) and XLSX (yauzl + sax) readers behind TabularSourceParser (Node)
+  import-processing/ Worker jobs: inspection, streamed validation into draft dataset versions, cleanup
+  database/         Prisma schema, migrations (incl. integrity triggers) and generated client
+  object-storage/   Storage contract, local/S3 drivers and key layout (API + worker)
   rendering-core/   Text layout engine, symbol geometry, image placement, document → scene → SVG
                     (no React, no DOM)
   barcode-core/     Symbology rules, check digits, value validation, encoder contract
@@ -157,7 +163,7 @@ flowchart BT
 - **Configuration** — every process validates its full environment at startup
   (`@smarttag/config`) and refuses to start with a list of invalid variable _names_ (never values).
 
-## Future worker
+## Worker
 
 BullMQ is wired in `apps/worker` with:
 
@@ -166,5 +172,8 @@ BullMQ is wired in `apps/worker` with:
   and lets handler errors retry
 - `correlationId` in every payload, so a job traces back to the request that created it
 
-Planned processors: preview rendering, VDP batch rendering, PDF export and data imports.
+Phase 4 runs the `smarttag-imports` queue: `import.inspect`, `import.validate` and a scheduled
+`data.cleanup` (processors in `@smarttag/import-processing`, job ids derived from the import
+and its run number so retries never duplicate work; see [data-imports.md](data-imports.md)).
+Planned processors: preview rendering, VDP batch rendering and PDF export.
 Each reads an **exact TemplateVersion** (never "latest"), plus a dataset and a renderer version.

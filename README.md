@@ -3,13 +3,14 @@
 Enterprise web platform for label and hang-tag artwork, variable data printing and print
 production, built around a **canonical, versioned document model**.
 
-> **Status: Phase 3 — variable fields, data schema and dynamic content.** On top of Phase 1
+> **Status: Phase 4 — CSV/Excel import, field mapping and datasets.** On top of Phase 1
 > (canonical DesignDocument, validation, hashing, multi-tenant API with RBAC, immutable versions,
-> assets) and Phase 2 (professional canvas designer, controlled fonts, real barcodes/QR codes): typed
-> data schemas with validation rules (schema v3), field and expression bindings for text, barcodes,
-> QR codes, images and visibility, a safe expression engine, Test Data preview in the designer, a
-> shared record validation/resolution pipeline (`data-core`) and a record validation API. CSV/Excel
-> import and field mapping, batch VDP, approval workflow, print-ready PDF/CMYK and preflight are
+> assets), Phase 2 (canvas designer, controlled fonts, real barcodes/QR codes) and Phase 3 (typed
+> data schemas, field and expression bindings, Test Data preview, the shared record pipeline
+> `data-core`): secure CSV/XLSX upload and inspection in the worker, sheet/header selection, field
+> mapping with deterministic suggestions, explicit parsing rules, reusable mapping profiles, row
+> validation through the Phase 3 pipeline, row review with visual preview, and immutable, hashed
+> dataset versions. Batch VDP production, approval workflow, print-ready PDF/CMYK and preflight are
 > later phases.
 
 ## Stack
@@ -110,6 +111,21 @@ smoke suite (login, designer, Data panel, test data, live preview, save) runs in
 | `npm run verify`           | Format check, lint, typecheck, unit, integration and build, in order (run `test:e2e` separately)                                                                                                                                        |
 | `npm run db:migrate`       | Create a new migration in development (`prisma migrate dev`)                                                                                                                                                                            |
 | `npm run format`           | Prettier                                                                                                                                                                                                                                |
+
+## Data imports
+
+CSV and Excel imports run in the worker and need Redis:
+
+```bash
+npm run redis:local -- start        # or: docker compose up -d redis
+# apps/api/.env and apps/worker/.env: REDIS_URL=redis://127.0.0.1:56379
+npm run db:migrate:deploy           # applies the dataset migrations (non-destructive)
+npm run dev                         # api + web
+npm run dev -w @smarttag/worker     # worker (inspection, validation, cleanup)
+```
+
+Seeded users with data access: `admin@smarttag.local` (all permissions) and, on newly seeded
+databases, `data@smarttag.local` (data operator). See [docs/data-imports.md](docs/data-imports.md).
 
 ## Documentation
 

@@ -62,14 +62,15 @@ not a security boundary.
 
 Separation of duties by default: designers create and submit, approvers approve, and viewers only read.
 
-| Role                                       | Highlights                                                                                                            |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| SUPER_ADMIN, ORG_ADMIN                     | All permissions **within their organization** (cross-tenant platform administration is intentionally not implemented) |
-| TEMPLATE_ADMIN                             | Templates, versions (except approve), customers, assets                                                               |
-| DESIGNER                                   | Create/edit templates and drafts, submit for review, upload assets                                                    |
-| QA                                         | Read + return versions to draft                                                                                       |
-| APPROVER                                   | Read + review + approve                                                                                               |
-| DATA_OPERATOR, PRODUCTION_OPERATOR, VIEWER | Read (their data/production permissions arrive with those modules)                                                    |
+| Role                        | Highlights                                                                                                            |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| SUPER_ADMIN, ORG_ADMIN      | All permissions **within their organization** (cross-tenant platform administration is intentionally not implemented) |
+| TEMPLATE_ADMIN              | Templates, versions (except approve), customers, assets                                                               |
+| DESIGNER                    | Create/edit templates and drafts, submit for review, upload assets                                                    |
+| QA                          | Read + return versions to draft                                                                                       |
+| APPROVER                    | Read + review + approve                                                                                               |
+| DATA_OPERATOR               | Read + import data (`dataset:create`), finalize datasets, download sources, manage mapping profiles                   |
+| PRODUCTION_OPERATOR, VIEWER | Read (including datasets and profiles); production permissions arrive with that module                                |
 
 ## Tenant isolation — layered
 
@@ -163,6 +164,27 @@ only — it never executes as JavaScript, HTML, SVG script, SQL, shell or file/n
   record at the API, 2 000 characters per expression, 200 per pattern, 500 fields per schema.
 - **Confidentiality**: test data stays in the editor session; the validation API does not log or audit
   records; audit metadata for documents carries counts and hashes only.
+
+## Data imports
+
+Uploaded CSV/XLSX files and every value in them are untrusted ([data-imports.md](data-imports.md)).
+
+| Threat                    | Control                                                                                                                                    | Tests                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Disguised or legacy files | Extension **and** content signature must agree; `.xls`, `.xlsm`, `.xlsb`, `.ods`, encrypted workbooks refused; browser MIME ignored        | tabular-sources, API integration    |
+| Oversized uploads         | Multer limit while streaming (`IMPORT_FILE_TOO_LARGE`)                                                                                     | integration                         |
+| ZIP bombs                 | Entry count, declared uncompressed total, per-entry compression ratio checked before inflating; inflated bytes counted and capped per part | tabular-sources (bomb, lying sizes) |
+| XML attacks               | Streaming SAX without DTDs; any `DOCTYPE` refused (billion laughs, external entities)                                                      | tabular-sources                     |
+| Macros and formulas       | Macro parts/content types refused; formulas never evaluated (cached result + warning, or error); external links never followed             | tabular-sources, integration, E2E   |
+| Malformed CSV             | Strict RFC 4180 parsing; failures stop the import with a line number                                                                       | tabular-sources, integration        |
+| Resource exhaustion       | Row, column, sheet, cell and shared-string limits; streamed CSV; worksheets streamed; batches of 500 rows                                  | tabular-sources                     |
+| Blocking the API          | Parsing and validation only in the worker; API latency measured during a 100,000-row validation                                            | benchmark                           |
+| Cross-tenant data         | Every table has `organization_id` and composite foreign keys; every query filters by it; `404` for foreign ids                             | integration, E2E                    |
+| Cross-tenant assets       | Image cells accept asset ids only; availability looked up per organization (`UNKNOWN_ASSET_REFERENCE`); links and paths never read         | import-core, integration, E2E       |
+| Foreign mapping profiles  | Profiles listed, evaluated and referenced only within the organization, even with an identical schema hash                                 | integration                         |
+| Raw data exposure         | Source downloads need `dataset:read-source`, are attachments with a sandbox CSP and `nosniff`, and are audited; storage URLs never exposed | integration                         |
+| Silent data changes       | Finalized versions, records and profile revisions immutable by trigger; revisions/runs guard concurrent changes                            | integration                         |
+| Audit leakage             | Audit metadata carries counts, hashes, statuses and ids — never row values                                                                 | integration                         |
 
 ## Logging, secrets and errors
 

@@ -1,4 +1,4 @@
-# API reference (Phase 3)
+# API reference (Phase 4)
 
 Base path: `/api/v1`. JSON in, JSON out. Authentication is the session cookie set by
 `POST /auth/login`. Browsers reach the API through the web app's same-origin proxy (a streaming
@@ -36,6 +36,27 @@ Every non-2xx response has the same shape:
 | `UNSUPPORTED_SCHEMA_VERSION` | 422  | Document from an unknown schema version                        |
 | `RATE_LIMITED`               | 429  | Login throttling                                               |
 | `INTERNAL_ERROR`             | 500  | Unexpected failure (details only in logs)                      |
+| `SERVICE_UNAVAILABLE`        | 503  | Background processing (Redis) not configured for data imports  |
+
+Data imports and datasets add:
+
+| Code                          | HTTP | Typical cause                                                                   |
+| ----------------------------- | ---- | ------------------------------------------------------------------------------- |
+| `UNSUPPORTED_IMPORT_FORMAT`   | 415  | Not `.csv`/`.xlsx`, content does not match, legacy XLS, macros, binary workbook |
+| `IMPORT_FILE_TOO_LARGE`       | 413  | Upload over `IMPORT_MAX_FILE_BYTES`                                             |
+| `IMPORT_FILE_MALFORMED`       | 422  | Damaged workbook container                                                      |
+| `WORKBOOK_LIMIT_EXCEEDED`     | 422  | ZIP entries, uncompressed size or compression ratio over the limits             |
+| `INVALID_SOURCE_SETTINGS`     | 422  | Unknown worksheet, header row outside the preview or empty, unusable sheet      |
+| `MAPPING_INCOMPLETE`          | 422  | Validation requested while required fields are unmapped                         |
+| `TARGET_FIELD_ALREADY_MAPPED` | 422  | Two columns for one field; `details.mappingIssues`                              |
+| `IMPORT_NOT_READY`            | 409  | Action not possible in the import's current status (e.g. while processing)      |
+| `TEMPLATE_VERSION_CHANGED`    | 409  | The draft template version was edited after the import started                  |
+| `DATASET_HAS_ERRORS`          | 409  | Finalizing with error rows                                                      |
+| `WARNINGS_NOT_ACKNOWLEDGED`   | 409  | Finalizing with warnings without `acknowledgeWarnings`                          |
+| `DATASET_IMMUTABLE`           | 409  | Changing a finalized import or dataset version                                  |
+
+Row-level problems are not HTTP errors: they are stored with each record (`issues`, layers
+IMPORT/DATA/BINDING/OBJECT).
 
 Every response carries `X-Request-Id`. A well-formed incoming `X-Request-Id` is propagated.
 
@@ -67,6 +88,39 @@ Every response carries `X-Request-Id`. A well-formed incoming `X-Request-Id` is 
 | GET    | `/assets/:assetId`                            | `asset:read`                                          | Asset metadata                                                                               |
 | GET    | `/assets/:assetId/content`                    | `asset:read`                                          | Asset bytes (sandboxed headers)                                                              |
 | GET    | `/fonts`                                      | `asset:read`                                          | Font registry of the active organization (`FontFaceDto[]`)                                   |
+
+### Data imports, datasets and mapping profiles
+
+| Method | Path                                              | Authorization            | Description                                                                                                       |
+| ------ | ------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| POST   | `/template-versions/:versionId/imports`           | `dataset:create`         | Multipart `file` (+ optional `targetDatasetId`); stores the original, queues inspection (201)                     |
+| GET    | `/template-versions/:versionId/data-template.csv` | `template:read`          | CSV with the version's field keys as headers                                                                      |
+| GET    | `/data-imports`                                   | `dataset:read`           | Import history; `page`, `pageSize`, `status`, `templateVersionId`                                                 |
+| GET    | `/data-imports/:importId`                         | `dataset:read`           | Status, progress, inspection, columns, mapping + validation, suggestions, profile evaluations, results            |
+| PATCH  | `/data-imports/:importId/source-settings`         | `dataset:create`         | `{ expectedRevision, settings }` — sheet/header row, or CSV encoding/delimiter (re-inspects)                      |
+| PATCH  | `/data-imports/:importId/mapping`                 | `dataset:create`         | `{ expectedRevision, mapping, profile }`                                                                          |
+| POST   | `/data-imports/:importId/validate`                | `dataset:create`         | `{ expectedRevision }` — queues validation (200)                                                                  |
+| POST   | `/data-imports/:importId/retry`                   | `dataset:create`         | Retries a failed inspection or validation                                                                         |
+| POST   | `/data-imports/:importId/cancel`                  | `dataset:create`         | Cancels; drafts and the upload are cleaned up in the background                                                   |
+| POST   | `/data-imports/:importId/finalize`                | `dataset:finalize`       | `{ expectedRevision, acknowledgeWarnings, dataset: { mode: 'NEW', name, … } \| { mode: 'EXISTING', datasetId } }` |
+| GET    | `/data-imports/:importId/rows`                    | `dataset:read`           | Validated rows (draft or finalized); `page`, `pageSize`, `status`, `duplicates`, `search`                         |
+| GET    | `/data-imports/:importId/rows/:sequence`          | `dataset:read`           | One row with issues and previous/next sequence in the same filter                                                 |
+| GET    | `/data-imports/:importId/source`                  | `dataset:read-source`    | Original file (attachment, sandboxed, audited)                                                                    |
+| GET    | `/datasets`                                       | `dataset:read`           | Datasets with their latest version; `search`                                                                      |
+| POST   | `/datasets`                                       | `dataset:create`         | Create an empty dataset                                                                                           |
+| GET    | `/datasets/:datasetId`                            | `dataset:read`           | Dataset with all finalized versions                                                                               |
+| GET    | `/dataset-versions/:versionId`                    | `dataset:read`           | Finalized version: provenance, hashes, mapping snapshot, summary                                                  |
+| GET    | `/dataset-versions/:versionId/records`            | `dataset:read`           | Paginated records (same filters as rows)                                                                          |
+| GET    | `/dataset-versions/:versionId/records/:sequence`  | `dataset:read`           | One record                                                                                                        |
+| GET    | `/dataset-versions/:versionId/source`             | `dataset:read-source`    | Original file of the version                                                                                      |
+| GET    | `/mapping-profiles`                               | `mapping-profile:read`   | Profiles of the organization; `dataSchemaHash`, `status`                                                          |
+| POST   | `/mapping-profiles`                               | `mapping-profile:manage` | `{ name, description, importId }` from an import's complete mapping (201)                                         |
+| GET    | `/mapping-profiles/:profileId`                    | `mapping-profile:read`   | Profile with revision history                                                                                     |
+| PATCH  | `/mapping-profiles/:profileId`                    | `mapping-profile:manage` | `{ expectedRevision, name?, description?, status?, importId? }` — creates a new revision                          |
+
+Every id is tenant-scoped (another organization's id is `404`). See
+[data-imports.md](data-imports.md), [mapping-profiles.md](mapping-profiles.md) and
+[datasets.md](datasets.md) for the models and behaviour.
 
 Request and response types are defined in `packages/shared-types` (`CreateTemplateRequestSchema`,
 `TemplateDto`, `TemplateVersionDetailDto`, …).
