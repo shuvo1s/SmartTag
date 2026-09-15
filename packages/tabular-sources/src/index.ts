@@ -18,7 +18,7 @@ export * from './csv';
 export * from './detect';
 export * from './errors';
 export * from './parser';
-export { XLSX_PARSER_INFO, XlsxSourceParser } from './xlsx';
+export { XLSX_PARSER_INFO, XlsxSourceParser, checkWorkbookContainer } from './xlsx';
 export { isDateFormatCode } from './xlsx/workbook';
 export { WorkbookZip } from './xlsx/zip';
 

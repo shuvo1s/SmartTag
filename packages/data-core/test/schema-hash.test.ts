@@ -22,13 +22,11 @@ describe('computeDataSchemaHash', () => {
   it('ignores presentation: display names, descriptions and field order', async () => {
     const hash = await computeDataSchemaHash(schema);
     const presented: DataSchema = {
-      fields: [...VARIABLE_DATA_FIELDS]
-        .reverse()
-        .map((field) => ({
-          ...field,
-          displayName: `${field.displayName} (renamed)`,
-          description: 'x',
-        })),
+      fields: [...VARIABLE_DATA_FIELDS].reverse().map((field) => ({
+        ...field,
+        displayName: `${field.displayName} (renamed)`,
+        description: 'x',
+      })),
     };
     expect(await computeDataSchemaHash(presented)).toBe(hash);
     expect(dataSchemaContract(presented)).toEqual(dataSchemaContract(schema));

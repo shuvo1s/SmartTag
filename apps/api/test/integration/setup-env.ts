@@ -18,3 +18,5 @@ process.env.AUTH_COOKIE_SECURE = 'false';
 process.env.AUTH_LOGIN_RATE_LIMIT_PER_MINUTE = '1000';
 process.env.API_ALLOWED_ORIGINS = 'http://localhost:3000';
 process.env.ASSET_MAX_UPLOAD_BYTES = String(64 * 1024);
+// Background jobs use a dedicated Redis logical database; import tests start an in-process worker.
+process.env.REDIS_URL = process.env.TEST_REDIS_URL ?? 'redis://127.0.0.1:56379/14';

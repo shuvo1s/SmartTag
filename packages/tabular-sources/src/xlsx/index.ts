@@ -46,6 +46,22 @@ async function openWorkbook(input: SourceInput, limits: ImportLimits) {
   }
 }
 
+/**
+ * Fast upload-time check of a workbook container: ZIP limits, macro/binary content and worksheet
+ * count, without reading any worksheet. Throws SourceReadError. Full reading happens in the worker.
+ */
+export async function checkWorkbookContainer(
+  buffer: Buffer,
+  limits: ImportLimits,
+): Promise<number> {
+  const zip = await WorkbookZip.open(buffer, limits);
+  try {
+    return (await readWorkbookStructure(zip, limits)).sheets.length;
+  } finally {
+    zip.close();
+  }
+}
+
 export class XlsxSourceParser implements TabularSourceParser {
   readonly format = 'XLSX' as const;
   readonly info = XLSX_PARSER_INFO;

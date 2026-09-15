@@ -62,7 +62,9 @@ export function settingsAfterInspection(
   if (current.sheetName && inspection.sheets.some((sheet) => sheet.name === current.sheetName)) {
     return current;
   }
-  const visible = inspection.sheets.filter((sheet) => sheet.visible && sheet.issues.length === 0);
+  // Only a workbook with exactly one visible sheet is unambiguous (its problems, if any, are
+  // reported by checkSourceSettings); several visible sheets always need the user's choice.
+  const visible = inspection.sheets.filter((sheet) => sheet.visible);
   return { ...current, sheetName: visible.length === 1 ? visible[0]!.name : null };
 }
 

@@ -25,6 +25,11 @@ import {
   REQUIRED_PERMISSIONS_KEY,
 } from './modules/authorization/authorization.decorators';
 import { CustomersController } from './modules/customers/customers.controller';
+import {
+  DataImportsController,
+  DatasetsController,
+  MappingProfilesController,
+} from './modules/data/data.controllers';
 import { HealthController } from './modules/health/health.controller';
 import { TemplateVersionsController } from './modules/templates/template-versions.controller';
 import { TemplatesController } from './modules/templates/templates.controller';
@@ -50,6 +55,9 @@ describe('authorization coverage', () => {
     TemplatesController,
     TemplateVersionsController,
     AssetsController,
+    DataImportsController,
+    DatasetsController,
+    MappingProfilesController,
   ];
 
   const routes = controllers.flatMap((controller) =>

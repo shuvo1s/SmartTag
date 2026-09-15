@@ -1,7 +1,13 @@
 import http from 'node:http';
 import https from 'node:https';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { detectSourceFormat, parserFor, sourceFromBuffer, WorkbookZip } from '../src';
+import {
+  checkWorkbookContainer,
+  detectSourceFormat,
+  parserFor,
+  sourceFromBuffer,
+  WorkbookZip,
+} from '../src';
 import { buildXlsxWorkbook, buildZip } from '../src/testing';
 import { limits, patchDeclaredSize, readAllRows, xlsxSettings } from './helpers';
 
@@ -305,6 +311,17 @@ describe('format detection trusts content, not names or MIME types', () => {
       expect(result.code).toBe('UNSUPPORTED_IMPORT_FORMAT');
       expect(result.message).toMatch(message);
     }
+  });
+
+  it('checks workbook containers quickly at upload time', async () => {
+    await expect(checkWorkbookContainer(simple(), limits())).resolves.toBe(1);
+    const withVba = buildXlsxWorkbook({
+      sheets: [{ name: 'Data', rows: [['A']] }],
+      extraParts: { 'xl/vbaProject.bin': new Uint8Array([1]) },
+    });
+    await expect(checkWorkbookContainer(withVba, limits())).rejects.toMatchObject({
+      code: 'MACROS_NOT_SUPPORTED',
+    });
   });
 
   it('opens a valid container only once limits pass', async () => {

@@ -14,6 +14,7 @@ import { AuthenticationGuard } from './modules/auth/authentication.guard';
 import { OriginGuard } from './modules/authorization/origin.guard';
 import { PermissionsGuard } from './modules/authorization/permissions.guard';
 import { CustomersModule } from './modules/customers/customers.module';
+import { DataModule } from './modules/data/data.module';
 import { HealthController } from './modules/health/health.controller';
 import { TemplatesModule } from './modules/templates/templates.module';
 
@@ -38,6 +39,7 @@ export class AppModule {
         CustomersModule,
         TemplatesModule,
         AssetsModule,
+        DataModule,
       ],
       controllers: [HealthController],
       providers: [

@@ -9,6 +9,7 @@ import {
   redisUrl,
   type EnvironmentSource,
 } from '@smarttag/config';
+import { loadImportSettings, type ImportProcessingSettings } from '@smarttag/import-processing';
 import { z } from 'zod';
 
 const EnvSchema = z
@@ -91,6 +92,8 @@ export interface AppConfig {
         readonly secretAccessKey: string | null;
       };
   readonly assets: { readonly maxUploadBytes: number };
+  /** Data import limits and retention (shared variables with the worker). */
+  readonly imports: ImportProcessingSettings;
   readonly auth: {
     readonly sessionTtlMs: number;
     readonly idleTimeoutMs: number;
@@ -134,6 +137,7 @@ export function loadAppConfig(source: EnvironmentSource): AppConfig {
           }
         : { driver: 'local', localRoot: env.OBJECT_STORAGE_LOCAL_ROOT },
     assets: { maxUploadBytes: env.ASSET_MAX_UPLOAD_BYTES },
+    imports: loadImportSettings(source),
     auth: {
       sessionTtlMs: env.AUTH_SESSION_TTL_HOURS * 60 * 60 * 1000,
       idleTimeoutMs: env.AUTH_SESSION_IDLE_TIMEOUT_MINUTES * 60 * 1000,
