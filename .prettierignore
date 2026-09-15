@@ -3,8 +3,8 @@ dist
 .next
 .turbo
 coverage
-.local
-storage
+/.local
+/storage
 apps/api/src/generated
 apps/api/prisma/migrations/**/*.sql
 package-lock.json

@@ -21,8 +21,8 @@ apps/api/src/generated/
 !.env.test.example
 
 # local infrastructure data (project-local Postgres cluster, local object storage)
-.local/
-storage/
+/.local/
+/storage/
 
 # test / coverage
 coverage/
