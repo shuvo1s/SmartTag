@@ -3,12 +3,14 @@
 Enterprise web platform for label and hang-tag artwork, variable data printing and print
 production, built around a **canonical, versioned document model**.
 
-> **Status: Phase 2 — professional canvas designer.** On top of the Phase 1 foundation (canonical
-> DesignDocument, validation, hashing, multi-tenant API with RBAC, immutable template versions,
-> asset storage): an interactive designer for draft versions that edits the canonical document
-> directly, controlled fonts (schema v2 + font registry), real CODE128/EAN-13/QR rendering,
-> server-side SVG sanitization and a Playwright browser suite. Data import and field mapping, batch
-> VDP, approval workflow, print-ready PDF/CMYK and preflight are later phases.
+> **Status: Phase 3 — variable fields, data schema and dynamic content.** On top of Phase 1
+> (canonical DesignDocument, validation, hashing, multi-tenant API with RBAC, immutable versions,
+> assets) and Phase 2 (professional canvas designer, controlled fonts, real barcodes/QR codes): typed
+> data schemas with validation rules (schema v3), field and expression bindings for text, barcodes,
+> QR codes, images and visibility, a safe expression engine, Test Data preview in the designer, a
+> shared record validation/resolution pipeline (`data-core`) and a record validation API. CSV/Excel
+> import and field mapping, batch VDP, approval workflow, print-ready PDF/CMYK and preflight are
+> later phases.
 
 ## Stack
 
@@ -16,6 +18,7 @@ production, built around a **canonical, versioned document model**.
 | -------- | ---------------------------------------------------------------------------------------------- |
 | Web      | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, TanStack Query, React Hook Form |
 | Designer | Fabric.js 7 (isolated in `canvas-adapter`), framework-free `editor-core`, bwip-js 4 encoders   |
+| Data     | `data-core` (records, bindings, validation layers), `expression-core` (safe expressions)       |
 | API      | NestJS 11, Zod contracts, pino logging, fontkit (font registry), xmldom (SVG sanitizer)        |
 | Database | PostgreSQL (16+; developed on 18), Prisma 7 migrations                                         |
 | Jobs     | BullMQ + Redis (foundation)                                                                    |
@@ -28,8 +31,10 @@ production, built around a **canonical, versioned document model**.
 apps/api          NestJS API · prisma/ (schema, migrations, seed) · test/integration
 apps/web          Next.js application
 apps/worker       BullMQ worker foundation
+packages/expression-core   safe expression language, exact decimals, linear-time patterns
 packages/document-schema   canonical DesignDocument schema + validator + migrations
-packages/document-utils    units, canonical JSON/hashing, builders, bindings, fixtures
+packages/document-utils    units, canonical JSON/hashing, builders, binding introspection, fixtures
+packages/data-core         data records: validation, normalization, resolution, checks, hashing
 packages/rendering-core    text layout engine, symbols, image placement, document → scene → SVG
 packages/barcode-core      symbology rules, validation, encoder contract, symbol geometry
 packages/barcode-bwip      BarcodeEncoder adapter backed by bwip-js
@@ -82,27 +87,29 @@ Useful pages: **Templates** (**New template** creates a blank draft and opens it
 a template's detail page (versions with **Edit in designer** for editable drafts, lifecycle actions,
 preview), a version page (designer, view-only for other statuses and roles) and
 **Developer → Document playground** (validate and preview canonical JSON, apply a data record).
+In the designer, the **Data** panel defines fields and test data, properties bind to fields or
+expressions, and **Data preview** shows the artwork with the test record.
 The seed registers Noto Sans (Regular, Medium, SemiBold, Bold) and Noto Sans Bengali Regular as
-controlled fonts (SIL Open Font License) and a sample hang tag with an approved schema v1 version
-and a schema v2 draft.
+controlled fonts (SIL Open Font License), a sample hang tag `HT-DEMO-50X90` with an approved schema v1
+version and a schema v2 draft (both stored as genuine older-schema JSON), and `HT-VDP-50X90`, a
+variable data hang tag (schema v3) with rules, expressions and conditional visibility.
 
-The designer is desktop-first (≥ 1024 px wide). It is developed and verified on Chromium (the
-browser suite runs there); Firefox and Safari use only standard APIs but are not yet covered by
-automated tests.
+The designer is desktop-first (≥ 1024 px wide). The complete browser suite runs in Chromium; a
+smoke suite (login, designer, Data panel, test data, live preview, save) runs in Firefox and WebKit.
 
 ## Scripts
 
-| Command                    | Purpose                                                                                                                                                   |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run lint`             | ESLint (type-aware) across all workspaces                                                                                                                 |
-| `npm run typecheck`        | TypeScript across all workspaces                                                                                                                          |
-| `npm run test`             | Unit and component tests                                                                                                                                  |
-| `npm run test:integration` | API integration tests against `TEST_DATABASE_URL` (a database whose name ends in `_test`; the schema is dropped and rebuilt from migrations on every run) |
-| `npm run test:e2e`         | Playwright browser tests against production builds on isolated ports (API :4310, web :3310) and the disposable `smarttag_e2e` database                    |
-| `npm run build`            | Production builds                                                                                                                                         |
-| `npm run verify`           | Format check, lint, typecheck, unit, integration and build, in order (run `test:e2e` separately)                                                          |
-| `npm run db:migrate`       | Create a new migration in development (`prisma migrate dev`)                                                                                              |
-| `npm run format`           | Prettier                                                                                                                                                  |
+| Command                    | Purpose                                                                                                                                                                                                                                 |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint`             | ESLint (type-aware) across all workspaces                                                                                                                                                                                               |
+| `npm run typecheck`        | TypeScript across all workspaces                                                                                                                                                                                                        |
+| `npm run test`             | Unit and component tests                                                                                                                                                                                                                |
+| `npm run test:integration` | API integration tests against `TEST_DATABASE_URL` (a database whose name ends in `_test`; the schema is dropped and rebuilt from migrations on every run)                                                                               |
+| `npm run test:e2e`         | Playwright browser tests against production builds on isolated ports (API :4310, web :3310) and the disposable `smarttag_e2e` database (Chromium; Firefox/WebKit smoke — install with `npx playwright install chromium firefox webkit`) |
+| `npm run build`            | Production builds                                                                                                                                                                                                                       |
+| `npm run verify`           | Format check, lint, typecheck, unit, integration and build, in order (run `test:e2e` separately)                                                                                                                                        |
+| `npm run db:migrate`       | Create a new migration in development (`prisma migrate dev`)                                                                                                                                                                            |
+| `npm run format`           | Prettier                                                                                                                                                                                                                                |
 
 ## Documentation
 
@@ -112,6 +119,9 @@ automated tests.
 - [Browser canvas strategy](docs/browser-canvas-strategy.md)
 - [Professional canvas designer](docs/editor.md)
 - [Typography and fonts](docs/typography.md)
+- [Data schema and data records](docs/data-schema.md)
+- [Data bindings, test data and validation layers](docs/data-bindings.md)
+- [Expressions](docs/expressions.md)
 - [Rendering strategy](docs/rendering-strategy.md)
 - [Versioning strategy](docs/versioning-strategy.md)
 - [VDP strategy](docs/vdp-strategy.md)

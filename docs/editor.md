@@ -22,8 +22,10 @@ mirrors the two checks the API enforces on `PATCH /template-versions/:id` (permi
 DRAFT status). Showing a link grants nothing: the API still checks permission, organization,
 status and revision on every save.
 
-A new template's draft is a blank schema v2 document built by the API from the form (trim size,
-bleed, safe margin, front only or front + back) with no artwork; nothing is migrated or added.
+A new template's draft is a blank schema v3 document built by the API from the form (trim size,
+bleed, safe margin, front only or front + back) with no artwork or data fields; nothing is migrated
+or added. Drafts stored with an older schema open migrated in memory, with a banner that saving
+upgrades them.
 
 ## Canvas architecture
 
@@ -72,6 +74,7 @@ bleed, safe margin, front only or front + back) with no artwork; nothing is migr
 | Hover, handles, snap guides, active transform                       | Fabric (canvas-adapter)          | no    |
 | Font/image loading state, text layout cache, encoded symbol cache   | Rendering resources              | no    |
 | Revision, last saved hash, save status                              | `SaveController`                 | no    |
+| Test record, Template values / Data preview mode, resolved preview  | `DataPreviewController`          | no    |
 
 React components subscribe to narrow slices (`useSyncExternalStore`). The canvas subscribes to the
 store directly, so pointer movement never re-renders React.
@@ -97,7 +100,9 @@ Fabric → Canonical   qrDecompose(calcTransformMatrix())  (also inside active s
 - Lines keep a zero-height frame; only length and rotation change.
 
 Tests (`packages/canvas-adapter/test/round-trip.test.ts`) prove, per object type and for complete
-documents (v2 sample, migrated v1): Canonical → Fabric → Canonical is identical and hashes
+documents (v3 sample, migrated v1 and v2, the variable-data document with fields, bindings,
+expressions and conditional visibility, the 120-object / 60-binding document — also with Data
+preview active, `data-preview.test.ts`): Canonical → Fabric → Canonical is identical and hashes
 identically; 20 open → canvas → save cycles do not drift; every zoom level and pan reads back the
 same pages; moves change only `x`/`y`; resize leaves no scale factors; rotation normalizes to
 `[0, 360)`. The E2E suite additionally checks that zooming, panning and a no-op save keep the
@@ -197,6 +202,30 @@ The UI hides nothing as a security measure; the API decides.
 | `IN_REVIEW`, `APPROVED`, `ARCHIVED`, …    | "…cannot be edited. Create a new version" banner                 | `409 VERSION_IMMUTABLE` (plus DB trigger) |
 | Stale revision                            | Conflict dialog                                                  | `409 VERSION_CONFLICT`                    |
 
+## Data, bindings and Data preview
+
+Phase 3 adds variable data to the designer (details: [data-schema.md](data-schema.md),
+[data-bindings.md](data-bindings.md), [expressions.md](expressions.md)):
+
+- **Data panel** (left toolbar → Data): _Fields_ lists the data schema — display name, key, type,
+  required badge and "Used by N" with the exact properties; add/edit fields in a dialog (key
+  suggested from the display name, type-specific default and rules), rename keys (all bindings are
+  updated, with a warning), delete (used fields only after confirming that their bindings return to
+  static values), missing-data policy, and drag a field onto the artboard to create bound text.
+  _Test data_ holds one temporary record with type-specific inputs or JSON, the **Data validation**
+  summary and the issue list.
+- **Properties**: Static / Field / Expression for Content (text), Value (barcode, QR), Image (image)
+  and Visibility (every object). Field uses a searchable, type-filtered picker; Expression has
+  insert-field and insert-function menus, live validation and a preview result.
+- **Template values / Data preview** in the top bar. In Data preview the canvas, the canonical
+  preview and the properties panel show the artwork resolved with the test record; objects hidden by
+  data are drawn as hatched ghosts and data issues as corner tags (editor-only). Test data is never
+  saved and never changes the template hash.
+- Every data operation is one undo step: add/edit/rename/delete field, change binding or expression,
+  missing-data policy. Test data changes are not document changes and are not in the history.
+- Read-only sessions (viewers, approvers, approved versions) show fields, usages, bindings and
+  expressions with all controls disabled; test data and Data preview remain available.
+
 ## Preview and compare
 
 - **Preview** renders the active page from the canonical document with rendering-core (scene →
@@ -246,6 +275,20 @@ Ranges cover the Phase 2 verification runs:
 Before symbol caching, the same test measured 25 fps: every redraw re-encoded all barcodes and QR
 codes.
 
+Data preview (`e2e/tests/data-performance.spec.ts`, 120 objects, 40 fields, 60 bound properties of
+which 20 are expressions; report in `e2e/test-results/data-performance.json`):
+
+| Metric                                                                                | Result   | Budget (asserted) |
+| ------------------------------------------------------------------------------------- | -------- | ----------------- |
+| Editor open                                                                           | ≈ 1.6 s  | < 15 s            |
+| Data-core pipeline per test-data change (validate, resolve, object and layout checks) | ≈ 1 ms   | < 50 ms           |
+| Canvas refresh after a change                                                         | ≈ 1.5 ms | < 250 ms          |
+| Type one value → canvas shows it (including Playwright polling)                       | ≈ 70 ms  | < 1 s             |
+
+Full recomputation per change is fast enough, so there is no incremental dependency graph; resolved
+objects keep their identity when their values do not change, which keeps text layout and symbol
+caches effective.
+
 What keeps it fast: one commit per gesture (not per pointer move), identity-diffed canvas sync
 (only changed objects are updated), text layouts memoized per object snapshot, encoded symbols
 memoized per snapshot and encoder, snap targets computed once per gesture, and React isolated
@@ -254,5 +297,6 @@ from pointer events.
 ## Diagnostics
 
 Setting `localStorage["smarttag:editor-diagnostics"] = "1"` exposes `window.__smarttagEditor`
-(`store`, `save`, `canvas`) for support and the browser tests. It grants nothing a same-origin
+(`store`, `save`, `canvas`) for support and the browser tests; `canvas.getFabricObject(id).dataDisplay`
+shows what Data preview draws for an object. It grants nothing a same-origin
 script could not already do and is off by default.

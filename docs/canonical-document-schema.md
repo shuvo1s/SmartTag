@@ -1,4 +1,4 @@
-# Canonical document schema (`DesignDocument`, schema version 2)
+# Canonical document schema (`DesignDocument`, schema version 3)
 
 The canonical document is the **authoritative representation of a design**. It lives in
 `packages/document-schema` and is independent of any editor, canvas library, renderer or
@@ -6,14 +6,14 @@ database. Browser canvases, previews, VDP and future PDF renderers are all _adap
 
 ```text
 DesignDocument
-├── schemaVersion      2
+├── schemaVersion      3
 ├── documentId         UUID of the logical design (= template id; stable across versions)
 ├── metadata           name, description, documentType, language, tags
 ├── dimensions         width, height, orientation, displayUnit, bleed, safeArea, margins, dieline
 ├── printSettings      colorSpace, backSideFlip, cropMarks
 ├── pages[]            id, name, side, background, groups[], objects[]
-├── dataSchema         fields[]
-└── settings           missingDataPolicy
+├── dataSchema         fields[] (key, displayName, type, required, defaultValue, description, validation)
+└── settings           missingDataPolicy (FAIL | WARN | EMPTY)
 ```
 
 A complete example is produced by `createSampleHangTagDocument()` in
@@ -36,7 +36,46 @@ Identifiers:
 - `documentId`, `assetId` — UUIDs.
 - Element ids (pages, groups, objects, dieline features) — `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`, unique
   **across the whole document**, stable across versions (for diffs, comments and approvals).
-- Data field keys — `^[a-z][a-z0-9_]{0,63}$`, stable integration identifiers; display names may change.
+- Data field keys — `^[a-z][a-z0-9_]{0,63}# Canonical document schema (`DesignDocument`, schema version 3)
+
+The canonical document is the **authoritative representation of a design**. It lives in
+`packages/document-schema` and is independent of any editor, canvas library, renderer or
+database. Browser canvases, previews, VDP and future PDF renderers are all _adapters_ around it.
+
+```text
+DesignDocument
+├── schemaVersion      3
+├── documentId         UUID of the logical design (= template id; stable across versions)
+├── metadata           name, description, documentType, language, tags
+├── dimensions         width, height, orientation, displayUnit, bleed, safeArea, margins, dieline
+├── printSettings      colorSpace, backSideFlip, cropMarks
+├── pages[]            id, name, side, background, groups[], objects[]
+├── dataSchema         fields[] (key, displayName, type, required, defaultValue, description, validation)
+└── settings           missingDataPolicy (FAIL | WARN | EMPTY)
+```
+
+A complete example is produced by `createSampleHangTagDocument()` in
+`@smarttag/document-utils/fixtures`, and the web app's **Document playground** shows its JSON.
+
+## Conventions
+
+| Rule                                                                                                                                                                    | Why                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **Every key is required.** "Not set" is `null`, never an omitted key.                                                                                                   | Equal designs serialize identically, so they hash identically.                    |
+| **Objects are strict.** Unknown properties are validation errors.                                                                                                       | Corruption and editor-specific leftovers (e.g. raw Fabric JSON) are caught.       |
+| **All lengths are PDF points.**                                                                                                                                         | See [coordinate-system.md](coordinate-system.md).                                 |
+| **Colors are a discriminated union** (`RGB` with uppercase hex, `CMYK`, `SPOT` with alternate).                                                                         | CMYK/spot output can be added without changing stored designs.                    |
+| **Images reference assets by id.** Binary data never enters the document.                                                                                               | Documents stay small; assets are deduplicated, checksummed and access-controlled. |
+| **No timestamps, authors or workflow status** inside the document.                                                                                                      | They live on `TemplateVersion` rows and must not influence the design hash.       |
+| **Enumerations use UPPER_SNAKE** (`FRONT`, `SHRINK_TO_FIT`), except object `type` values (`text`, `qrCode`), measurement units (`mm`) and data field types (`decimal`). | Follows the platform specification.                                               |
+
+Identifiers:
+
+- `documentId`, `assetId` — UUIDs.
+- Element ids (pages, groups, objects, dieline features) — `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`, unique
+  **across the whole document**, stable across versions (for diffs, comments and approvals).
+  , stable integration identifiers; display names may change.
+  The `__` namespace is reserved for system fields; `constructor` and `prototype` are refused.
 
 ## `metadata`
 
@@ -72,6 +111,7 @@ reference them with `groupId`.
 
 ## Artwork objects
 
+Bindings (`STATIC`, `FIELD`, `EXPRESSION`) are described in [data-bindings.md](data-bindings.md).
 All objects share a base shape:
 
 ```text
@@ -106,7 +146,9 @@ id, type, name, x, y, width, height, rotation, opacity, visible, locked, zIndex,
 ## `dataSchema`
 
 `fields[]`, each with `key`, `displayName`, `type`, `required`, `defaultValue` (typed per field
-type) and `description`.
+type), `description` and `validation` (schema v3: `minLength`/`maxLength`/`pattern`/`allowedValues`
+for strings, `min`/`max`/`allowedValues` for numbers and decimals, `{}` for other types; every
+rule key present, `null` = no rule). Full reference: [data-schema.md](data-schema.md).
 
 | Field type | Value form                                                                      |
 | ---------- | ------------------------------------------------------------------------------- |
@@ -118,12 +160,14 @@ type) and `description`.
 | `url`      | `http(s)://…`                                                                   |
 | `image`    | asset id                                                                        |
 
-Validation rules, transformations, enums/lookups and conditional logic will extend this structure later.
+Calculated values and conditions are expressions ([expressions.md](expressions.md)); lookups and
+transformations will extend this structure later.
 
 ## `settings`
 
-`missingDataPolicy`: `FAIL` or `EMPTY`. It applies when a bound optional field has neither a value
-nor a default. See [vdp-strategy.md](vdp-strategy.md).
+`missingDataPolicy`: `FAIL`, `WARN` (schema v3) or `EMPTY`. It applies when a printed property depends
+on an optional field that has neither a value nor a default. See
+[data-schema.md](data-schema.md#missing-data-policy).
 
 ## Validation — `validateDesignDocument(input)`
 
@@ -132,12 +176,18 @@ as untrusted JSON.
 
 1. **Envelope** — must be an object with an integer `schemaVersion`. Newer versions give
    `UNSUPPORTED_SCHEMA_VERSION`; older versions give `SCHEMA_MIGRATION_REQUIRED`.
-2. **Object types** — unknown artwork `type`s give `UNSUPPORTED_OBJECT_TYPE` with a precise path.
+2. **Object types and bindings** — unknown artwork `type`s give `UNSUPPORTED_OBJECT_TYPE`, unknown
+   binding modes `UNKNOWN_BINDING_MODE` and bindings on non-bindable properties
+   `INVALID_PROPERTY_BINDING`, each with a precise path and without structural noise.
 3. **Structure** — strict Zod schemas: types, ranges, formats, no unknown keys (`INVALID_STRUCTURE`).
 4. **Semantics**:
    - unique element ids (`DUPLICATE_ID`), field keys (`DUPLICATE_FIELD_KEY`) and per-page z-indexes (`DUPLICATE_Z_INDEX`)
+   - data fields: reserved keys (`INVALID_FIELD_KEY`), inconsistent or unsafe rules (`INVALID_FIELD_RULE`),
+     defaults that break the field's rules or are not real dates (`INVALID_FIELD_DEFAULT`)
    - group references (`UNKNOWN_GROUP_REFERENCE`)
    - bindings: the field exists (`UNKNOWN_BINDING_FIELD`) and its type suits the property (`INCOMPATIBLE_BINDING`)
+   - expressions: `EXPRESSION_PARSE_ERROR`, `EXPRESSION_LIMIT_EXCEEDED`, `UNKNOWN_FIELD`, `UNKNOWN_FUNCTION`,
+     `WRONG_ARGUMENT_COUNT`, `TYPE_MISMATCH`, and a result type that suits the property (`INCOMPATIBLE_BINDING`)
    - geometry: orientation, safe area and margins leave usable space, dieline features inside
      trim, corner radii, crop within source, bar height within frame (`INVALID_GEOMETRY`)
    - property semantics, e.g. `minFontSize ≤ fontSize` (`INVALID_PROPERTY`)
@@ -181,10 +231,24 @@ Introducing a schema version N+1:
 
 ### Version history
 
-| Version | Phase | Change                                                       | Migration                                                                                  |
-| ------- | ----- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| 1       | 1     | Initial canonical model                                      | —                                                                                          |
-| 2       | 2     | Text objects gain `fontAssetId` (exact font file) and `wrap` | `v1-to-v2`: `fontAssetId: null`, `wrap: "NONE"` on every text object; nothing else changes |
+| Version | Phase | Change                                                         | Migration                                                                                                     |
+| ------- | ----- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 1       | 1     | Initial canonical model                                        | —                                                                                                             |
+| 2       | 2     | Text objects gain `fontAssetId` (exact font file) and `wrap`   | `v1-to-v2`: `fontAssetId: null`, `wrap: "NONE"` on every text object; nothing else changes                    |
+| 3       | 3     | `EXPRESSION` bindings, field `validation` rules, `WARN` policy | `v2-to-v3`: every data field gains its type's `validation` object with all rules `null`; nothing else changes |
+
+### v2 → v3 backwards compatibility
+
+- `validation` with every rule `null` — v2 had no rules, so every value that was acceptable stays
+  acceptable. `EXPRESSION` bindings and `WARN` are additions that v2 documents cannot contain, and
+  `FAIL`/`EMPTY` keep their meaning. Resolution order (record value → default → policy) is unchanged.
+- Proven with real content: `SAMPLE_HANG_TAG_V2_JSON` (the frozen Phase 2 sample) still hashes to
+  `477325db…3e7`, migrates to a valid v3 document with no warnings, and equals the current sample;
+  removing exactly the `validation` keys gives back the stored v2 JSON. Migrating an already migrated
+  document applies nothing and yields the same hash (`schema-compatibility.test.ts`, `migrations.test.ts`).
+- The development seed stores the `HT-DEMO-50X90` draft as genuine v2 JSON next to the approved v1
+  JSON. Readers migrate in memory (the designer shows "stored with schema version 2"); saving the draft
+  persists v3 with a new hash. Approved versions keep their stored JSON and hashes.
 
 ### v1 → v2 backwards compatibility
 

@@ -19,12 +19,14 @@ Every bindable artwork property has a **formal binding**, stored separately from
 - `STATIC`: output uses the property value (`content: "19.99"`).
 - `FIELD`: output uses the value of data field `price` from the record. The stored `content`
   remains the design-time preview value.
+- `EXPRESSION` (schema v3): output is calculated, e.g. `concat(currency, " ", formatNumber(price, 2))`.
+  See [expressions.md](expressions.md).
 
 The platform deliberately does **not** embed placeholders such as `"{{product_name}}"` in strings.
 Placeholders cannot be type-checked, validated against a data schema, localised safely or
 distinguished from literal text. The strict schema rejects them where a binding object is expected.
 
-### Bindable properties (Phase 1)
+### Bindable properties
 
 | Object              | Properties | Accepted field types               |
 | ------------------- | ---------- | ---------------------------------- |
@@ -39,33 +41,37 @@ mapped type keeps it in sync with the schemas. The validator rejects bindings to
 
 ### Future binding modes
 
-The binding is a discriminated union, so new modes are additive:
+The binding is a discriminated union, so new modes are additive. `EXPRESSION` (Phase 3) covers
+composite text, formatting and conditions (including data-driven visibility). Still to come:
 
-- `COMPOSITE`: ordered literal + field segments (`"Size: " + size`)
-- `EXPRESSION`: formatted/computed values (`formatCurrency(price, currency)`)
 - `LOOKUP`: translation tables, care symbol sets, size charts
-- conditional rules based on data
+- sequential numbering through reserved `__` system fields
 
 ## Data schema
 
 Each template declares its fields with stable keys (`product_name`, `gtin`, …), display names,
-types, `required` flags and typed default values. Integrations (CSV headers, ERP mappings, API
-payloads) bind to keys, so display names can change safely.
+types, `required` flags, typed default values and validation rules. Integrations (CSV headers, ERP
+mappings, API payloads) bind to keys, so display names can change safely. Details:
+[data-schema.md](data-schema.md).
 
-## Single-record resolution (Phase 1)
+## Single-record pipeline (Phase 3)
 
-`resolveDocumentBindings(document, record)` in `document-utils` returns a new document with bound
-properties replaced, plus issues. Per bound property:
+`@smarttag/data-core` (shared by the designer, the API and future importers and workers):
 
-1. value from the record, coerced to the field type (`coerceDataValue`: rejects `"19,99"` for
-   decimals, `javascript:` for URLs, `2026-02-30` for dates, …)
-2. otherwise the field's `defaultValue`
-3. otherwise, if the field is `required` or `settings.missingDataPolicy` is `FAIL`, a
-   `MISSING_DATA_VALUE` issue
-4. otherwise (`EMPTY`): empty text or value, no image, or hidden (for `visible`)
+```text
+validateDataRecord ─▶ resolveDocumentBindings ─▶ checkResolvedObjects ─▶ checkResolvedLayout
+      DATA                   BINDING                     OBJECT                 LAYOUT
+```
 
-The source document is never mutated, and the result keeps its bindings, so it stays traceable to
-the data schema. The document preview and playground use this to show a record applied to a design.
+- records are validated and normalized per field type, with required values, rules and defaults
+- bound properties resolve from normalized values (fields and expressions, visibility first); missing
+  values follow the missing-data policy and never fall back to sample values
+- resolved barcodes, QR codes and images are validated; text overflow is reported after resolution
+- `computeResolvedInputHash(templateVersionHash, normalizedRecord)` identifies the resolved input
+
+The source document is never mutated and keeps its bindings. The designer's Data preview, the
+document preview/playground and `POST /template-versions/:id/data/validate` all use this pipeline.
+See [data-bindings.md](data-bindings.md).
 
 ## Batch VDP (later phases)
 
@@ -74,7 +80,7 @@ Dataset (CSV / Excel / API / ERP)  ──map columns → field keys──▶  va
 TemplateVersion (APPROVED, documentHash)
              │
              ▼  worker job (correlationId, versionId, datasetId, rendererVersion)
-   for each record: resolveDocumentBindings → preflight (barcode-core, PPI, overflow) → render
+   for each record: validateDataRecord → resolveDocumentBindings → object/layout checks → preflight → render
              │
              ▼
    print-ready PDF + manifest (hashes, per-record issues)

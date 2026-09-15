@@ -63,8 +63,12 @@ apps/
   web/        Next.js App Router application
   worker/     BullMQ worker foundation
 packages/
+  expression-core/  Safe expression language (parser, type checker, interpreter), exact decimals,
+                    linear-time validation patterns — no dependencies
   document-schema/  Canonical DesignDocument types, Zod schemas, validator, migrations
-  document-utils/   Units, canonical JSON + hashing, builders, bindings, fixtures
+  document-utils/   Units, canonical JSON + hashing, builders, binding introspection, fixtures
+  data-core/        Data records: validation, normalization, binding resolution, resolved-object and
+                    layout checks, field usages, resolved-input hashing
   rendering-core/   Text layout engine, symbol geometry, image placement, document → scene → SVG
                     (no React, no DOM)
   barcode-core/     Symbology rules, check digits, value validation, encoder contract
@@ -84,8 +88,12 @@ scripts/     Tooling (local PostgreSQL cluster, clean)
 
 ```mermaid
 flowchart BT
-  schema[document-schema<br/>zod only]
+  expr[expression-core<br/>no dependencies]
+  schema[document-schema<br/>zod + expression-core] --> expr
   utils[document-utils] --> schema
+  data[data-core] --> utils
+  data --> barcode
+  data --> expr
   rendering[rendering-core] --> utils
   rendering --> schema
   barcode[barcode-core] --> schema
@@ -98,16 +106,24 @@ flowchart BT
   shared[shared-types] --> utils
   shared --> schema
   ui[ui<br/>React]
+  shared --> data
   api[apps/api] --> shared
+  api --> data
   worker[apps/worker] --> shared
   web[apps/web] --> canvas
+  web --> data
+  editor --> expr
   web --> bwip
   web --> rendering
   web --> shared
   web --> ui
 ```
 
-- `document-schema` depends only on Zod. It knows nothing about Fabric.js, React, Prisma or Node.
+- `document-schema` depends only on Zod and the dependency-free `expression-core` (so canonical
+  validation can check expressions). It knows nothing about Fabric.js, React, Prisma or Node.
+- `data-core` holds every variable-data rule (record validation, resolution, missing-data policy,
+  resolved barcode/QR/image checks). The designer, the API and future importers, workers and
+  integrations call it; nothing re-implements it.
 - `rendering-core` never depends on React or the DOM; its output is plain data and strings.
 - **Fabric.js is confined to `canvas-adapter`.** `editor-core` holds all editing logic without a
   canvas library, so it can be tested in Node and reused with another canvas. Concrete encoders
