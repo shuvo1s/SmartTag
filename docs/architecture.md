@@ -30,7 +30,7 @@ flowchart LR
   end
 
   subgraph "apps/worker (BullMQ)"
-    Jobs[Job registry<br/>import inspection · validation · cleanup]
+    Jobs[Job registry<br/>import inspection · validation · cleanup<br/>production expansion · release]
   end
 
   DB[(PostgreSQL<br/>Prisma migrations)]
@@ -47,13 +47,13 @@ flowchart LR
   Jobs -- read sources · write dataset records --> DB & Store
 ```
 
-| Component          | Responsibility                                                                                                    | Must not                                                       |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| **apps/web**       | Presentation, forms, previews, navigation. Talks only to its own origin.                                          | Contain business rules, authorization decisions or print math. |
-| **apps/api**       | Authentication, authorization, tenant scoping, validation, persistence, audit, storage.                           | Trust the browser for anything.                                |
-| **apps/worker**    | Asynchronous jobs: data import inspection, row validation and cleanup (Phase 4); rendering and VDP batches later. | Accept unvalidated payloads.                                   |
-| **PostgreSQL**     | System of record, including invariants enforced by constraints and triggers.                                      | —                                                              |
-| **Object storage** | Asset bytes, later rendered outputs. Records store only an opaque key.                                            | Be referenced by vendor-specific URLs in records.              |
+| Component          | Responsibility                                                                                                       | Must not                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **apps/web**       | Presentation, forms, previews, navigation. Talks only to its own origin.                                             | Contain business rules, authorization decisions or print math. |
+| **apps/api**       | Authentication, authorization, tenant scoping, validation, persistence, audit, storage.                              | Trust the browser for anything.                                |
+| **apps/worker**    | Asynchronous jobs: import inspection and validation, production expansion and release (Phases 4–5); rendering later. | Accept unvalidated payloads.                                   |
+| **PostgreSQL**     | System of record, including invariants enforced by constraints and triggers.                                         | —                                                              |
+| **Object storage** | Asset bytes, later rendered outputs. Records store only an opaque key.                                               | Be referenced by vendor-specific URLs in records.              |
 
 ## Repository layout
 
@@ -73,6 +73,10 @@ packages/
                     compatibility, row pipeline onto data-core, dataset hashing, import lifecycle
   tabular-sources/  CSV (csv-parse) and XLSX (yauzl + sax) readers behind TabularSourceParser (Node)
   import-processing/ Worker jobs: inspection, streamed validation into draft dataset versions, cleanup
+  production-core/  Production domain: job configuration, quantity expansion, serial formatting,
+                    production context and system fields, instance/job hashing, manifest, lifecycle
+  production-processing/ Worker jobs: expanding a dataset version into validated production
+                    instances, and finishing a released job (serials, hashes, manifest)
   database/         Prisma schema, migrations (incl. integrity triggers) and generated client
   object-storage/   Storage contract, local/S3 drivers and key layout (API + worker)
   rendering-core/   Text layout engine, symbol geometry, image placement, document → scene → SVG
@@ -175,5 +179,8 @@ BullMQ is wired in `apps/worker` with:
 Phase 4 runs the `smarttag-imports` queue: `import.inspect`, `import.validate` and a scheduled
 `data.cleanup` (processors in `@smarttag/import-processing`, job ids derived from the import
 and its run number so retries never duplicate work; see [data-imports.md](data-imports.md)).
-Planned processors: preview rendering, VDP batch rendering and PDF export.
+Phase 5 adds the `smarttag-production` queue: `production.expand` and
+`production.release` (processors in `@smarttag/production-processing`; see
+[production-jobs.md](production-jobs.md)).
+Planned processors: preview rendering, production rendering and PDF export.
 Each reads an **exact TemplateVersion** (never "latest"), plus a dataset and a renderer version.

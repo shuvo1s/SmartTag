@@ -1,4 +1,4 @@
-# API reference (Phase 4)
+# API reference (Phase 5)
 
 Base path: `/api/v1`. JSON in, JSON out. Authentication is the session cookie set by
 `POST /auth/login`. Browsers reach the API through the web app's same-origin proxy (a streaming
@@ -57,6 +57,28 @@ Data imports and datasets add:
 
 Row-level problems are not HTTP errors: they are stored with each record (`issues`, layers
 IMPORT/DATA/BINDING/OBJECT).
+
+Production jobs add:
+
+| Code                                       | HTTP | Typical cause                                                            |
+| ------------------------------------------ | ---- | ------------------------------------------------------------------------ |
+| `TEMPLATE_NOT_APPROVED`                    | 409  | Producing artwork that is not approved (or is retired)                   |
+| `DATASET_NOT_FINALIZED`                    | 409  | Producing a dataset version that is not finalized, or that changed since |
+| `TEMPLATE_DATASET_SCHEMA_MISMATCH`         | 422  | The dataset was validated against another data schema                    |
+| `CUSTOMER_MISMATCH`                        | 422  | Template, dataset, customer and brand do not belong together             |
+| `INVALID_QUANTITY_FIELD`                   | 422  | The chosen field cannot hold a number of tags                            |
+| `INVALID_PRODUCTION_CONFIGURATION`         | 422  | Selection or configuration that cannot produce tags                      |
+| `INSTANCE_LIMIT_EXCEEDED`                  | 422  | The job would produce more tags than the configured limit                |
+| `SEQUENCE_INACTIVE` / `SEQUENCE_EXHAUSTED` | 409  | The serial sequence is archived, or has too few numbers left             |
+| `SEQUENCE_RESERVATION_FAILED`              | 409  | A released job has no serial range (should not happen; retry is safe)    |
+| `PRODUCTION_JOB_NOT_READY`                 | 409  | The action does not fit the job's current status                         |
+| `PRODUCTION_JOB_HAS_ERRORS`                | 409  | Releasing with tags that have errors                                     |
+| `PRODUCTION_WARNINGS_NOT_ACKNOWLEDGED`     | 409  | Releasing with warnings without `acknowledgeWarnings`                    |
+| `PRODUCTION_JOB_IMMUTABLE`                 | 409  | Changing a released job, or one whose inputs changed underneath it       |
+| `PRODUCTION_MANIFEST_NOT_READY`            | 409  | The manifest is written when the release finishes                        |
+
+Tag-level problems are not HTTP errors either: they are stored with each production instance
+(`issues`, layers PRODUCTION/DATA/BINDING/OBJECT).
 
 Every response carries `X-Request-Id`. A well-formed incoming `X-Request-Id` is propagated.
 
@@ -121,6 +143,31 @@ Every response carries `X-Request-Id`. A well-formed incoming `X-Request-Id` is 
 Every id is tenant-scoped (another organization's id is `404`). See
 [data-imports.md](data-imports.md), [mapping-profiles.md](mapping-profiles.md) and
 [datasets.md](datasets.md) for the models and behaviour.
+
+### Production jobs, instances and sequences
+
+| Method | Path                                          | Authorization              | Description                                                                                                           |
+| ------ | --------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/production-jobs`                            | `production-job:read`      | Jobs; `status` (comma-separated), `customerId`, `templateId`, `search`, `createdFrom/To`                              |
+| POST   | `/production-jobs`                            | `production-job:create`    | `{ name, templateVersionId, datasetVersionId, customerId?, brandId?, productionMode? }` (201)                         |
+| GET    | `/production-jobs/:jobId`                     | `production-job:read`      | Inputs and hashes, configuration, counts, progress, serial preview or reservation, manifest, history, allowed actions |
+| PATCH  | `/production-jobs/:jobId`                     | `production-job:configure` | `{ expectedRevision, name?, quantity?, serial?, recordSelection?, warningPolicy? }`                                   |
+| POST   | `/production-jobs/:jobId/validate`            | `production-job:validate`  | Queues expansion and validation of every tag (200)                                                                    |
+| POST   | `/production-jobs/:jobId/release`             | `production-job:release`   | `{ expectedRevision, acknowledgeWarnings }` — reserves the serial range and freezes the job                           |
+| POST   | `/production-jobs/:jobId/retry`               | `production-job:validate`  | Re-queues the work of a failed job without changing its inputs                                                        |
+| POST   | `/production-jobs/:jobId/cancel`              | `production-job:cancel`    | Cancels a job that was never released; its tags are removed                                                           |
+| GET    | `/production-jobs/:jobId/instances`           | `production-job:read`      | Tags in production order; `status`, `search`, `pageSize`, `afterSequence` (keyset paging)                             |
+| GET    | `/production-jobs/:jobId/instances/:sequence` | `production-job:read`      | One tag with issues, record, production context and neighbours                                                        |
+| GET    | `/production-jobs/:jobId/samples`             | `production-job:read`      | A few tags worth previewing before releasing                                                                          |
+| GET    | `/production-jobs/:jobId/manifest`            | `production-job:read`      | The manifest with the result of verifying the stored file                                                             |
+| GET    | `/production-jobs/:jobId/manifest/download`   | `production-job:read`      | The manifest file (attachment, sandboxed, audited)                                                                    |
+| GET    | `/sequences`                                  | `sequence:read`            | Serial sequences; `status`                                                                                            |
+| POST   | `/sequences`                                  | `sequence:manage`          | `{ name, code, prefix?, suffix?, padding?, startValue? }` (201)                                                       |
+| GET    | `/sequences/:sequenceId`                      | `sequence:read`            | One sequence with its usage                                                                                           |
+| PATCH  | `/sequences/:sequenceId`                      | `sequence:manage`          | `{ expectedRevision, name?, description?, prefix?, suffix?, padding?, status? }`                                      |
+
+See [production-jobs.md](production-jobs.md), [production-instances.md](production-instances.md),
+[sequences.md](sequences.md) and [production-manifest.md](production-manifest.md).
 
 Request and response types are defined in `packages/shared-types` (`CreateTemplateRequestSchema`,
 `TemplateDto`, `TemplateVersionDetailDto`, …).

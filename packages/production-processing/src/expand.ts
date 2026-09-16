@@ -274,7 +274,7 @@ export async function processExpandJob(
         records.map((record) => [record.sequence, record.warningCount]),
       );
 
-      const resumed = performance.now();
+      let resumed = performance.now();
       let cached: { recordSequence: number; resolved: ResolvedInstance } | null = null;
       for (const instance of planned) {
         // Copies of one record differ only when the artwork uses per-instance values (a serial
@@ -325,6 +325,7 @@ export async function processExpandJob(
         if (rows.length >= settings.limits.expansionBatchSize) {
           pipelineMs += performance.now() - resumed;
           await flush();
+          resumed = performance.now();
         }
       }
       pipelineMs += performance.now() - resumed;

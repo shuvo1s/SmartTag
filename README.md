@@ -3,15 +3,17 @@
 Enterprise web platform for label and hang-tag artwork, variable data printing and print
 production, built around a **canonical, versioned document model**.
 
-> **Status: Phase 4 — CSV/Excel import, field mapping and datasets.** On top of Phase 1
+> **Status: Phase 5 — batch VDP, production jobs, quantities and serial numbers.**
 > (canonical DesignDocument, validation, hashing, multi-tenant API with RBAC, immutable versions,
 > assets), Phase 2 (canvas designer, controlled fonts, real barcodes/QR codes) and Phase 3 (typed
 > data schemas, field and expression bindings, Test Data preview, the shared record pipeline
 > `data-core`): secure CSV/XLSX upload and inspection in the worker, sheet/header selection, field
 > mapping with deterministic suggestions, explicit parsing rules, reusable mapping profiles, row
 > validation through the Phase 3 pipeline, row review with visual preview, and immutable, hashed
-> dataset versions. Batch VDP production, approval workflow, print-ready PDF/CMYK and preflight are
-> later phases.
+> dataset versions. Phase 5 adds the production layer: an approved template version and a finalized
+> dataset version become a production job, expanded into exact, ordered, hashed production instances
+> with quantities and server-allocated serial numbers, released immutably with a verifiable
+> production manifest. Rendering, print-ready PDF/CMYK, imposition and preflight are later phases.
 
 ## Stack
 
@@ -125,11 +127,15 @@ npm run dev -w @smarttag/worker     # worker (inspection, validation, cleanup)
 ```
 
 Seeded users with data access: `admin@smarttag.local` (all permissions) and, on newly seeded
-databases, `data@smarttag.local` (data operator). See [docs/data-imports.md](docs/data-imports.md).
+databases, `data@smarttag.local` (data operator) and `production@smarttag.local`
+(production manager). See [docs/data-imports.md](docs/data-imports.md) and
+[docs/production-jobs.md](docs/production-jobs.md).
 
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Production jobs](docs/production-jobs.md), [production instances](docs/production-instances.md),
+  [serial sequences](docs/sequences.md), [production manifest](docs/production-manifest.md)
 - [Canonical document schema](docs/canonical-document-schema.md)
 - [Coordinate system](docs/coordinate-system.md)
 - [Browser canvas strategy](docs/browser-canvas-strategy.md)

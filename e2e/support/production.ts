@@ -25,7 +25,8 @@ export const PRODUCTION_HEADERS = [
 
 export function productionRows(quantities: readonly (string | number)[]): string[][] {
   return quantities.map((quantity, index) => [
-    `YT-${2045 + index}`,
+    // Four digits, whatever the row count: the style field has a pattern rule.
+    `YT-${1000 + (index % 9000)}`,
     `Product ${index + 1}`,
     'Navy',
     'XL',

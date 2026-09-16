@@ -9,7 +9,7 @@ User (global person, lower-case unique email, ACTIVE | DISABLED)
  ├── Session[]            server-side sessions
  └── Membership[]         one per Organization, ACTIVE | SUSPENDED
        └── MembershipRole[]   SUPER_ADMIN | ORG_ADMIN | TEMPLATE_ADMIN | DESIGNER | DATA_OPERATOR
-                              | QA | APPROVER | PRODUCTION_OPERATOR | VIEWER
+                              | QA | APPROVER | PRODUCTION_OPERATOR | PRODUCTION_MANAGER | VIEWER
 ```
 
 Users are global. Access to a tenant exists only through an **active membership** in an
@@ -62,15 +62,17 @@ not a security boundary.
 
 Separation of duties by default: designers create and submit, approvers approve, and viewers only read.
 
-| Role                        | Highlights                                                                                                            |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| SUPER_ADMIN, ORG_ADMIN      | All permissions **within their organization** (cross-tenant platform administration is intentionally not implemented) |
-| TEMPLATE_ADMIN              | Templates, versions (except approve), customers, assets                                                               |
-| DESIGNER                    | Create/edit templates and drafts, submit for review, upload assets                                                    |
-| QA                          | Read + return versions to draft                                                                                       |
-| APPROVER                    | Read + review + approve                                                                                               |
-| DATA_OPERATOR               | Read + import data (`dataset:create`), finalize datasets, download sources, manage mapping profiles                   |
-| PRODUCTION_OPERATOR, VIEWER | Read (including datasets and profiles); production permissions arrive with that module                                |
+| Role                   | Highlights                                                                                                            |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| SUPER_ADMIN, ORG_ADMIN | All permissions **within their organization** (cross-tenant platform administration is intentionally not implemented) |
+| TEMPLATE_ADMIN         | Templates, versions (except approve), customers, assets                                                               |
+| DESIGNER               | Create/edit templates and drafts, submit for review, upload assets                                                    |
+| QA                     | Read + return versions to draft                                                                                       |
+| APPROVER               | Read + review + approve                                                                                               |
+| DATA_OPERATOR          | Read + import data, finalize datasets, download sources, manage mapping profiles, prepare production jobs             |
+| PRODUCTION_OPERATOR    | Read + prepare production jobs (create, configure, validate, cancel); may not release production                      |
+| PRODUCTION_MANAGER     | Everything a production operator may do, plus releasing production and managing serial sequences                      |
+| VIEWER                 | Read only (including datasets, mapping profiles and production jobs)                                                  |
 
 ## Tenant isolation — layered
 
@@ -185,6 +187,50 @@ Uploaded CSV/XLSX files and every value in them are untrusted ([data-imports.md]
 | Raw data exposure         | Source downloads need `dataset:read-source`, are attachments with a sandbox CSP and `nosniff`, and are audited; storage URLs never exposed | integration                         |
 | Silent data changes       | Finalized versions, records and profile revisions immutable by trigger; revisions/runs guard concurrent changes                            | integration                         |
 | Audit leakage             | Audit metadata carries counts, hashes, statuses and ids — never row values                                                                 | integration                         |
+
+## Production
+
+Released production is a promise about physical goods: what a job says was produced must be exactly
+what was produced (see [production-jobs.md](production-jobs.md)).
+
+| Threat                       | Control                                                                                                                      | Tests                             |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Producing unapproved artwork | A job needs an APPROVED template version; a non-production job is marked everywhere and hashed with its mode                 | integration, E2E                  |
+| Producing unfinished data    | Only FINALIZED dataset versions, re-checked at release; the data schema hashes must match                                    | integration                       |
+| Silently changed inputs      | Template hash, dataset hash and schema hash captured at creation and frozen by a trigger                                     | integration                       |
+| Duplicate serial numbers     | Ranges reserved under a row lock, one per job (unique), never reused, plus a GiST exclusion constraint against overlaps      | integration (concurrent releases) |
+| Serials burned by browsing   | Previews only read the sequence; the range is taken once, inside the release transaction                                     | integration, E2E                  |
+| Printing invalid tags        | Releasing with error tags is refused by the API and by a CHECK constraint; serial-dependent values are re-checked at release | integration, E2E                  |
+| Quietly dropping tags        | A record with an unusable quantity still produces a tag carrying the error; nothing is skipped to make a job releasable      | integration, E2E                  |
+| Changing released production | API refusals plus triggers on the job, its instances, its reservation and its manifest; job history is append-only           | integration                       |
+| Retries doing work twice     | Job ids derive from the job and its run; expansion clears earlier attempts; release recomputes identical values              | integration                       |
+| Cross-tenant data            | Every table has organization_id with composite foreign keys; every query filters by it; 404 for foreign ids                  | integration, E2E                  |
+| Release by the wrong person  | Releasing is a separate permission; data operators and approvers cannot release                                              | integration, E2E                  |
+| Manifest tampering           | Canonical JSON, SHA-256 recorded and verified, job hash recomputable from the manifest alone                                 | unit, integration                 |
+| Raw storage exposure         | Manifests download as audited attachments with a sandbox CSP; storage keys are never returned                                | integration, E2E                  |
+| Audit leakage                | Audit metadata carries counts, hashes and ids — never per-tag detail; per-job history lives beside the job                   | integration                       |
+
+## Production
+
+Released production is a promise about physical goods: what a job says was produced must be exactly
+what was produced (see [production-jobs.md](production-jobs.md)).
+
+| Threat                       | Control                                                                                                                      | Tests                             |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Producing unapproved artwork | A job needs an APPROVED template version; a non-production job is marked everywhere and hashed with its mode                 | integration, E2E                  |
+| Producing unfinished data    | Only FINALIZED dataset versions, re-checked at release; the data schema hashes must match                                    | integration                       |
+| Silently changed inputs      | Template hash, dataset hash and schema hash captured at creation and frozen by a trigger                                     | integration                       |
+| Duplicate serial numbers     | Ranges reserved under a row lock, one per job (unique), never reused, plus a GiST exclusion constraint against overlaps      | integration (concurrent releases) |
+| Serials burned by browsing   | Previews only read the sequence; the range is taken once, inside the release transaction                                     | integration, E2E                  |
+| Printing invalid tags        | Releasing with error tags is refused by the API and by a CHECK constraint; serial-dependent values are re-checked at release | integration, E2E                  |
+| Quietly dropping tags        | A record with an unusable quantity still produces a tag carrying the error; nothing is skipped                               | integration, E2E                  |
+| Changing released production | API refusals plus triggers on the job, its instances, its reservation and its manifest; history is append-only               | integration                       |
+| Retries doing work twice     | Job ids derive from the job and its run; expansion clears earlier attempts; release recomputes identical values              | integration                       |
+| Cross-tenant data            | Every table has organization_id with composite foreign keys; every query filters by it; 404 for foreign ids                  | integration, E2E                  |
+| Release by the wrong person  | Releasing is a separate permission; data operators and approvers cannot release                                              | integration, E2E                  |
+| Manifest tampering           | Canonical JSON, SHA-256 recorded and verified, job hash recomputable from the manifest alone                                 | unit, integration                 |
+| Raw storage exposure         | Manifests download as audited attachments with a sandbox CSP; storage keys are never returned                                | integration, E2E                  |
+| Audit leakage                | Audit metadata carries counts, hashes and ids — never per-tag detail; per-job history lives beside the job                   | integration                       |
 
 ## Logging, secrets and errors
 
