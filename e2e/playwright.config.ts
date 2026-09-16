@@ -42,13 +42,13 @@ export default defineConfig({
     // Smaller cross-browser smoke suite; the complete suite runs in Chromium.
     {
       name: 'firefox-smoke',
-      testMatch: /data(-import)?-smoke.spec.ts/,
+      testMatch: /(data(-import)?|production)-smoke.spec.ts/,
       use: { ...devices['Desktop Firefox'], viewport: { width: 1600, height: 1000 } },
       dependencies: ['setup'],
     },
     {
       name: 'webkit-smoke',
-      testMatch: /data(-import)?-smoke.spec.ts/,
+      testMatch: /(data(-import)?|production)-smoke.spec.ts/,
       use: { ...devices['Desktop Safari'], viewport: { width: 1600, height: 1000 } },
       dependencies: ['setup'],
     },

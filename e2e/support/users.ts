@@ -7,6 +7,7 @@ export const USERS = {
   approver: 'approver@smarttag.local',
   viewer: 'viewer@smarttag.local',
   dataOperator: 'data@smarttag.local',
+  productionManager: 'production@smarttag.local',
   acmeAdmin: 'acme.admin@smarttag.local',
 } as const;
 

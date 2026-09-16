@@ -127,16 +127,16 @@ export function Alert({
   title,
   children,
   className,
-}: {
+  ...props
+}: HTMLAttributes<HTMLDivElement> & {
   tone?: Tone;
   title?: ReactNode;
-  children?: ReactNode;
-  className?: string;
 }) {
   return (
     <div
       role={tone === 'danger' ? 'alert' : 'status'}
       className={cn('rounded-md border px-4 py-3 text-sm', ALERT_TONES[tone], className)}
+      {...props}
     >
       {title ? <p className="font-semibold">{title}</p> : null}
       {children ? <div className={title ? 'mt-1' : undefined}>{children}</div> : null}

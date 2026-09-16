@@ -727,9 +727,7 @@ export class ProductionJobsService {
       },
       configuration,
       recordSelectionHash: row.recordSelectionHash,
-      quantityFields: document.dataSchema.fields
-        .filter((field) => ['number', 'decimal', 'string'].includes(field.type))
-        .map((field) => ({ key: field.key, displayName: field.displayName })),
+      quantityFields: quantityFieldChoices(document.dataSchema.fields),
       systemFields: documentSystemFields(document),
       serialPreview:
         row.sequence && row.instanceCount > 0 && !row.reservation
@@ -883,6 +881,24 @@ export class ProductionJobsService {
     const next = counter[0]?.next_value ?? 2;
     return formatJobNumber(day, next - 1);
   }
+}
+
+/**
+ * Fields that could hold a number of tags, most likely first: a field that is named like a
+ * quantity, then whole-number fields, then the rest. The value still decides per record.
+ */
+function quantityFieldChoices(
+  fields: readonly { key: string; displayName: string; type: string }[],
+): { key: string; displayName: string }[] {
+  const rank = (field: { key: string; type: string }) => {
+    if (/quantity|qty|pieces|pcs/i.test(field.key)) return 0;
+    return field.type === 'number' ? 1 : field.type === 'decimal' ? 2 : 3;
+  };
+  return fields
+    .filter((field) => ['number', 'decimal', 'string'].includes(field.type))
+    .map((field) => ({ field, rank: rank(field) }))
+    .sort((a, b) => a.rank - b.rank)
+    .map(({ field }) => ({ key: field.key, displayName: field.displayName }));
 }
 
 function nextDay(date: string): Date {

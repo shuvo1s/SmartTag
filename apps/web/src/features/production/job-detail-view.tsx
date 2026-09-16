@@ -22,6 +22,7 @@ import {
   cn,
 } from '@smarttag/ui';
 import Link from 'next/link';
+import { useIsMutating } from '@tanstack/react-query';
 import { useState } from 'react';
 import { describeError } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format';
@@ -331,6 +332,9 @@ function ActionsCard({ job }: { job: ProductionJobDto }) {
   const cancel = useCancelJob(job.id);
   const retry = useRetryJob(job.id);
   const canRelease = useCan('production-job:release');
+  // A configuration change is saved through the same job, and changes its revision. While one is
+  // in flight, acting on the job would use a revision the server has already moved past.
+  const saving = useIsMutating() > 0;
   const [acknowledged, setAcknowledged] = useState(false);
   const needsAcknowledgement =
     job.counts.warningCount > 0 && job.configuration.warningPolicy === 'ACKNOWLEDGE';
@@ -343,7 +347,7 @@ function ActionsCard({ job }: { job: ProductionJobDto }) {
           <Button
             className="w-full"
             data-testid="validate-job"
-            disabled={validate.isPending}
+            disabled={saving}
             onClick={() => validate.mutate({ expectedRevision: job.revision })}
           >
             {job.counts.instanceCount > 0 ? 'Expand and validate again' : 'Expand and validate'}
@@ -355,6 +359,7 @@ function ActionsCard({ job }: { job: ProductionJobDto }) {
             className="w-full"
             variant="secondary"
             data-testid="retry-job"
+            disabled={saving}
             onClick={() => retry.mutate({ expectedRevision: job.revision })}
           >
             Retry
@@ -380,7 +385,7 @@ function ActionsCard({ job }: { job: ProductionJobDto }) {
             <Button
               className="w-full"
               data-testid="release-job"
-              disabled={release.isPending || (needsAcknowledgement && !acknowledged)}
+              disabled={saving || (needsAcknowledgement && !acknowledged)}
               onClick={() =>
                 release.mutate({
                   expectedRevision: job.revision,
@@ -411,6 +416,7 @@ function ActionsCard({ job }: { job: ProductionJobDto }) {
             className="w-full"
             variant="secondary"
             data-testid="cancel-job"
+            disabled={saving}
             onClick={() => cancel.mutate({ expectedRevision: job.revision })}
           >
             Cancel job
