@@ -183,6 +183,7 @@ export async function mappedImport(
   agent: TestAgent,
   versionId: string,
   content: Buffer,
+  buildMapping: (columns: DataImportDto['columns']) => MappingDefinition = hangTagMapping,
 ): Promise<DataImportDto> {
   const uploaded = await uploadCsv(agent, versionId, content);
   expect(uploaded.status, JSON.stringify(uploaded.body)).toBe(201);
@@ -190,7 +191,7 @@ export async function mappedImport(
   expect(inspected.status, JSON.stringify(inspected.failure)).toBe('MAPPING_REQUIRED');
   const mapped = await agent.patch(`${API}/data-imports/${inspected.id}/mapping`).send({
     expectedRevision: inspected.revision,
-    mapping: hangTagMapping(inspected.columns),
+    mapping: buildMapping(inspected.columns),
     profile: null,
   });
   expect(mapped.status, JSON.stringify(mapped.body)).toBe(200);
@@ -201,8 +202,9 @@ export async function validatedImport(
   agent: TestAgent,
   versionId: string,
   content: Buffer,
+  buildMapping?: (columns: DataImportDto['columns']) => MappingDefinition,
 ): Promise<DataImportDto> {
-  const mapped = await mappedImport(agent, versionId, content);
+  const mapped = await mappedImport(agent, versionId, content, buildMapping);
   expect(mapped.status).toBe('READY_TO_VALIDATE');
   const requested = await agent
     .post(`${API}/data-imports/${mapped.id}/validate`)

@@ -35,6 +35,13 @@ export async function createTestApp(envOverrides: Record<string, string> = {}): 
 
 const TABLES = [
   'audit_events',
+  'production_job_events',
+  'production_artifacts',
+  'production_instances',
+  'sequence_reservations',
+  'production_jobs',
+  'production_job_counters',
+  'sequences',
   'dataset_records',
   'dataset_versions',
   'data_imports',

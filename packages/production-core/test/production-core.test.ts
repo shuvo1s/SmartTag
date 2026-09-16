@@ -73,7 +73,7 @@ const quantitySchema = {
       required: false,
       description: '',
       defaultValue: null,
-      validation: { integer: true, min: null, max: null, allowedValues: null },
+      validation: { min: null, max: null, allowedValues: null },
     },
   ],
 };
