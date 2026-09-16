@@ -49,7 +49,7 @@ test.describe('production permissions', () => {
     }
   });
 
-  test('a viewer reads the production module but changes nothing', async ({ page }) => {
+  test('a viewer reads the production module but changes nothing', async () => {
     const job = await readyJob(`Viewer ${Date.now()}`);
     const viewer = await apiAs('viewer');
     try {
