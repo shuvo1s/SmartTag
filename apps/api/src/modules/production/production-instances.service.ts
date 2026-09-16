@@ -47,6 +47,9 @@ export class ProductionInstancesService {
       ...(query.afterSequence ? { sequence: { gt: query.afterSequence } } : {}),
       ...(query.search ? searchFilter(query.search) : {}),
     };
+    // Counting a filtered set means scanning it; an unfiltered job already knows its size, and a
+    // million-tag job should not pay for a COUNT on every page.
+    const filtered = Boolean(query.status ?? query.search);
     const [items, total] = await Promise.all([
       this.prisma.productionInstance.findMany({
         where,
@@ -56,9 +59,11 @@ export class ProductionInstancesService {
         take: query.pageSize,
         select: instanceSelect,
       }),
-      this.prisma.productionInstance.count({
-        where: { ...where, sequence: undefined, ...(query.status ? { status: query.status } : {}) },
-      }),
+      filtered
+        ? this.prisma.productionInstance.count({
+            where: { ...where, sequence: undefined },
+          })
+        : Promise.resolve(job.instanceCount),
     ]);
     const last = items.at(-1);
     return {

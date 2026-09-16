@@ -164,7 +164,7 @@ export function quantityDocument(documentId: string): DesignDocument {
         },
       ],
     },
-  } as DesignDocument;
+  };
 }
 
 /** An approved template version whose schema has a quantity field. */

@@ -13,7 +13,6 @@ import type {
   ProductionJobDto,
   ProductionSampleDto,
   SequenceDto,
-  TemplateVersionDetailDto,
 } from '@smarttag/shared-types';
 import type TestAgent from 'supertest/lib/agent';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -41,7 +40,6 @@ import {
   productionStorage,
   quantityRows,
   startProductionWorker,
-  waitForJob,
   waitForRendering,
 } from './production-helpers';
 

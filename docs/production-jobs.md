@@ -140,6 +140,21 @@ glyphs are not checked for every tag. The browser checks them for the tag being 
 says so, and the manifest records `layoutFullyChecked: false`. Claiming otherwise would be a lie
 about a print run.
 
+## Which records are produced
+
+By default a job produces **every** record of the dataset version. A job may instead name the
+record sequences it produces; the selection is stored with the job and hashed
+(`recordSelectionHash`), so the same job always resolves to the same records — it is never a
+temporary UI filter. The selection is part of the production job hash and appears in the manifest.
+
+## Four-eyes release
+
+Releasing is already a separate permission (`production-job:release`), so the person who prepares
+a job need not be the person who releases it: data operators and production operators prepare,
+production managers release. A stricter organization policy — _the releaser must not be the
+creator_ — is **not** enforced in this phase. The data needed for it is recorded (`createdBy`,
+`releasedBy`, and the job history), so it can be added as a policy without changing the model.
+
 ## Release
 
 `POST /production-jobs/:id/release` runs one transaction:
