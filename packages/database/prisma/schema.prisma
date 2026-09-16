@@ -53,6 +53,7 @@ enum Role {
   QA
   APPROVER
   PRODUCTION_OPERATOR
+  PRODUCTION_MANAGER
   VIEWER
 
   @@map("role")
@@ -88,6 +89,13 @@ model Organization {
   datasetRecords          DatasetRecord[]
   mappingProfiles         MappingProfile[]
   mappingProfileRevisions MappingProfileRevision[]
+  sequences               Sequence[]
+  sequenceReservations    SequenceReservation[]
+  productionJobs          ProductionJob[]
+  productionJobCounters   ProductionJobCounter[]
+  productionInstances     ProductionInstance[]
+  productionArtifacts     ProductionArtifact[]
+  productionJobEvents     ProductionJobEvent[]
 
   @@map("organizations")
 }
@@ -125,6 +133,15 @@ model User {
   createdDatasetVersions         DatasetVersion[]         @relation("DatasetVersionCreatedBy")
   finalizedDatasetVersions       DatasetVersion[]         @relation("DatasetVersionFinalizedBy")
   createdMappingProfiles         MappingProfile[]         @relation("MappingProfileCreatedBy")
+  createdSequences               Sequence[]               @relation("SequenceCreatedBy")
+  updatedSequences               Sequence[]               @relation("SequenceUpdatedBy")
+  reservedSequenceRanges         SequenceReservation[]    @relation("SequenceReservationReservedBy")
+  createdProductionJobs          ProductionJob[]          @relation("ProductionJobCreatedBy")
+  releasedProductionJobs         ProductionJob[]          @relation("ProductionJobReleasedBy")
+  cancelledProductionJobs        ProductionJob[]          @relation("ProductionJobCancelledBy")
+  acknowledgedProductionJobs     ProductionJob[]          @relation("ProductionJobWarningsAcknowledgedBy")
+  createdProductionArtifacts     ProductionArtifact[]     @relation("ProductionArtifactCreatedBy")
+  createdProductionJobEvents     ProductionJobEvent[]     @relation("ProductionJobEventCreatedBy")
   updatedMappingProfiles         MappingProfile[]         @relation("MappingProfileUpdatedBy")
   createdMappingProfileRevisions MappingProfileRevision[] @relation("MappingProfileRevisionCreatedBy")
 
@@ -231,11 +248,12 @@ model Customer {
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  createdBy    User         @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  brands       Brand[]
-  templates    Template[]
-  datasets     Dataset[]
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      User            @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  brands         Brand[]
+  templates      Template[]
+  datasets       Dataset[]
+  productionJobs ProductionJob[]
 
   @@unique([organizationId, code])
   @@unique([id, organizationId])
@@ -253,11 +271,12 @@ model Brand {
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   /// Composite FK: a brand can only belong to a customer of the same organization.
-  customer     Customer     @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
-  createdBy    User         @relation("BrandCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  templates    Template[]
+  customer       Customer        @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      User            @relation("BrandCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  templates      Template[]
+  productionJobs ProductionJob[]
 
   @@unique([customerId, code])
   @@unique([id, customerId, organizationId])
@@ -329,6 +348,7 @@ model Template {
   /// Composite FK: the current version must belong to this template.
   currentVersion TemplateVersion?  @relation("TemplateCurrentVersion", fields: [currentVersionId, id], references: [id, templateId], onDelete: Restrict, onUpdate: Restrict)
   versions       TemplateVersion[] @relation("TemplateVersions")
+  productionJobs ProductionJob[]
   createdBy      User              @relation("TemplateCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy      User              @relation("TemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
 
@@ -381,6 +401,7 @@ model TemplateVersion {
   retiredBy          User?             @relation("TemplateVersionRetiredBy", fields: [retiredById], references: [id], onDelete: Restrict)
   dataImports        DataImport[]
   datasetVersions    DatasetVersion[]
+  productionJobs     ProductionJob[]
 
   @@unique([templateId, versionNumber])
   @@unique([id, templateId])
@@ -655,12 +676,13 @@ model Dataset {
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  customer     Customer?        @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
-  createdBy    User             @relation("DatasetCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy    User             @relation("DatasetUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
-  versions     DatasetVersion[]
-  imports      DataImport[]
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  customer       Customer?        @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy      User             @relation("DatasetCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      User             @relation("DatasetUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  versions       DatasetVersion[]
+  imports        DataImport[]
+  productionJobs ProductionJob[]
 
   @@unique([organizationId, name])
   @@unique([id, organizationId])
@@ -716,6 +738,7 @@ model DatasetVersion {
   createdBy       User            @relation("DatasetVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   finalizedBy     User?           @relation("DatasetVersionFinalizedBy", fields: [finalizedById], references: [id], onDelete: Restrict)
   records         DatasetRecord[]
+  productionJobs  ProductionJob[]
 
   @@unique([importId, validationRun])
   @@unique([datasetId, versionNumber])
@@ -825,4 +848,304 @@ model AuditEvent {
   @@index([resourceType, resourceId])
   @@index([actorUserId, occurredAt])
   @@map("audit_events")
+}
+
+// ------------------------------------------------------------------------------------------------
+// Production (Phase 5): jobs, instances, sequences, manifests
+// ------------------------------------------------------------------------------------------------
+
+enum ProductionJobStatus {
+  DRAFT
+  QUEUED
+  EXPANDING
+  VALIDATING
+  READY
+  READY_WITH_WARNINGS
+  HAS_ERRORS
+  RELEASED
+  READY_FOR_RENDERING
+  FAILED
+  CANCELLED
+
+  @@map("production_job_status")
+}
+
+enum ProductionInstanceStatus {
+  VALID
+  WARNING
+  ERROR
+
+  @@map("production_instance_status")
+}
+
+enum ProductionMode {
+  PRODUCTION
+  NON_PRODUCTION
+
+  @@map("production_mode")
+}
+
+enum SequenceStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("sequence_status")
+}
+
+/// Phase 5 supports NEVER only: a sequence that never restarts cannot produce duplicate serials.
+enum SequenceResetPolicy {
+  NEVER
+
+  @@map("sequence_reset_policy")
+}
+
+enum ProductionArtifactKind {
+  MANIFEST
+
+  @@map("production_artifact_kind")
+}
+
+/// A server-side serial number source. Numbers are handed out in reserved ranges, never computed
+/// from `max(serial) + 1`, and `nextValue` only ever moves forward.
+model Sequence {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  name           String              @db.VarChar(200)
+  /// Stable short code used in manifests and hashes (e.g. "YT-HANGTAG").
+  code           String              @db.VarChar(64)
+  description    String              @default("") @db.VarChar(2000)
+  prefix         String              @default("") @db.VarChar(16)
+  suffix         String              @default("") @db.VarChar(16)
+  padding        Int                 @default(0)
+  /// The next number to hand out; moved forward inside the reservation transaction.
+  nextValue      BigInt              @default(1) @map("next_value")
+  resetPolicy    SequenceResetPolicy @default(NEVER) @map("reset_policy")
+  status         SequenceStatus      @default(ACTIVE)
+  /// Optimistic-concurrency counter for edits.
+  revision       Int                 @default(1)
+  createdById    String              @map("created_by_id") @db.Uuid
+  updatedById    String              @map("updated_by_id") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy    User                  @relation("SequenceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy    User                  @relation("SequenceUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  reservations SequenceReservation[]
+  jobs         ProductionJob[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@unique([id, organizationId])
+  @@index([organizationId, status, name])
+  @@map("sequences")
+}
+
+/// An atomic range of serial numbers that belongs to one production job for good. Ranges are never
+/// released or reused, even if the job later fails: a gap is always safer than a duplicate serial.
+model SequenceReservation {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  sequenceId      String   @map("sequence_id") @db.Uuid
+  productionJobId String   @unique @map("production_job_id") @db.Uuid
+  startValue      BigInt   @map("start_value")
+  endValue        BigInt   @map("end_value")
+  valueCount      Int      @map("value_count")
+  reservedById    String   @map("reserved_by_id") @db.Uuid
+  reservedAt      DateTime @default(now()) @map("reserved_at") @db.Timestamptz(3)
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sequence      Sequence      @relation(fields: [sequenceId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  productionJob ProductionJob @relation(fields: [productionJobId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  reservedBy    User          @relation("SequenceReservationReservedBy", fields: [reservedById], references: [id], onDelete: Restrict)
+
+  @@unique([id, organizationId])
+  /// One reservation per job, within its own organization (the relation is one-to-one).
+  @@unique([productionJobId, organizationId])
+  @@index([sequenceId, startValue])
+  @@map("sequence_reservations")
+}
+
+/// Per-organization, per-day counter behind the human-readable job number (PJ-20260916-000123).
+model ProductionJobCounter {
+  organizationId String   @map("organization_id") @db.Uuid
+  /// UTC calendar day, "YYYY-MM-DD".
+  day            String   @db.Char(10)
+  nextValue      Int      @default(1) @map("next_value")
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([organizationId, day])
+  @@map("production_job_counters")
+}
+
+/// One batch of tags: an approved template version and a finalized dataset version, expanded into
+/// an exact, ordered, hashed set of production instances.
+model ProductionJob {
+  id                       String              @id @default(uuid(7)) @db.Uuid
+  organizationId           String              @map("organization_id") @db.Uuid
+  jobNumber                String              @map("job_number") @db.VarChar(32)
+  name                     String              @db.VarChar(200)
+  description              String              @default("") @db.VarChar(2000)
+  customerId               String?             @map("customer_id") @db.Uuid
+  brandId                  String?             @map("brand_id") @db.Uuid
+  /// Exact artwork: the approved version, its document hash and the schema it was stored with.
+  templateId               String              @map("template_id") @db.Uuid
+  templateVersionId        String              @map("template_version_id") @db.Uuid
+  templateVersionHash      String              @map("template_version_hash") @db.Char(64)
+  templateSchemaVersion    Int                 @map("template_schema_version")
+  dataSchemaHash           String              @map("data_schema_hash") @db.Char(64)
+  /// Exact data: one finalized dataset version and its hash.
+  datasetId                String              @map("dataset_id") @db.Uuid
+  datasetVersionId         String              @map("dataset_version_id") @db.Uuid
+  datasetHash              String              @map("dataset_hash") @db.Char(64)
+  status                   ProductionJobStatus @default(DRAFT)
+  productionMode           ProductionMode      @default(PRODUCTION) @map("production_mode")
+  /// Quantity mode, serial configuration, record selection, warning policy (production-core).
+  configuration            Json
+  /// Hash of the selected record sequences; null when the job produces every record.
+  recordSelectionHash      String?             @map("record_selection_hash") @db.Char(64)
+  /// Sequence the serial numbers come from; kept as a column so the database enforces the tenant.
+  sequenceId               String?             @map("sequence_id") @db.Uuid
+  /// Optimistic-concurrency counter for user actions (configure, expand, release, cancel).
+  revision                 Int                 @default(1)
+  /// Incremented whenever expansion or release is (re)requested; jobs carry the run they belong to.
+  expansionRun             Int                 @default(0) @map("expansion_run")
+  releaseRun               Int                 @default(0) @map("release_run")
+  recordCount              Int                 @default(0) @map("record_count")
+  instanceCount            Int                 @default(0) @map("instance_count")
+  validCount               Int                 @default(0) @map("valid_count")
+  warningCount             Int                 @default(0) @map("warning_count")
+  errorCount               Int                 @default(0) @map("error_count")
+  /// Instances whose dataset record already carried warnings when it was imported.
+  sourceWarningCount       Int                 @default(0) @map("source_warning_count")
+  /// SHA-256 over the ordered instance hashes; set when the release run completed.
+  instancesDigest          String?             @map("instances_digest") @db.Char(64)
+  productionJobHash        String?             @map("production_job_hash") @db.Char(64)
+  /// Resolver, expression engine and production contract versions used for this job.
+  versions                 Json                @default("{}")
+  /// Issue counts per code and per field, for the review screen.
+  validationSummary        Json                @default("{}") @map("validation_summary")
+  progressPhase            String?             @map("progress_phase") @db.VarChar(32)
+  progressProcessed        Int                 @default(0) @map("progress_processed")
+  progressTotal            Int?                @map("progress_total")
+  progressUpdatedAt        DateTime?           @map("progress_updated_at") @db.Timestamptz(3)
+  failure                  Json?
+  /// Job metrics (durations, throughput, peak memory).
+  metrics                  Json                @default("{}")
+  warningsAcknowledgedById String?             @map("warnings_acknowledged_by_id") @db.Uuid
+  warningsAcknowledgedAt   DateTime?           @map("warnings_acknowledged_at") @db.Timestamptz(3)
+  createdById              String              @map("created_by_id") @db.Uuid
+  createdAt                DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  expandedAt               DateTime?           @map("expanded_at") @db.Timestamptz(3)
+  releasedById             String?             @map("released_by_id") @db.Uuid
+  releasedAt               DateTime?           @map("released_at") @db.Timestamptz(3)
+  readyForRenderingAt      DateTime?           @map("ready_for_rendering_at") @db.Timestamptz(3)
+  cancelledById            String?             @map("cancelled_by_id") @db.Uuid
+  cancelledAt              DateTime?           @map("cancelled_at") @db.Timestamptz(3)
+
+  organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  customer               Customer?            @relation(fields: [customerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  /// Composite FK: the brand must belong to this job's customer, in this organization.
+  brand                  Brand?               @relation(fields: [brandId, customerId, organizationId], references: [id, customerId, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  template               Template             @relation(fields: [templateId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  templateVersion        TemplateVersion      @relation(fields: [templateVersionId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  dataset                Dataset              @relation(fields: [datasetId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  datasetVersion         DatasetVersion       @relation(fields: [datasetVersionId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  sequence               Sequence?            @relation(fields: [sequenceId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy              User                 @relation("ProductionJobCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  releasedBy             User?                @relation("ProductionJobReleasedBy", fields: [releasedById], references: [id], onDelete: Restrict)
+  cancelledBy            User?                @relation("ProductionJobCancelledBy", fields: [cancelledById], references: [id], onDelete: Restrict)
+  warningsAcknowledgedBy User?                @relation("ProductionJobWarningsAcknowledgedBy", fields: [warningsAcknowledgedById], references: [id], onDelete: Restrict)
+  instances              ProductionInstance[]
+  artifacts              ProductionArtifact[]
+  events                 ProductionJobEvent[]
+  reservation            SequenceReservation?
+
+  @@unique([organizationId, jobNumber])
+  @@unique([id, organizationId])
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([datasetVersionId])
+  @@index([templateVersionId])
+  @@map("production_jobs")
+}
+
+/// One physical tag. The data itself is not copied: the instance points at its dataset record,
+/// which is immutable, and adds only what makes this tag different from the other copies.
+model ProductionInstance {
+  productionJobId       String                   @map("production_job_id") @db.Uuid
+  /// 1-based position in the job; the order tags will be produced in.
+  sequence              Int
+  organizationId        String                   @map("organization_id") @db.Uuid
+  datasetRecordSequence Int                      @map("dataset_record_sequence")
+  sourceRowNumber       Int                      @map("source_row_number")
+  copyIndex             Int                      @map("copy_index")
+  copies                Int
+  /// Position inside the reserved serial range; null when the job uses no serial numbers.
+  serialOffset          Int?                     @map("serial_offset")
+  serialValue           String?                  @map("serial_value") @db.VarChar(64)
+  status                ProductionInstanceStatus
+  errorCount            Int                      @default(0) @map("error_count")
+  warningCount          Int                      @default(0) @map("warning_count")
+  /// Warnings the dataset record already carried when it was imported.
+  sourceWarningCount    Int                      @default(0) @map("source_warning_count")
+  issues                Json                     @default("[]")
+  /// Phase 3 hash of artwork plus data; null for instances with errors.
+  resolvedInputHash     String?                  @map("resolved_input_hash") @db.Char(64)
+  /// Artwork plus data plus production context; written when the job is released.
+  instanceHash          String?                  @map("instance_hash") @db.Char(64)
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  productionJob ProductionJob @relation(fields: [productionJobId, organizationId], references: [id, organizationId], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([productionJobId, sequence])
+  @@index([productionJobId, status, sequence])
+  @@index([productionJobId, datasetRecordSequence, copyIndex])
+  @@map("production_instances")
+}
+
+/// A file produced for a released job. Phase 5 writes exactly one: the production manifest.
+model ProductionArtifact {
+  id              String                 @id @default(uuid(7)) @db.Uuid
+  organizationId  String                 @map("organization_id") @db.Uuid
+  productionJobId String                 @map("production_job_id") @db.Uuid
+  kind            ProductionArtifactKind
+  storageKey      String                 @map("storage_key") @db.VarChar(512)
+  contentType     String                 @map("content_type") @db.VarChar(100)
+  sizeBytes       Int                    @map("size_bytes")
+  checksumSha256  String                 @map("checksum_sha256") @db.Char(64)
+  createdById     String                 @map("created_by_id") @db.Uuid
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  productionJob ProductionJob @relation(fields: [productionJobId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy     User          @relation("ProductionArtifactCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  /// One manifest per job: a retry rewrites the same row instead of creating a second manifest.
+  @@unique([productionJobId, kind])
+  @@unique([id, organizationId])
+  @@map("production_artifacts")
+}
+
+/// The job's own history (created, configured, validated, released, …). Kept next to the job so the
+/// global audit trail is not flooded with per-job detail.
+model ProductionJobEvent {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  productionJobId String   @map("production_job_id") @db.Uuid
+  type            String   @db.VarChar(64)
+  message         String   @default("") @db.VarChar(500)
+  metadata        Json     @default("{}")
+  createdById     String?  @map("created_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  productionJob ProductionJob @relation(fields: [productionJobId, organizationId], references: [id, organizationId], onDelete: Cascade, onUpdate: Restrict)
+  createdBy     User?         @relation("ProductionJobEventCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([productionJobId, createdAt])
+  @@map("production_job_events")
 }

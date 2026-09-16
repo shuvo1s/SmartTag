@@ -8,6 +8,7 @@ import { z } from 'zod';
 export const QUEUE_NAMES = {
   SYSTEM: 'smarttag-system',
   IMPORTS: 'smarttag-imports',
+  PRODUCTION: 'smarttag-production',
 } as const;
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 
@@ -16,6 +17,8 @@ export const JOB_NAMES = {
   IMPORT_INSPECT: 'import.inspect',
   IMPORT_VALIDATE: 'import.validate',
   DATA_CLEANUP: 'data.cleanup',
+  PRODUCTION_EXPAND: 'production.expand',
+  PRODUCTION_RELEASE: 'production.release',
 } as const;
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES];
 
@@ -62,3 +65,28 @@ export type DataCleanupJob = z.infer<typeof DataCleanupJobSchema>;
 export function importJobId(kind: 'inspect' | 'validate', importId: string, run: number): string {
   return `${kind}-${importId}-${run}`;
 }
+
+/**
+ * Production jobs carry the job AND the run they were queued for, exactly like import jobs: a job
+ * whose run is no longer current does nothing, so retries and duplicates are harmless. The job id
+ * is derived from the same values, so a retry never expands a job twice or reserves a second
+ * serial range.
+ */
+export const ProductionExpandJobSchema = z.object({
+  ...jobEnvelope,
+  organizationId: z.uuid(),
+  productionJobId: z.uuid(),
+  requestedByUserId: z.uuid(),
+  expansionRun: z.number().int().min(1),
+});
+export type ProductionExpandJob = z.infer<typeof ProductionExpandJobSchema>;
+
+/** Finishing a released job: serial numbers, instance hashes and the manifest. */
+export const ProductionReleaseJobSchema = z.object({
+  ...jobEnvelope,
+  organizationId: z.uuid(),
+  productionJobId: z.uuid(),
+  requestedByUserId: z.uuid(),
+  releaseRun: z.number().int().min(1),
+});
+export type ProductionReleaseJob = z.infer<typeof ProductionReleaseJobSchema>;

@@ -15,6 +15,7 @@ export const ROLES = [
   'QA',
   'APPROVER',
   'PRODUCTION_OPERATOR',
+  'PRODUCTION_MANAGER',
   'VIEWER',
 ] as const;
 export type Role = (typeof ROLES)[number];
@@ -45,6 +46,14 @@ export const PERMISSIONS = [
   'dataset:read-source',
   'mapping-profile:read',
   'mapping-profile:manage',
+  'production-job:read',
+  'production-job:create',
+  'production-job:configure',
+  'production-job:validate',
+  'production-job:release',
+  'production-job:cancel',
+  'sequence:read',
+  'sequence:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -55,6 +64,16 @@ const READ_ONLY: readonly Permission[] = [
   'asset:read',
   'dataset:read',
   'mapping-profile:read',
+  'production-job:read',
+  'sequence:read',
+];
+
+/** Preparing a production job: everything except committing serial numbers by releasing it. */
+const PRODUCTION_PREPARATION: readonly Permission[] = [
+  'production-job:create',
+  'production-job:configure',
+  'production-job:validate',
+  'production-job:cancel',
 ];
 
 /** Single source of truth for role → permission mapping, enforced server-side. */
@@ -94,10 +113,20 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'dataset:finalize',
     'dataset:read-source',
     'mapping-profile:manage',
+    // Data operators prepare production jobs from the data they finalized; releasing them (which
+    // commits serial numbers) is a production decision.
+    ...PRODUCTION_PREPARATION,
   ],
   QA: [...READ_ONLY, 'template-version:review', 'dataset:read-source'],
   APPROVER: [...READ_ONLY, 'template-version:review', 'template-version:approve'],
-  PRODUCTION_OPERATOR: [...READ_ONLY],
+  PRODUCTION_OPERATOR: [...READ_ONLY, 'dataset:read-source', ...PRODUCTION_PREPARATION],
+  PRODUCTION_MANAGER: [
+    ...READ_ONLY,
+    'dataset:read-source',
+    ...PRODUCTION_PREPARATION,
+    'production-job:release',
+    'sequence:manage',
+  ],
   VIEWER: [...READ_ONLY],
 };
 

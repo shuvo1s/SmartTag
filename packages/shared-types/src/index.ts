@@ -15,6 +15,8 @@ export * from './fonts';
 export * from './jobs';
 export * from './mapping-profiles';
 export * from './pagination';
+export * from './production-jobs';
+export * from './sequences';
 export * from './template-data';
 export * from './template-version-lifecycle';
 export * from './templates';
