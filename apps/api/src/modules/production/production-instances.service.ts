@@ -248,13 +248,17 @@ export class ProductionInstancesService {
   }
 }
 
-/** Searching tags: by serial number, by source row or by dataset record. */
+/**
+ * Searching tags: a serial number (or the beginning of one), a source row or a dataset record.
+ * The serial part is a prefix match, so it uses the serial index instead of reading every tag of
+ * the job — the difference between a moment and ten seconds on a million-tag job.
+ */
 function searchFilter(search: string): Prisma.ProductionInstanceWhereInput {
   const asNumber = Number(search);
   const numeric = Number.isInteger(asNumber) && asNumber > 0;
   return {
     OR: [
-      { serialValue: { contains: search, mode: 'insensitive' } },
+      { serialValue: { startsWith: search } },
       ...(numeric
         ? [
             { sourceRowNumber: asNumber },

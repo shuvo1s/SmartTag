@@ -1103,6 +1103,8 @@ model ProductionInstance {
 
   @@id([productionJobId, sequence])
   @@index([productionJobId, status, sequence])
+  /// Serial lookups are prefix searches ("YT-0100…"), which need the pattern operator class.
+  @@index([productionJobId, serialValue(ops: raw("varchar_pattern_ops"))], map: "production_instances_serial_idx")
   @@index([productionJobId, datasetRecordSequence, copyIndex])
   @@map("production_instances")
 }
