@@ -2,6 +2,7 @@ import { EXPRESSION_LIMITS, type ExpressionType } from '@smarttag/expression-cor
 import { z } from 'zod';
 import type { DataFieldType } from './data-schema';
 import { FieldKeySchema } from './primitives';
+import { SYSTEM_FIELD_KEYS } from './system-fields';
 
 /**
  * Formal property-binding model (see docs/data-bindings.md).
@@ -17,9 +18,20 @@ export const StaticBindingSchema = z.strictObject({
   mode: z.literal('STATIC'),
 });
 
+/**
+ * A binding may read a data field or one of the production system fields (`__serial`, …). Data
+ * schemas can never define a key in the reserved "__" namespace, so the two sets never overlap and
+ * an unknown "__" key stays invalid. Stored documents are unaffected: this rule only widens which
+ * documents are accepted, so no document changes and no migration is needed.
+ */
+export const BindingFieldKeySchema = z.union([
+  FieldKeySchema,
+  z.enum(Object.values(SYSTEM_FIELD_KEYS) as [string, ...string[]]),
+]);
+
 export const FieldBindingSchema = z.strictObject({
   mode: z.literal('FIELD'),
-  field: FieldKeySchema,
+  field: BindingFieldKeySchema,
 });
 
 /**

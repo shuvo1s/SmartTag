@@ -12,6 +12,7 @@ import {
   type PropertyBinding,
 } from '../bindings';
 import type { DataField } from '../data-schema';
+import { PRODUCTION_SYSTEM_FIELDS } from '../system-fields';
 import type { DocumentIssueCode } from './issues';
 
 export interface BindingCheckIssue {
@@ -26,8 +27,15 @@ export interface BindingCheckIssue {
 /** Field lookup used by binding checks (a Map built from `dataSchema.fields`). */
 export type FieldLookup = ReadonlyMap<string, DataField>;
 
+/**
+ * The fields a binding may use: the schema's own fields plus the production system fields, whose
+ * values come from the production context rather than from the data record (see system-fields.ts).
+ * A schema field can never use a reserved "__" key, so the two sets never collide.
+ */
 export function fieldLookup(fields: readonly DataField[]): FieldLookup {
-  return new Map(fields.map((field) => [field.key, field]));
+  const lookup = new Map(PRODUCTION_SYSTEM_FIELDS.map((field) => [field.key, field]));
+  for (const field of fields) lookup.set(field.key, field);
+  return lookup;
 }
 
 /** Analyzes an expression against the fields of a data schema. */

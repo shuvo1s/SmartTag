@@ -1,10 +1,12 @@
-import type {
-  ArtworkObject,
-  BindablePropertyKind,
-  DataField,
-  DesignDocument,
-  Page,
-  PropertyBinding,
+import {
+  fieldLookup,
+  isSystemFieldKey,
+  type ArtworkObject,
+  type BindablePropertyKind,
+  type DataField,
+  type DesignDocument,
+  type Page,
+  type PropertyBinding,
 } from '@smarttag/document-schema';
 import { forEachBinding } from '@smarttag/document-utils';
 import {
@@ -25,6 +27,13 @@ export interface ResolutionInput {
   readonly normalizedRecord: NormalizedDataRecord;
   /** Fields whose record value was invalid (normalized to null). */
   readonly invalidFields?: ReadonlySet<string>;
+  /**
+   * Values of the production system fields (`__serial`, `__copy_index`, …) for one production
+   * instance. Without them those fields have no value: properties that use them resolve empty and
+   * are marked `pending` instead of being reported as missing data, because production supplies
+   * the value later. See `PRODUCTION_SYSTEM_FIELDS`.
+   */
+  readonly systemValues?: Readonly<Record<string, NormalizedValue>>;
 }
 
 export interface ResolvedProperty {
@@ -36,6 +45,12 @@ export interface ResolvedProperty {
   readonly missingFields: readonly string[];
   /** True when resolving produced an ERROR for this property. */
   readonly failed: boolean;
+  /**
+   * System field keys whose value is supplied at production time and was not available here. The
+   * resolved value is therefore incomplete: it is neither reported as missing data nor checked as
+   * a barcode, QR code or image.
+   */
+  readonly pendingSystemFields: readonly string[];
 }
 
 export interface DocumentResolution {
@@ -115,9 +130,10 @@ export function resolveDocumentBindings(
   document: DesignDocument,
   input: ResolutionInput,
 ): DocumentResolution {
-  const fields = new Map(document.dataSchema.fields.map((field) => [field.key, field]));
+  const fields = fieldLookup(document.dataSchema.fields);
   const invalid = input.invalidFields ?? new Set<string>();
   const policy = document.settings.missingDataPolicy;
+  const systemValues = input.systemValues;
   const issues: DataIssue[] = [];
   const properties: ResolvedProperty[] = [];
   const hiddenObjectIds = new Set<string>();
@@ -125,9 +141,17 @@ export function resolveDocumentBindings(
   const lookup = (key: string): ExpressionValue | undefined => {
     const field = fields.get(key);
     if (!field) return undefined;
+    if (isSystemFieldKey(key)) {
+      const value = systemValues && Object.hasOwn(systemValues, key) ? systemValues[key]! : null;
+      return fieldValueToExpression(field, value);
+    }
     const value = Object.hasOwn(input.normalizedRecord, key) ? input.normalizedRecord[key]! : null;
     return fieldValueToExpression(field, value);
   };
+
+  /** A system field with no value here is not "missing data": production supplies it later. */
+  const isPending = (key: string): boolean =>
+    isSystemFieldKey(key) && !(systemValues && Object.hasOwn(systemValues, key));
 
   let pagesChanged = false;
   const pages = document.pages.map((page): Page => {
@@ -262,8 +286,10 @@ export function resolveDocumentBindings(
     }
 
     let hadError = false;
+    const pendingSystemFields = missingFields.filter(isPending);
     // Missing and invalid values only matter for artwork that prints.
     for (const key of printed ? missingFields : []) {
+      if (isPending(key)) continue;
       const field = fields.get(key)!;
       if (invalid.has(key)) {
         hadError = true;
@@ -305,7 +331,15 @@ export function resolveDocumentBindings(
       );
       return failed(target, kind, binding.mode, object, missingFields);
     }
-    return { target, kind, mode: binding.mode, value: converted, missingFields, failed: hadError };
+    return {
+      target,
+      kind,
+      mode: binding.mode,
+      value: converted,
+      missingFields,
+      failed: hadError,
+      pendingSystemFields,
+    };
   }
 
   return {
@@ -348,5 +382,5 @@ function failed(
 ): ResolvedProperty {
   const value: ResolvedPropertyValue =
     kind === 'VISIBILITY' ? object.visible : kind === 'IMAGE_ASSET' ? null : '';
-  return { target, kind, mode, value, missingFields, failed: true };
+  return { target, kind, mode, value, missingFields, failed: true, pendingSystemFields: [] };
 }

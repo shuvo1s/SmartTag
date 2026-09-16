@@ -15,6 +15,7 @@ export * from './geometry';
 export * from './migrations';
 export * from './objects';
 export * from './primitives';
+export * from './system-fields';
 export * from './validation/binding-checks';
 export * from './validation/issues';
 export {

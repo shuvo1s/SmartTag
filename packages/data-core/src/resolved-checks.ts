@@ -49,7 +49,11 @@ function* boundVisibleObjects(resolution: DocumentResolution) {
     const key = property.target.objectId;
     if (!bound.has(key)) bound.set(key, new Set());
     bound.get(key)!.add(property.target.property);
-    if (property.failed) failedProperties.add(`${key}:${property.target.property}`);
+    // A value that production still has to supply (a serial number) is incomplete here: checking
+    // it would report a problem with a value nobody has produced yet.
+    if (property.failed || property.pendingSystemFields.length > 0) {
+      failedProperties.add(`${key}:${property.target.property}`);
+    }
   }
   const document: DesignDocument = resolution.document;
   for (const page of document.pages) {

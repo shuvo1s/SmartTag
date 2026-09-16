@@ -1,0 +1,33 @@
+{
+  "name": "@smarttag/production-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Production domain: job configuration, quantity expansion, serial formatting, production context and system fields, the per-instance pipeline onto data-core, instance/job hashing, the production manifest and the job lifecycle. Isomorphic; no I/O, no database, no frameworks.",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "node ../../scripts/clean.mjs dist && tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@smarttag/data-core": "0.1.0",
+    "@smarttag/document-schema": "0.1.0",
+    "@smarttag/document-utils": "0.1.0",
+    "@smarttag/expression-core": "0.1.0",
+    "zod": "^4.6.5"
+  }
+}

@@ -230,6 +230,51 @@ describe('validateDesignDocument — referential integrity', () => {
     expect(result.warnings).toEqual([]);
   });
 
+  it('accepts bindings to production system fields, which no data schema may define', () => {
+    const doc = minimalDocument();
+    objectsOf(doc)[0] = textObject({
+      bindings: {
+        content: { mode: 'EXPRESSION', expression: 'concat("SERIAL: ", __serial)' },
+        visible: { mode: 'STATIC' },
+      },
+    });
+    objectsOf(doc).push(
+      barcodeObject({
+        id: 'bc-serial',
+        zIndex: 9,
+        bindings: { value: { mode: 'FIELD', field: '__serial' }, visible: { mode: 'STATIC' } },
+      }),
+    );
+    const result = validateDesignDocument(doc);
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects system field keys that do not exist and refuses them in a data schema', () => {
+    const doc = minimalDocument();
+    objectsOf(doc)[0] = textObject({
+      bindings: { content: { mode: 'FIELD', field: '__made_up' }, visible: { mode: 'STATIC' } },
+    });
+    expect(errorCodes(doc)).toContain('INVALID_STRUCTURE');
+
+    const withSystemField = minimalDocument();
+    const fields = (withSystemField.dataSchema as { fields: Record<string, unknown>[] }).fields;
+    fields.push({ ...fields[0]!, key: '__serial', displayName: 'Serial' });
+    expect(errorCodes(withSystemField)).toContain('INVALID_STRUCTURE');
+  });
+
+  it('type-checks system fields like any other field', () => {
+    const doc = minimalDocument();
+    objectsOf(doc)[0] = textObject({
+      // __instance_index is a number; visibility needs a boolean.
+      bindings: {
+        content: { mode: 'STATIC' },
+        visible: { mode: 'FIELD', field: '__instance_index' },
+      },
+    });
+    expect(errorCodes(doc)).toEqual(['INCOMPATIBLE_BINDING']);
+  });
+
   it('requires field keys in bindings to be well-formed', () => {
     const doc = minimalDocument();
     objectsOf(doc)[0] = textObject({

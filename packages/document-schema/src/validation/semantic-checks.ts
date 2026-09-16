@@ -13,7 +13,7 @@ import {
   type Rect,
 } from '../geometry';
 import { OBJECT_BINDABLE_PROPERTIES, type ArtworkObject } from '../objects';
-import { checkPropertyBinding } from './binding-checks';
+import { checkPropertyBinding, fieldLookup } from './binding-checks';
 import type { DocumentIssuePath, IssueCollector } from './issues';
 
 /**
@@ -146,7 +146,9 @@ function checkUniqueElementIds(document: DesignDocument, issues: IssueCollector)
 }
 
 function checkDataSchema(document: DesignDocument, issues: IssueCollector): Map<string, DataField> {
-  const fieldsByKey = new Map<string, DataField>();
+  // Production system fields are always available to bindings; a data schema can never define a
+  // key in their reserved namespace, so they can never be shadowed.
+  const fieldsByKey = new Map<string, DataField>(fieldLookup([]));
   document.dataSchema.fields.forEach((field, index) => {
     const fieldPath = ['dataSchema', 'fields', index] as const;
     for (const problem of checkFieldDefinition(field)) {
