@@ -7,7 +7,11 @@ import {
   type ObjectCheckOptions,
   type TextLayoutProbe,
 } from './resolved-checks';
-import { validateDataRecord, type DataRecordValidation } from './validate-record';
+import {
+  validateDataRecord,
+  type DataRecordValidation,
+  type NormalizedValue,
+} from './validate-record';
 
 export type FieldValidationState = 'VALID' | 'WARNING' | 'ERROR';
 
@@ -73,6 +77,11 @@ export function summarizeDataIssues(
 export interface DataPreviewOptions extends ObjectCheckOptions {
   /** Enables LAYOUT checks; browsers pass the text layout engine that measures real fonts. */
   readonly textLayout?: TextLayoutProbe;
+  /**
+   * Values of the production system fields (a serial number, the position in a job). Without them
+   * the properties that use them stay empty and are reported as supplied at production time.
+   */
+  readonly systemValues?: Readonly<Record<string, NormalizedValue>>;
 }
 
 export interface DataPreview {
@@ -98,7 +107,10 @@ export function buildDataPreview(
   options: DataPreviewOptions = {},
 ): DataPreview {
   const record = validateDataRecord(document.dataSchema, rawRecord);
-  const resolution = resolveDocumentBindings(document, record);
+  const resolution = resolveDocumentBindings(document, {
+    ...record,
+    systemValues: options.systemValues,
+  });
   const issues = [
     ...record.issues,
     ...resolution.issues,

@@ -33,7 +33,12 @@ export const NAVIGATION: readonly NavigationSection[] = [
         permission: 'dataset:read',
       },
       { label: 'Assets', href: '/assets', availability: 'PLANNED', plannedFor: 'Planned' },
-      { label: 'Jobs', href: '/jobs', availability: 'PLANNED', plannedFor: 'Planned' },
+      {
+        label: 'Production',
+        href: '/production',
+        availability: 'AVAILABLE',
+        permission: 'production-job:read',
+      },
       {
         label: 'Integrations',
         href: '/integrations',

@@ -28,6 +28,11 @@ export interface DocumentPreviewProps {
   document: DesignDocument;
   /** When provided, the record is validated and bound properties are resolved from it. */
   record?: Readonly<Record<string, unknown>> | null;
+  /**
+   * Values of the production system fields (`__serial`, …) for one production instance. Without
+   * them the properties that use them stay empty, because production supplies them later.
+   */
+  systemValues?: Readonly<Record<string, string | number | boolean | null>> | null;
   resolveAssetUrl?: (assetId: string) => string | null;
   initialZoom?: (typeof ZOOM_LEVELS)[number];
   /** Controlled fonts, text layout and barcode encoder; without them the preview approximates. */
@@ -50,6 +55,7 @@ export interface DocumentPreviewProps {
 export function DocumentPreview({
   document,
   record = null,
+  systemValues = null,
   resolveAssetUrl = assetContentUrl,
   initialZoom = 1.5,
   resources = null,
@@ -77,12 +83,11 @@ export function DocumentPreview({
     // Layout checks measure with loaded fonts; re-run when fonts arrive.
     void resourceVersion;
     if (!record) return null;
-    return buildDataPreview(
-      document,
-      record,
-      layoutChecks && resources ? { textLayout: resources.services.textLayout } : {},
-    );
-  }, [document, record, layoutChecks, resources, resourceVersion]);
+    return buildDataPreview(document, record, {
+      ...(layoutChecks && resources ? { textLayout: resources.services.textLayout } : {}),
+      ...(systemValues ? { systemValues } : {}),
+    });
+  }, [document, record, systemValues, layoutChecks, resources, resourceVersion]);
   const rendered = useMemo(() => {
     // Fonts and images load asynchronously; their arrival must produce a new render.
     void resourceVersion;
@@ -285,10 +290,12 @@ export function DocumentIssues({
 export function ValidatedDocumentPreview({
   document,
   record,
+  systemValues,
   layoutChecks = false,
 }: {
   document: unknown;
   record?: Readonly<Record<string, unknown>> | null;
+  systemValues?: Readonly<Record<string, string | number | boolean | null>> | null;
   layoutChecks?: boolean;
 }) {
   const parsed = useMemo(() => parseDesignDocument(document), [document]);
@@ -311,6 +318,7 @@ export function ValidatedDocumentPreview({
       <DocumentPreview
         document={parsed.document}
         record={record}
+        systemValues={systemValues}
         resources={resources}
         resourceVersion={resourceVersion}
         fontsLoading={fonts.isPending}
