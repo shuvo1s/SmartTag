@@ -149,3 +149,4 @@ databases, `data@smarttag.local` (data operator) and `production@smarttag.local`
 - [VDP strategy](docs/vdp-strategy.md)
 - [Security, RBAC and tenant isolation](docs/security.md)
 - [API reference](docs/api.md)
+- [Deploying on Dokploy](docs/dokploy-deployment.md)
