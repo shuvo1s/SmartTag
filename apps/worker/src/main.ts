@@ -8,6 +8,7 @@ import pino, { type Logger } from 'pino';
 import { loadImportWorkerConfig, loadWorkerConfig } from './config';
 import { PermanentJobError, createJobDispatcher } from './job-registry';
 import { createImportHandlers } from './processors/import.processors';
+import { createProductionHandlers } from './processors/production.processors';
 import { systemPingHandler } from './processors/system-ping.processor';
 
 function loadConfiguration() {
@@ -79,6 +80,25 @@ async function main(): Promise<void> {
   );
   observe(importWorker, QUEUE_NAMES.IMPORTS, logger);
 
+  const productionWorker = new Worker(
+    QUEUE_NAMES.PRODUCTION,
+    processorFor(
+      createJobDispatcher(
+        createProductionHandlers({ prisma, storage, settings: config.imports.production }),
+        logger,
+      ),
+    ),
+    {
+      connection,
+      concurrency: config.imports.productionConcurrency,
+      // Expanding millions of tags keeps the lock renewed between batches; a crashed worker's job
+      // is retried, and every step is idempotent.
+      lockDuration: 120_000,
+      maxStalledCount: 2,
+    },
+  );
+  observe(productionWorker, QUEUE_NAMES.PRODUCTION, logger);
+
   const importQueue = new Queue(QUEUE_NAMES.IMPORTS, { connection });
   await importQueue.upsertJobScheduler(
     'data-import-cleanup',
@@ -90,11 +110,19 @@ async function main(): Promise<void> {
     },
   );
 
-  await Promise.all([systemWorker.waitUntilReady(), importWorker.waitUntilReady()]);
+  await Promise.all([
+    systemWorker.waitUntilReady(),
+    importWorker.waitUntilReady(),
+    productionWorker.waitUntilReady(),
+  ]);
   logger.info(
     {
-      queues: [QUEUE_NAMES.SYSTEM, QUEUE_NAMES.IMPORTS],
-      concurrency: { system: config.worker.concurrency, imports: config.imports.concurrency },
+      queues: [QUEUE_NAMES.SYSTEM, QUEUE_NAMES.IMPORTS, QUEUE_NAMES.PRODUCTION],
+      concurrency: {
+        system: config.worker.concurrency,
+        imports: config.imports.concurrency,
+        production: config.imports.productionConcurrency,
+      },
       storage: storage.driver,
     },
     'worker ready',
@@ -102,7 +130,12 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'shutting down worker');
-    await Promise.all([systemWorker.close(), importWorker.close(), importQueue.close()]);
+    await Promise.all([
+      systemWorker.close(),
+      importWorker.close(),
+      productionWorker.close(),
+      importQueue.close(),
+    ]);
     await prisma.$disconnect();
     process.exit(0);
   };

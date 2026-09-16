@@ -303,7 +303,11 @@ describe('instance resolution', () => {
       templateVersionHash: TEMPLATE_HASH,
       assetAvailability: () => 'AVAILABLE',
     });
-    const instance = processor.resolve(RECORD, RECORD_HASH, context());
+    const instance = processor.resolve({
+      record: RECORD,
+      recordHash: RECORD_HASH,
+      context: context(),
+    });
     expect(instance.status).toBe('VALID');
     expect(instance.issues).toEqual([]);
     expect(instance.pendingSystemFields).toEqual([]);
@@ -318,7 +322,11 @@ describe('instance resolution', () => {
       document: documentWithSerialText(),
       templateVersionHash: TEMPLATE_HASH,
     });
-    const instance = processor.resolve(RECORD, RECORD_HASH, context({ serial: 'YT-00000042' }));
+    const instance = processor.resolve({
+      record: RECORD,
+      recordHash: RECORD_HASH,
+      context: context({ serial: 'YT-00000042' }),
+    });
     expect(instance.status).toBe('VALID');
     expect(instance.pendingSystemFields).toEqual([]);
   });
@@ -328,7 +336,11 @@ describe('instance resolution', () => {
       document: documentWithSerialText(),
       templateVersionHash: TEMPLATE_HASH,
     });
-    const instance = processor.resolve(RECORD, RECORD_HASH, context({ serial: null }));
+    const instance = processor.resolve({
+      record: RECORD,
+      recordHash: RECORD_HASH,
+      context: context({ serial: null }),
+    });
     expect(instance.status).toBe('VALID');
     expect(instance.issues).toEqual([]);
     expect(instance.pendingSystemFields).toEqual([SYSTEM_FIELD_KEYS.SERIAL]);
@@ -339,11 +351,11 @@ describe('instance resolution', () => {
       document: vdpDocument(),
       templateVersionHash: TEMPLATE_HASH,
     });
-    const instance = processor.resolve(
-      { ...RECORD, gtin: '9501234567890' },
-      RECORD_HASH,
-      context(),
-    );
+    const instance = processor.resolve({
+      record: { ...RECORD, gtin: '9501234567890' },
+      recordHash: RECORD_HASH,
+      context: context(),
+    });
     expect(instance.status).toBe('ERROR');
     expect(instance.issues).toMatchObject([{ layer: 'OBJECT', code: 'BARCODE_VALUE_INVALID' }]);
     expect(instance.errorCount).toBe(1);
@@ -355,11 +367,11 @@ describe('instance resolution', () => {
       templateVersionHash: TEMPLATE_HASH,
       assetAvailability: () => 'UNAVAILABLE',
     });
-    const instance = processor.resolve(
-      { ...RECORD, product_image: '0192b8a0-0000-7000-8000-00000000abcd' },
-      RECORD_HASH,
-      context(),
-    );
+    const instance = processor.resolve({
+      record: { ...RECORD, product_image: '0192b8a0-0000-7000-8000-00000000abcd' },
+      recordHash: RECORD_HASH,
+      context: context(),
+    });
     expect(instance.status).toBe('ERROR');
     expect(instance.issues).toMatchObject([{ code: 'IMAGE_ASSET_UNAVAILABLE' }]);
   });
@@ -372,7 +384,12 @@ describe('instance resolution', () => {
     const quantityIssue = resolveQuantity({}, withQuantity(), DEFAULT_PRODUCTION_LIMITS);
     expect(quantityIssue.ok).toBe(false);
     if (quantityIssue.ok) return;
-    const instance = processor.resolve(RECORD, RECORD_HASH, context(), [quantityIssue.issue]);
+    const instance = processor.resolve({
+      record: RECORD,
+      recordHash: RECORD_HASH,
+      context: context(),
+      issues: [quantityIssue.issue],
+    });
     expect(instance.status).toBe('ERROR');
     expect(instance.issues[0]).toMatchObject({
       layer: 'PRODUCTION',

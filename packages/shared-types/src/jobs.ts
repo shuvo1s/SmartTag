@@ -66,6 +66,10 @@ export function importJobId(kind: 'inspect' | 'validate', importId: string, run:
   return `${kind}-${importId}-${run}`;
 }
 
+export function productionJobId(kind: 'expand' | 'release', jobId: string, run: number): string {
+  return `${kind}-${jobId}-${run}`;
+}
+
 /**
  * Production jobs carry the job AND the run they were queued for, exactly like import jobs: a job
  * whose run is no longer current does nothing, so retries and duplicates are harmless. The job id

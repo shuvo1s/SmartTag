@@ -52,3 +52,16 @@ export function assetStorageKey(organizationId: string, checksumSha256: string):
 export function dataSourceStorageKey(organizationId: string, sourceFileId: string): string {
   return `organizations/${organizationId}/data-sources/${sourceFileId}`;
 }
+
+/**
+ * Key of a file produced for a production job (Phase 5 writes one manifest per job). The key is
+ * derived from the job, so re-running the release of a job overwrites its own manifest instead of
+ * leaving a second one behind.
+ */
+export function productionArtifactStorageKey(
+  organizationId: string,
+  productionJobId: string,
+  kind: 'manifest',
+): string {
+  return `organizations/${organizationId}/production/${productionJobId}/${kind}.json`;
+}

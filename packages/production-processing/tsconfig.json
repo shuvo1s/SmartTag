@@ -1,0 +1,8 @@
+{
+  "extends": "../config/tsconfig/node-app.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": ["src", "test", "vitest.config.mts"]
+}

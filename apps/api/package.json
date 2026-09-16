@@ -28,6 +28,8 @@
     "@smarttag/import-core": "0.1.0",
     "@smarttag/import-processing": "0.1.0",
     "@smarttag/object-storage": "0.1.0",
+    "@smarttag/production-core": "0.1.0",
+    "@smarttag/production-processing": "0.1.0",
     "@smarttag/shared-types": "0.1.0",
     "@smarttag/tabular-sources": "0.1.0",
     "@xmldom/xmldom": "^0.9.12",

@@ -17,6 +17,7 @@
     "@smarttag/database": "0.1.0",
     "@smarttag/import-processing": "0.1.0",
     "@smarttag/object-storage": "0.1.0",
+    "@smarttag/production-processing": "0.1.0",
     "@smarttag/shared-types": "0.1.0",
     "bullmq": "^5.81.5",
     "dotenv": "^17.4.2",

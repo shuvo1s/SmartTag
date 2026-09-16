@@ -25,7 +25,18 @@ import { instanceStatusOf, type InstanceIssue, type InstanceStatus } from './iss
 export interface InstancePipelineOptions {
   readonly document: DesignDocument;
   readonly templateVersionHash: string;
-  /** Records the quantity issues found before resolution (invalid quantity values). */
+  /** Default availability lookup; a batch can pass its own with each instance. */
+  readonly assetAvailability?: (assetId: string) => AssetAvailability;
+}
+
+export interface InstanceInput {
+  readonly record: NormalizedDataRecord;
+  /** The dataset record's own hash, exactly as stored with the record. */
+  readonly recordHash: string;
+  readonly context: ProductionContext;
+  /** Problems found before resolution, e.g. an unusable quantity value. */
+  readonly issues?: readonly InstanceIssue[];
+  /** Availability of image assets for this organization (looked up per batch). */
   readonly assetAvailability?: (assetId: string) => AssetAvailability;
 }
 
@@ -50,16 +61,8 @@ export interface InstanceProcessor {
    * When false, one resolution can be reused for every copy of a record.
    */
   readonly perInstance: boolean;
-  /**
-   * Resolves and checks one instance. `recordHash` is the dataset record's own hash, exactly as
-   * stored with the record, so instance hashes stay tied to the data that was imported.
-   */
-  resolve(
-    record: NormalizedDataRecord,
-    recordHash: string,
-    context: ProductionContext,
-    extraIssues?: readonly InstanceIssue[],
-  ): ResolvedInstance;
+  /** Resolves and checks one instance. */
+  resolve(input: InstanceInput): ResolvedInstance;
 }
 
 export function createInstanceProcessor(options: InstancePipelineOptions): InstanceProcessor {
@@ -68,15 +71,15 @@ export function createInstanceProcessor(options: InstancePipelineOptions): Insta
 
   return {
     perInstance,
-    resolve(record, recordHash, context, extraIssues = []) {
+    resolve({ record, recordHash, context, issues: given = [], assetAvailability }) {
       const resolution = resolveDocumentBindings(document, {
         normalizedRecord: record,
         systemValues: systemValuesFor(context),
       });
       const objectIssues: DataIssue[] = checkResolvedObjects(resolution, {
-        assetAvailability: options.assetAvailability,
+        assetAvailability: assetAvailability ?? options.assetAvailability,
       });
-      const issues: InstanceIssue[] = [...extraIssues, ...resolution.issues, ...objectIssues];
+      const issues: InstanceIssue[] = [...given, ...resolution.issues, ...objectIssues];
       const errorCount = issues.filter((issue) => issue.severity === 'ERROR').length;
       const pending = new Set<string>();
       const imageAssetIds = new Set<string>();

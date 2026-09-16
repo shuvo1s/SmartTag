@@ -1,0 +1,36 @@
+{
+  "name": "@smarttag/production-processing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Background processing of production jobs: expanding a finalized dataset version into ordered production instances, validating each instance through the Phase 3 engine, and finishing a released job with serial numbers, instance hashes and its manifest. Used by the worker and by API integration tests. Node.js only.",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node ../../scripts/clean.mjs dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@smarttag/config": "0.1.0",
+    "@smarttag/data-core": "0.1.0",
+    "@smarttag/database": "0.1.0",
+    "@smarttag/document-schema": "0.1.0",
+    "@smarttag/import-core": "0.1.0",
+    "@smarttag/import-processing": "0.1.0",
+    "@smarttag/object-storage": "0.1.0",
+    "@smarttag/production-core": "0.1.0",
+    "@smarttag/shared-types": "0.1.0",
+    "zod": "^4.6.5"
+  }
+}
