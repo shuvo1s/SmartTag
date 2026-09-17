@@ -149,8 +149,13 @@ export async function bootstrapFirstAdmin(
   const passwordHasher = dependencies.passwordHasher ?? new PasswordHasher();
 
   return prisma.$transaction(async (tx) => {
-    // Fixed two-key PostgreSQL advisory lock. It is transaction-scoped and released automatically.
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(914725, 5)`;
+    // PostgreSQL's advisory-lock function returns `void`, which Prisma cannot deserialize when it
+    // is selected directly. Calling it in FROM still acquires the blocking transaction-scoped lock,
+    // while returning only a supported boolean column to Prisma.
+    await tx.$queryRaw<Array<{ locked: boolean }>>`
+      SELECT TRUE AS locked
+      FROM pg_advisory_xact_lock(914725, 5)
+    `;
 
     const organizationCount = await tx.organization.count();
     const userCount = await tx.user.count();
