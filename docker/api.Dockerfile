@@ -78,6 +78,25 @@ WORKDIR /app
 CMD ["npm", "run", "db:migrate:deploy"]
 
 # ------------------------------------------------------------------------------------------------
+# bootstrap — one-off first-tenant/first-admin creation for an EMPTY database only
+# ------------------------------------------------------------------------------------------------
+#   docker build -f docker/api.Dockerfile --target bootstrap -t smarttag-bootstrap .
+#   docker run --rm \
+#     -e DATABASE_URL=… \
+#     -e BOOTSTRAP_ORGANIZATION_NAME=… \
+#     -e BOOTSTRAP_ADMIN_EMAIL=… \
+#     -e BOOTSTRAP_ADMIN_PASSWORD=… \
+#     smarttag-bootstrap
+#
+# This is not the development seed. It creates exactly one organization and one ORG_ADMIN user,
+# refuses any database that already has an organization or user, and exits immediately afterwards.
+FROM build AS bootstrap
+ENV NODE_ENV=production
+USER node
+WORKDIR /app
+CMD ["npm", "run", "db:bootstrap-admin"]
+
+# ------------------------------------------------------------------------------------------------
 # prune — the same tree with development dependencies removed
 # ------------------------------------------------------------------------------------------------
 FROM build AS prune

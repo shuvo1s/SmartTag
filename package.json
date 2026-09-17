@@ -25,6 +25,7 @@
     "db:migrate": "npm run db:migrate -w @smarttag/database",
     "db:migrate:deploy": "npm run db:migrate:deploy -w @smarttag/database",
     "db:seed": "npm run db:seed -w @smarttag/api",
+    "db:bootstrap-admin": "npm run db:bootstrap-admin -w @smarttag/api",
     "db:generate": "npm run db:generate -w @smarttag/database",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down",

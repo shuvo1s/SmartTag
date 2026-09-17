@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "test": "vitest run --config vitest.config.mts",
     "test:integration": "vitest run --config vitest.integration.config.mts",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:bootstrap-admin": "tsx prisma/bootstrap-admin.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.3",
