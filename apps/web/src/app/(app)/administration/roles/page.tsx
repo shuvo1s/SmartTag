@@ -1,0 +1,1 @@
+import type { Metadata } from 'next'; import { RolesAdminView } from '@/features/administration/administration-view'; export const metadata:Metadata={title:'Roles & permissions'}; export default function Page(){return <RolesAdminView/>}

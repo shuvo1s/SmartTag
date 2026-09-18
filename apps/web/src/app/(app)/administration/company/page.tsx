@@ -1,0 +1,1 @@
+import type { Metadata } from 'next'; import { CompanyAdminView } from '@/features/administration/administration-view'; export const metadata:Metadata={title:'Company'}; export default function Page(){return <CompanyAdminView/>}

@@ -1,0 +1,1 @@
+import type { Metadata } from 'next'; import { AuditAdminView } from '@/features/administration/administration-view'; export const metadata:Metadata={title:'Audit log'}; export default function Page(){return <AuditAdminView/>}
