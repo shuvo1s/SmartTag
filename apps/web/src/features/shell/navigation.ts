@@ -56,6 +56,12 @@ export const NAVIGATION: readonly NavigationSection[] = [
         availability: 'AVAILABLE',
         permission: 'customer:read',
       },
+      {
+        label: 'Font library',
+        href: '/administration/fonts',
+        availability: 'AVAILABLE',
+        permission: 'asset:read',
+      },
     ],
   },
   {
